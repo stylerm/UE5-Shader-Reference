@@ -369,6 +369,103 @@
   .footer a { color: var(--accent); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 
+  /* ── SEARCH ── */
+  #search-input {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    padding: 4px 10px;
+    width: 120px;
+    outline: none;
+    transition: border-color 0.15s, width 0.2s;
+  }
+  #search-input:focus {
+    border-color: var(--accent);
+    width: 180px;
+  }
+  #search-input::placeholder {
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+  .card.dimmed, .section-label.dimmed { opacity: 0.15; pointer-events: none; }
+
+  /* ── COPY BUTTON ── */
+  .prompt-box { position: relative; }
+  .copy-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 2px 7px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    z-index: 1;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--good); border-color: var(--good); }
+
+  /* ── PRINT ── */
+  @media print {
+    body {
+      background: #fff !important;
+      background-image: none !important;
+      color: #111 !important;
+      font-size: 11pt;
+      padding: 0;
+    }
+    .topbar, .contribute, .gh-link { display: none !important; }
+    .page { max-width: 100%; }
+    .grid, .grid-2 { grid-template-columns: 1fr !important; gap: 8px; }
+    .grid-full, .span-2 { grid-column: span 1; }
+    .card {
+      background: #fff !important;
+      border: 1px solid #ccc !important;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .card::before { background: #666 !important; }
+    .card-title { color: #111 !important; }
+    .dot { box-shadow: none !important; }
+    code {
+      background: #f0f0f0 !important;
+      border-color: #ccc !important;
+      color: #111 !important;
+    }
+    pre, .prompt-box {
+      background: #f8f8f8 !important;
+      border-color: #ccc !important;
+      color: #111 !important;
+    }
+    .section-label { color: #333 !important; }
+    .section-label::after { background: #ccc !important; }
+    .header { border-bottom-color: #333 !important; }
+    h1, h1 span { color: #111 !important; }
+    .header-tag, .header-right { color: #555 !important; }
+    .header-right strong { color: #111 !important; }
+    td.bad { color: #c00 !important; }
+    td.good { color: #060 !important; }
+    td.note { color: #555 !important; }
+    th { color: #333 !important; border-bottom-color: #ccc !important; }
+    td { border-bottom-color: #eee !important; }
+    .check-icon.ok { color: #060 !important; }
+    .check-icon.no { color: #c00 !important; }
+    .check-icon.warn { color: #a60 !important; }
+    .row-label { color: #333 !important; }
+    .footer { color: #666 !important; }
+    .footer a { color: #333 !important; }
+    .copy-btn { display: none !important; }
+  }
+
   /* ── RESPONSIVE ── */
   @media (max-width: 800px) {
     .grid { grid-template-columns: 1fr; }
@@ -385,6 +482,7 @@
   <!-- Sticky Nav -->
   <nav class="topbar">
     <span class="topbar-brand">⚗ UE5 SHADER REF</span>
+    <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
     <a href="#context">Context</a>
     <span class="sep">·</span>
     <a href="#syntax">Syntax</a>
@@ -395,8 +493,14 @@
     <span class="sep">·</span>
     <a href="#reference">Reference</a>
     <span class="sep">·</span>
+    <a href="#shadertoy">Shadertoy</a>
+    <span class="sep">·</span>
+    <a href="#niagara">Niagara</a>
+    <span class="sep">·</span>
+    <a href="#wpo">WPO</a>
+    <span class="sep">·</span>
     <a href="#contribute">Contribute</a>
-    <a class="gh-link" href="https://github.com/YOUR_USERNAME/ue5-shader-cheatsheet" target="_blank" rel="noopener">
+    <a class="gh-link" href="https://github.com/stylerm/ue5-shader-cheatsheet" target="_blank" rel="noopener">
       <!-- GitHub SVG icon -->
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.6.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 5 18 5.3 18 5.3c.7 1.6.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.3v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
       GitHub
@@ -479,6 +583,14 @@
           <tr><td class="bad"><code>layout(location=0) out</code></td><td class="good"><em>Implicit in Custom node</em></td><td class="note">No output declarations needed in body-only mode</td></tr>
           <tr><td class="bad"><code>gl_FragCoord</code></td><td class="good"><code>SvPosition</code></td><td class="note">In full shaders; in Custom node use a ScreenPosition pin</td></tr>
           <tr><td class="bad"><code>step(edge, x)</code></td><td class="good"><code>step(edge, x)</code></td><td class="note">Same name — but GLSL arg order is reversed from some docs</td></tr>
+          <tr><td class="bad"><code>smoothstep(e0, e1, x)</code></td><td class="good"><code>smoothstep(e0, e1, x)</code></td><td class="note">Same name and arg order — hermite interpolation</td></tr>
+          <tr><td class="bad"><code>clamp(x, 0.0, 1.0)</code></td><td class="good"><code>saturate(x)</code></td><td class="note">Preferred UE shorthand for 0–1 clamping; <code>clamp()</code> also works</td></tr>
+          <tr><td class="bad"><code>pow(base, exp)</code></td><td class="good"><code>pow(base, exp)</code></td><td class="note">Same — but HLSL <code>pow</code> is <strong>undefined for negative base</strong>; use <code>abs()</code> first</td></tr>
+          <tr><td class="bad"><code>abs(x)</code></td><td class="good"><code>abs(x)</code></td><td class="note">Same — but integer <code>abs()</code> may behave differently on some platforms</td></tr>
+          <tr><td class="bad"><code>sign(x)</code></td><td class="good"><code>sign(x)</code></td><td class="note">Same name — returns -1, 0, or 1</td></tr>
+          <tr><td class="bad"><code>noise()</code></td><td class="good"><em>[USE UE NOISE NODE]</em></td><td class="note">Not available in HLSL — use a Noise material node or pass noise via texture pin</td></tr>
+          <tr><td class="bad"><code>textureLod(s, uv, lod)</code></td><td class="good"><code>Texture2DSampleLevel(Tex, TexSampler, uv, lod)</code></td><td class="note">Requires Tex + TexSampler pair from input pins</td></tr>
+          <tr><td class="bad"><code>textureSize(sampler, 0)</code></td><td class="good"><em>Use a <code>float2 TexelSize</code> input pin</em></td><td class="note">No direct equivalent — pass dimensions as a parameter</td></tr>
         </tbody>
       </table>
     </div>
@@ -634,28 +746,213 @@
 
   </div>
 
+  <!-- ── SECTION 6: SHADERTOY ── -->
+  <div id="shadertoy" class="section-label">Shadertoy / GLSL Port Guide</div>
+  <div class="grid">
+
+    <div class="card orange">
+      <div class="card-title"><span class="dot"></span> Shadertoy Uniform Mapping</div>
+      <table>
+        <thead><tr><th>Shadertoy</th><th>UE5 Equivalent</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="bad"><code>iTime</code></td><td class="good"><code>float Time</code> input pin</td><td class="note">Connect a <strong>Time</strong> node to the pin</td></tr>
+          <tr><td class="bad"><code>iResolution.xy</code></td><td class="good"><code>float2 Resolution</code> input pin</td><td class="note">Use <strong>SceneTexture:SceneColor</strong> → Size or pass manually</td></tr>
+          <tr><td class="bad"><code>iMouse</code></td><td class="good"><em>No direct equivalent</em></td><td class="note">Pass via Material Parameter Collection or Blueprint</td></tr>
+          <tr><td class="bad"><code>iFrame</code></td><td class="good"><em>No direct equivalent</em></td><td class="note">Approximate with <code>floor(Time * FrameRate)</code></td></tr>
+          <tr><td class="bad"><code>iChannel0–3</code></td><td class="good">Texture Object input pins</td><td class="note">One pin per channel; use <code>Texture2DSample()</code></td></tr>
+          <tr><td class="bad"><code>fragCoord</code></td><td class="good"><code>float2 ScreenPos</code> input pin</td><td class="note">Connect ScreenPosition node (viewport UV)</td></tr>
+          <tr><td class="bad"><code>fragColor</code></td><td class="good"><code>return float4(...);</code></td><td class="note">The Custom node return value <em>is</em> the output</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span> Coordinate System Pitfalls</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon no">!</span><span><strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code></span></div>
+        <div class="check-item"><span class="check-icon no">!</span><span><strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized</span></div>
+        <div class="check-item"><span class="check-icon no">!</span><span><strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same</span></div>
+        <div class="check-item"><span class="check-icon no">!</span><span><strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts</span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin</span></div>
+      </div>
+    </div>
+
+    <div class="card yellow">
+      <div class="card-title"><span class="dot"></span> Multi-Pass &amp; Buffer Limitations</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── SECTION 7: NIAGARA ── -->
+  <div id="niagara" class="section-label">Niagara Custom HLSL</div>
+  <div class="grid">
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span> Niagara HLSL Basics</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Niagara uses a <strong>restricted HLSL subset</strong> — not the same as Material Custom nodes</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Access particle attributes via <strong><code>Parameters.AttributeName</code></strong> — not raw variable names</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>ExecutionIndex</code></strong> gives the current particle index for per-particle logic</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Map inputs/outputs explicitly in the <strong>Scratch Pad</strong> module UI</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>Emitter.LocalSpace</code></strong> / <strong><code>Emitter.Age</code></strong> for emitter-level data</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Write results to <strong><code>OutputParameters.AttributeName</code></strong></span></div>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span> Niagara · Never Do This</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No texture sampling</strong> in Particle Update / Spawn stages — GPU sim doesn't allow it</span></div>
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts</span></div>
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara runs in compute</span></div>
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>return</code> statements</strong> — write to output parameters instead</span></div>
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No struct definitions</strong> — use flat parameter lists</span></div>
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available</span></div>
+      </div>
+    </div>
+
+    <div class="card green">
+      <div class="card-title"><span class="dot"></span> Niagara Patterns &amp; Tips</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Random per-particle</strong> — use <code>Parameters.UniqueID</code> as seed with a hash function</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>DeltaTime</strong> — available as <code>Parameters.DeltaTime</code> in simulation stages</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Position read/write</strong> — <code>Parameters.Position</code> / <code>OutputParameters.Position</code></span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Custom module</strong> — wrap HLSL in a Scratch Pad module for reuse across emitters</span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Simulation vs Render</strong> — HLSL in particle render differs from simulation HLSL</span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Debug</strong> — write intermediate values to <code>Color</code> attribute to visualize</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── SECTION 8: WPO ── -->
+  <div id="wpo" class="section-label">World Position Offset / Vertex Shader</div>
+  <div class="grid">
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span> WPO Basics</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon ok">✓</span><span>WPO return type is always <strong><code>float3</code></strong> — an object-space offset added to each vertex</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Connect Custom node output to the <strong>World Position Offset</strong> pin on the material</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>absolute world position</code></strong> input pin for world-space vertex position</span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Return <code>float3(0,0,0)</code> for no displacement — the value is <em>additive</em></span></div>
+        <div class="check-item"><span class="check-icon ok">✓</span><span>Great for: wind, waves, procedural animation, terrain deformation</span></div>
+      </div>
+    </div>
+
+    <div class="card orange">
+      <div class="card-title"><span class="dot"></span> Available Vertex Data</div>
+      <div class="row-list">
+        <div class="row"><span class="row-label"><code>AbsoluteWorldPosition</code></span>Vertex position in world space</div>
+        <div class="row"><span class="row-label"><code>VertexNormalWS</code></span>World-space vertex normal</div>
+        <div class="row"><span class="row-label"><code>VertexTangentWS</code></span>World-space vertex tangent</div>
+        <div class="row"><span class="row-label"><code>TexCoord[0-7]</code></span>UV channels available via input pins</div>
+        <div class="row"><span class="row-label"><code>VertexColor</code></span>Per-vertex RGBA (baked in mesh)</div>
+        <div class="row"><span class="row-label"><code>ActorPosition</code></span>Object pivot in world space</div>
+        <div class="row"><span class="row-label"><code>ObjectBounds</code></span>Bounding box extent — useful for normalizing offsets</div>
+      </div>
+    </div>
+
+    <div class="card yellow">
+      <div class="card-title"><span class="dot"></span> WPO Limitations</div>
+      <div class="checklist">
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> in vertex stage — these are pixel shader derivatives</span></div>
+        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No texture sampling</strong> by default in VS — enable <code>Allow Custom Node Vertex Interpolators</code></span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Shadow & bounds mismatch</strong> — large WPO can push verts outside the bounding box, causing culling. Increase <strong>Bounds Scale</strong></span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>VS → PS data</strong> — to pass custom data from vertex to pixel, use <strong>Vertex Interpolator</strong> node in the material graph</span></div>
+        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Performance</strong> — WPO runs per vertex every frame; keep math simple on high-poly meshes</span></div>
+      </div>
+    </div>
+
+  </div>
+
   <!-- ── CONTRIBUTE ── -->
   <div id="contribute" class="contribute">
     <div class="contribute-text">
       <h3>⚗ Want to improve this?</h3>
       <p>
         This is a community reference. Found a missing intrinsic, a platform-specific gotcha, or a better prompt pattern?
-        Open a PR or file an issue on <a href="https://github.com/YOUR_USERNAME/ue5-shader-cheatsheet" target="_blank" rel="noopener">GitHub</a>.
+        Open a PR or file an issue on <a href="https://github.com/stylerm/ue5-shader-cheatsheet" target="_blank" rel="noopener">GitHub</a>.
         See <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> for guidelines.
       </p>
     </div>
-    <a class="btn" href="https://github.com/YOUR_USERNAME/ue5-shader-cheatsheet/edit/main/index.html" target="_blank" rel="noopener">
+    <a class="btn" href="https://github.com/stylerm/ue5-shader-cheatsheet/edit/main/index.html" target="_blank" rel="noopener">
       Edit on GitHub →
     </a>
   </div>
 
   <!-- Footer -->
   <div class="footer">
-    <span>UE5 Shader Conversion Cheatsheet · <a href="https://github.com/YOUR_USERNAME/ue5-shader-cheatsheet" target="_blank" rel="noopener">GitHub</a></span>
+    <span>UE5 Shader Conversion Cheatsheet · <a href="https://github.com/stylerm/ue5-shader-cheatsheet" target="_blank" rel="noopener">GitHub</a></span>
     <span>SM5 · SM6 · ES3.1 · Custom Node · .usf / .ush</span>
     <span>MIT License · Community Edition</span>
   </div>
 
 </div>
+
+<script>
+// ── SEARCH / FILTER ──
+(function() {
+  var input = document.getElementById('search-input');
+  var cards = document.querySelectorAll('.card');
+  var labels = document.querySelectorAll('.section-label');
+
+  input.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    if (!q) {
+      cards.forEach(function(c) { c.classList.remove('dimmed'); });
+      labels.forEach(function(l) { l.classList.remove('dimmed'); });
+      return;
+    }
+    cards.forEach(function(card) {
+      var text = card.textContent.toLowerCase();
+      card.classList.toggle('dimmed', text.indexOf(q) === -1);
+    });
+    labels.forEach(function(label) {
+      var section = label.nextElementSibling;
+      if (!section) { label.classList.add('dimmed'); return; }
+      var anyVisible = false;
+      var el = section;
+      while (el && !el.classList.contains('section-label') && !el.classList.contains('contribute')) {
+        if (el.classList.contains('card') && !el.classList.contains('dimmed')) anyVisible = true;
+        if (el.classList.contains('grid')) {
+          el.querySelectorAll('.card').forEach(function(c) { if (!c.classList.contains('dimmed')) anyVisible = true; });
+        }
+        el = el.nextElementSibling;
+      }
+      label.classList.toggle('dimmed', !anyVisible);
+    });
+  });
+})();
+
+// ── COPY BUTTONS ──
+(function() {
+  var boxes = document.querySelectorAll('.prompt-box');
+  boxes.forEach(function(box) {
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '[COPY]';
+    btn.addEventListener('click', function() {
+      var text = box.textContent.replace('[COPY]', '').replace('[COPIED]', '').trim();
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = '[COPIED]';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = '[COPY]';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    });
+    box.appendChild(btn);
+  });
+})();
+</script>
 </body>
 </html>

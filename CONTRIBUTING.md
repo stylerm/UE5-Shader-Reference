@@ -13,7 +13,7 @@ For small fixes — a missing intrinsic, a typo, a corrected note — use the **
 ## Larger Changes
 
 1. **Fork** the repo
-2. **Clone** your fork: `git clone https://github.com/YOUR_FORK/ue5-shader-cheatsheet.git`
+2. **Clone** your fork: `git clone https://github.com/YOUR_FORK/UE5-HLSL-Cheatsheet.git`
 3. Open `index.html` in your editor and make changes
 4. Test locally by opening `index.html` in a browser
 5. Submit a **Pull Request** with a clear description of what changed and why

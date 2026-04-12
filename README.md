@@ -2,7 +2,7 @@
 
 A practical, community-maintained reference for converting **GLSL/HLSL shaders** (Shadertoy, raw GLSL, standalone HLSL) into **Unreal Engine 5** compatible shader code.
 
-🌐 **Live site:** https://YOUR_USERNAME.github.io/ue5-shader-cheatsheet
+🌐 **Live site:** https://stylerm.github.io/UE5-HLSL-Cheatsheet
 
 ---
 
@@ -25,8 +25,8 @@ This is a **single-file static site** — just `index.html`. No build step, no d
 ### Run locally
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ue5-shader-cheatsheet.git
-cd ue5-shader-cheatsheet
+git clone https://github.com/stylerm/UE5-HLSL-Cheatsheet.git
+cd UE5-HLSL-Cheatsheet
 # Open index.html in your browser, or use any static server:
 npx serve .
 ```
@@ -51,7 +51,7 @@ Contributions are very welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guide
 ## Structure
 
 ```
-ue5-shader-cheatsheet/
+UE5-HLSL-Cheatsheet/
 ├── index.html        ← entire site (self-contained)
 ├── README.md
 ├── CONTRIBUTING.md

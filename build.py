@@ -129,8 +129,9 @@ def _s(v) -> str:
 
 
 def render_rowlist(block: dict) -> str:
-    rows       = block.get("rows", [])
+    rows        = block.get("rows", [])
     code_labels = block.get("code_labels", True)
+    layout      = block.get("layout", "")   # "" (inline) | "stacked"
     items = []
     for r in rows:
         label     = _s(r.get("label", ""))
@@ -140,10 +141,11 @@ def render_rowlist(block: dict) -> str:
         items.append(
             f'<div class="row">'
             f'<span class="row-label">{label_html}</span>'
-            f'{text}'
+            f'<span class="row-text">{text}</span>'
             f'</div>'
         )
-    return f'<div class="row-list">{"".join(items)}</div>'
+    extra_cls  = f" {layout}" if layout else ""
+    return f'<div class="row-list{extra_cls}">{"".join(items)}</div>'
 
 
 _ICON = {"ok": "✓", "warn": "!", "no": "✗", "arrow": "→"}
@@ -152,7 +154,14 @@ _ICON = {"ok": "✓", "warn": "!", "no": "✗", "arrow": "→"}
 def render_checklist(items: list) -> str:
     out = []
     for item in items:
-        key  = item.get("icon", "ok")
+        key = item.get("icon", "ok")
+        # YAML parses bare `no` / `yes` as booleans — normalise back to strings
+        if key is False:
+            key = "no"
+        elif key is True:
+            key = "ok"
+        else:
+            key = str(key)
         char = _ICON.get(key, key)
         text = item.get("html", html_mod.escape(item.get("text", "")))
         out.append(
@@ -245,6 +254,21 @@ def render_nested_grid(data: dict) -> str:
     return f'<div class="grid" style="{col_style}">{inner}</div>'
 
 
+def render_area_heading(group: dict) -> str:
+    icon  = group.get("icon", "")
+    title = group.get("title", "")
+    return f'<div class="area-heading">{icon} {title}</div>\n'
+
+
+def render_area_wrapper_open(group: dict) -> str:
+    theme = group.get("theme", "ref")
+    return f'<div class="area area-{theme}">\n'
+
+
+def render_area_wrapper_close() -> str:
+    return '</div>\n'
+
+
 def render_block(block: dict) -> str:
     t = block.get("type")
     dispatch = {
@@ -322,8 +346,18 @@ def build_page(data_file: Path, template: str) -> None:
         for a in meta.get("anchors", [])
     )
 
-    # Main content
-    content = "".join(render_section(s) for s in data.get("sections", []))
+    # Main content — supports both flat `sections` and grouped `section_groups`
+    groups = data.get("section_groups", [])
+    if groups:
+        parts = []
+        for g in groups:
+            parts.append(render_area_wrapper_open(g))
+            parts.append(render_area_heading(g))
+            parts.extend(render_section(s) for s in g.get("sections", []))
+            parts.append(render_area_wrapper_close())
+        content = "".join(parts)
+    else:
+        content = "".join(render_section(s) for s in data.get("sections", []))
 
     # Footer links (other pages)
     footer_links = " · ".join(

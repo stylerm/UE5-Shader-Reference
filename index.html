@@ -11,8 +11,11 @@
 </head>
 <body>
 
+<!-- ── MOBILE NAV OVERLAY ── -->
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
 <!-- ── SIDE NAV ── -->
-<nav class="sidenav">
+<nav class="sidenav" id="sidenav" aria-label="Site navigation">
   <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
   <div class="sidenav-links">
     <a href="index.html" class="active">HOME</a>
@@ -27,7 +30,8 @@
 <div class="page">
 
   <!-- Sticky Nav -->
-  <nav class="topbar">
+  <nav class="topbar" aria-label="Page controls">
+    <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidenav">&#9776;</button>
     <span class="topbar-spacer"></span>
     <a href="#overview">Overview</a>
     <span class="sep">·</span>
@@ -145,5 +149,37 @@
   </div>
 
 </div>
+
+<script>
+// ── MOBILE — hamburger menu ──
+(function() {
+  var toggle  = document.getElementById('menu-toggle');
+  var sidenav = document.getElementById('sidenav');
+  var overlay = document.getElementById('nav-overlay');
+  if (!toggle || !sidenav || !overlay) return;
+  function openNav() {
+    sidenav.classList.add('open');
+    overlay.classList.add('open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.textContent = '\u2715';
+    document.body.style.overflow = 'hidden';
+  }
+  function closeNav() {
+    sidenav.classList.remove('open');
+    overlay.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '&#9776;';
+    document.body.style.overflow = '';
+  }
+  toggle.addEventListener('click', function() {
+    sidenav.classList.contains('open') ? closeNav() : openNav();
+  });
+  overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeNav(); });
+  sidenav.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() { if (window.innerWidth <= 600) closeNav(); });
+  });
+})();
+</script>
 </body>
 </html>

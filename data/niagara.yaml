@@ -1,6 +1,6 @@
 meta:
   title: "Niagara — UE5 Shader Cheatsheet"
-  description: "UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules."
+  description: "UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules, and in-engine optimization best practices."
   active: niagara
   favicon: "✨"
   header_tag: "● Niagara · Custom HLSL · GPU Particle Simulation"
@@ -15,253 +15,421 @@ meta:
     - {id: stateless,    label: Stateless}
     - {id: attributes,   label: Attributes}
     - {id: patterns,     label: Patterns}
+    - {id: perf-tiers,   label: Perf Tiers}
+    - {id: gpu-vs-cpu,   label: GPU vs CPU}
+    - {id: perf-rules,   label: Optim Rules}
+    - {id: scalability,  label: Scalability}
 
-sections:
+section_groups:
 
-  # ── SECTION 1: SCRATCH PAD ───────────────────────────────────────────────
-  - id: scratch-pad
-    label: "Scratch Pad Module HLSL"
-    cards:
+  # ════════════════════════════════════════════════════════════════════════════
+  #  AREA 1 — HLSL REFERENCE
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "HLSL Reference"
+    icon: "⚗"
+    theme: ref
+    sections:
 
-      - color: blue
-        title: "Scratch Pad Basics"
-        content:
-          - type: checklist
-            items:
-              - {icon: ok, html: "Niagara uses a <strong>restricted HLSL subset</strong> — not the same as Material Custom nodes"}
-              - {icon: ok, html: "In the Scratch Pad UI, add input/output <strong>map pins</strong> and bind each to a <strong><code>Particles.X</code></strong> attribute — the local pin name is what you use in HLSL"}
-              - {icon: ok, html: "<strong><code>Parameters.X</code></strong> refers to <em>module-level user parameters</em> (exposed inputs), NOT particle attributes"}
-              - {icon: ok, html: "<strong><code>ExecutionIndex</code></strong> gives the current particle index for per-particle logic"}
-              - {icon: ok, html: "Use <strong><code>Emitter.LocalSpace</code></strong> / <strong><code>Emitter.Age</code></strong> for emitter-level data"}
-              - {icon: ok, html: "Write results via your <strong>output pin names</strong> — no <code>return</code> statement, no <code>OutputParameters</code>"}
+      # ── SECTION 1: SCRATCH PAD ─────────────────────────────────────────────
+      - id: scratch-pad
+        label: "Scratch Pad Module HLSL"
+        cards:
 
-      - color: orange
-        title: "Scratch Pad Access Pattern"
-        content:
-          - type: code
-            src: |
-              // Bind pins in Scratch Pad UI: Particles.Position → "InPosition"
-              // In HLSL you use the LOCAL PIN NAME you chose in the UI
-              float3 Pos      = InPosition;   // bound to Particles.Position
-              float  Age      = InAge;        // bound to Particles.Age
-              float  Life     = InLifetime;   // bound to Particles.Lifetime
-              float  DT       = InDeltaTime;  // bound to Engine.DeltaTime
-              int    ID       = InUniqueID;   // bound to Particles.UniqueID
+          - color: blue
+            title: "Scratch Pad Basics"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, html: "Niagara uses a <strong>restricted HLSL subset</strong> — not the same as Material Custom nodes"}
+                  - {icon: ok, html: "In the Scratch Pad UI, add input/output <strong>map pins</strong> and bind each to a <strong><code>Particles.X</code></strong> attribute — the local pin name is what you use in HLSL"}
+                  - {icon: ok, html: "<strong><code>Parameters.X</code></strong> refers to <em>module-level user parameters</em> (exposed inputs), NOT particle attributes"}
+                  - {icon: ok, html: "<strong><code>ExecutionIndex</code></strong> gives the current particle index for per-particle logic"}
+                  - {icon: ok, html: "Use <strong><code>Emitter.LocalSpace</code></strong> / <strong><code>Emitter.Age</code></strong> for emitter-level data"}
+                  - {icon: ok, html: "Write results via your <strong>output pin names</strong> — no <code>return</code> statement, no <code>OutputParameters</code>"}
 
-              // Writing: assign to your output pin names (bound in UI)
-              OutPosition = Pos + InVelocity * DT; // → Particles.Position
-              OutColor    = float4(1,0,0,1);        // → Particles.Color
+          - color: orange
+            title: "Scratch Pad Access Pattern"
+            content:
+              - type: code
+                src: |
+                  // Bind pins in Scratch Pad UI: Particles.Position → "InPosition"
+                  // In HLSL you use the LOCAL PIN NAME you chose in the UI
+                  float3 Pos      = InPosition;   // bound to Particles.Position
+                  float  Age      = InAge;        // bound to Particles.Age
+                  float  Life     = InLifetime;   // bound to Particles.Lifetime
+                  float  DT       = InDeltaTime;  // bound to Engine.DeltaTime
+                  int    ID       = InUniqueID;   // bound to Particles.UniqueID
 
-              // No return, no OutputParameters — output pins are the writes
+                  // Writing: assign to your output pin names (bound in UI)
+                  OutPosition = Pos + InVelocity * DT; // → Particles.Position
+                  OutColor    = float4(1,0,0,1);        // → Particles.Color
 
-      - color: green
-        title: "Niagara Random Intrinsics"
-        content:
-          - type: prose
-            text: "Niagara provides seeded random functions (not HLSL standard):"
-          - type: rowlist
-            rows:
-              - {label: "RandomUInt(seed)",     text: "Seeded random integer — deterministic per particle"}
-              - {label: "RandomFloat(seed)",    text: "Seeded random float [0,1]"}
-              - {label: "RandomUnitFloat3(seed)",text: "Random direction on unit sphere"}
-              - {label: "Particles.UniqueID",   text: "Bind to an input pin; use as hash seed for per-particle randomness"}
+                  // No return, no OutputParameters — output pins are the writes
 
-  # ── SECTION 2: RESTRICTIONS ──────────────────────────────────────────────
-  - id: restrictions
-    label: "Restrictions &amp; Things to Avoid"
-    cards:
+          - color: green
+            title: "Niagara Random Intrinsics"
+            content:
+              - type: prose
+                text: "Niagara provides seeded random functions (not HLSL standard):"
+              - type: rowlist
+                rows:
+                  - {label: "RandomUInt(seed)",     text: "Seeded random integer — deterministic per particle"}
+                  - {label: "RandomFloat(seed)",    text: "Seeded random float [0,1]"}
+                  - {label: "RandomUnitFloat3(seed)",text: "Random direction on unit sphere"}
+                  - {label: "Particles.UniqueID",   text: "Bind to an input pin; use as hash seed for per-particle randomness"}
 
-      - color: red
-        title: "Niagara HLSL · Never Do This"
-        content:
-          - type: checklist
-            items:
-              - {icon: no, html: "<strong>No raw <code>Texture2DSample()</code></strong> calls in Scratch Pad HLSL — use the <strong>Texture Sample Data Interface</strong> module instead; it wraps the texture correctly for GPU sim"}
-              - {icon: no, html: "<strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts"}
-              - {icon: no, html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute"}
-              - {icon: no, html: "<strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead"}
-              - {icon: no, html: "<strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists"}
-              - {icon: no, html: "<strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available"}
-              - {icon: no, html: "<strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only"}
+      # ── SECTION 2: RESTRICTIONS ────────────────────────────────────────────
+      - id: restrictions
+        label: "Restrictions &amp; Things to Avoid"
+        cards:
 
-      - color: yellow
-        title: "Simulation vs Render Stage"
-        content:
-          - type: checklist
-            items:
-              - {icon: warn, html: "<strong>Simulation HLSL</strong> (Spawn/Update) runs as <strong>compute</strong> — no raw texture calls in HLSL, no derivatives; use Texture Sample <em>Data Interface</em> for texture access"}
-              - {icon: warn, html: "<strong>Render HLSL</strong> (Particle Render) differs from simulation HLSL — different available functions"}
-              - {icon: warn, html: "<strong>Data Interface HLSL</strong> runs in its own context — check DI docs for available functions"}
-              - {icon: ok,   html: "<strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both"}
-              - {icon: ok,   html: "<strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection"}
+          - color: red
+            title: "Niagara HLSL · Never Do This"
+            content:
+              - type: checklist
+                items:
+                  - {icon: no, html: "<strong>No raw <code>Texture2DSample()</code></strong> calls in Scratch Pad HLSL — use the <strong>Texture Sample Data Interface</strong> module instead; it wraps the texture correctly for GPU sim"}
+                  - {icon: no, html: "<strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts"}
+                  - {icon: no, html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute"}
+                  - {icon: no, html: "<strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead"}
+                  - {icon: no, html: "<strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists"}
+                  - {icon: no, html: "<strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available"}
+                  - {icon: no, html: "<strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only"}
 
-      - color: blue
-        title: "What IS Available"
-        content:
-          - type: checklist
-            items:
-              - {icon: ok, html: "Standard math: <code>lerp</code>, <code>saturate</code>, <code>smoothstep</code>, <code>clamp</code>, <code>abs</code>, <code>sign</code>, <code>pow</code>"}
-              - {icon: ok, html: "Vector math: <code>dot</code>, <code>cross</code>, <code>normalize</code>, <code>length</code>, <code>distance</code>"}
-              - {icon: ok, html: "Trig: <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>atan2</code>, <code>asin</code>, <code>acos</code>"}
-              - {icon: ok, html: "Floor/ceil: <code>floor</code>, <code>ceil</code>, <code>round</code>, <code>frac</code>, <code>fmod</code>"}
-              - {icon: ok, html: "Flow control: <code>BRANCH</code>, <code>FLATTEN</code>, <code>UNROLL</code>, <code>LOOP</code> hints"}
-              - {icon: ok, html: "Typed buffer reads: <code>Buffer&lt;float&gt;</code> SRV access via index"}
+          - color: yellow
+            title: "Simulation vs Render Stage"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>Simulation HLSL</strong> (Spawn/Update) runs as <strong>compute</strong> — no raw texture calls in HLSL, no derivatives; use Texture Sample <em>Data Interface</em> for texture access"}
+                  - {icon: warn, html: "<strong>Render HLSL</strong> (Particle Render) differs from simulation HLSL — different available functions"}
+                  - {icon: warn, html: "<strong>Data Interface HLSL</strong> runs in its own context — check DI docs for available functions"}
+                  - {icon: ok,   html: "<strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both"}
+                  - {icon: ok,   html: "<strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection"}
 
-  # ── SECTION 3: STATELESS ─────────────────────────────────────────────────
-  - id: stateless
-    label: "Stateless Module Patterns · From Real Code"
-    cards:
+          - color: blue
+            title: "What IS Available"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, html: "Standard math: <code>lerp</code>, <code>saturate</code>, <code>smoothstep</code>, <code>clamp</code>, <code>abs</code>, <code>sign</code>, <code>pow</code>"}
+                  - {icon: ok, html: "Vector math: <code>dot</code>, <code>cross</code>, <code>normalize</code>, <code>length</code>, <code>distance</code>"}
+                  - {icon: ok, html: "Trig: <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>atan2</code>, <code>asin</code>, <code>acos</code>"}
+                  - {icon: ok, html: "Floor/ceil: <code>floor</code>, <code>ceil</code>, <code>round</code>, <code>frac</code>, <code>fmod</code>"}
+                  - {icon: ok, html: "Flow control: <code>BRANCH</code>, <code>FLATTEN</code>, <code>UNROLL</code>, <code>LOOP</code> hints"}
+                  - {icon: ok, html: "Typed buffer reads: <code>Buffer&lt;float&gt;</code> SRV access via index"}
 
-      - color: orange
-        title: "Stateless Particle Struct"
-        content:
-          - type: prose
-            text: "Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:"
-          - type: code
-            src: |
-              // Stateless module entry point
-              void MyModule_Initialize(
-                  inout FStatelessParticle Particle,
-                  in FStatelessParticleContext Context)
-              {
-                // Read state
-                uint   Idx = Context.ExecIndex;
-                float3 Pos = Particle.Position;
-                float  Age = Particle.Age;
+      # ── SECTION 3: STATELESS ───────────────────────────────────────────────
+      - id: stateless
+        label: "Stateless Module Patterns · From Real Code"
+        cards:
 
-                // Write state directly
-                Particle.Position         = NewPos;
-                Particle.PreviousPosition = OldPos;
-                Particle.Scale            = float3(1,1,1);
-                Particle.Color            = float4(1,0,0,1);
-                Particle.MeshOrientation  = NewQuat;
-              }
+          - color: orange
+            title: "Stateless Particle Struct"
+            content:
+              - type: prose
+                text: "Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:"
+              - type: code
+                src: |
+                  // Stateless module entry point
+                  void MyModule_Initialize(
+                      inout FStatelessParticle Particle,
+                      in FStatelessParticleContext Context)
+                  {
+                    // Read state
+                    uint   Idx = Context.ExecIndex;
+                    float3 Pos = Particle.Position;
+                    float  Age = Particle.Age;
 
-      - color: green
-        title: "GPU Buffer Access Pattern"
-        content:
-          - type: prose
-            text: "Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:"
-          - type: code
-            src: |
-              // Reading float3 from typed float buffer
-              float3 ReadFloat3FromBuffer(
-                  Buffer<float> InBuffer, uint Index)
-              {
-                uint Base = Index * 3;
-                return float3(
-                  InBuffer[Base + 0],
-                  InBuffer[Base + 1],
-                  InBuffer[Base + 2]);
-              }
+                    // Write state directly
+                    Particle.Position         = NewPos;
+                    Particle.PreviousPosition = OldPos;
+                    Particle.Scale            = float3(1,1,1);
+                    Particle.Color            = float4(1,0,0,1);
+                    Particle.MeshOrientation  = NewQuat;
+                  }
 
-              // Reading float4 (color, quaternion)
-              float4 ReadFloat4FromBuffer(
-                  Buffer<float> InBuffer, uint Index)
-              {
-                uint Base = Index * 4;
-                return float4(
-                  InBuffer[Base + 0], InBuffer[Base + 1],
-                  InBuffer[Base + 2], InBuffer[Base + 3]);
-              }
+          - color: green
+            title: "GPU Buffer Access Pattern"
+            content:
+              - type: prose
+                text: "Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:"
+              - type: code
+                src: |
+                  // Reading float3 from typed float buffer
+                  float3 ReadFloat3FromBuffer(
+                      Buffer<float> InBuffer, uint Index)
+                  {
+                    uint Base = Index * 3;
+                    return float3(
+                      InBuffer[Base + 0],
+                      InBuffer[Base + 1],
+                      InBuffer[Base + 2]);
+                  }
 
-      - color: blue
-        title: "Indexing Strategies"
-        content:
-          - type: prose
-            text: "Common patterns for selecting which array element a particle uses:"
-          - type: code
-            src: |
-              // Sequential (round-robin by particle ID)
-              uint Idx = ParticleID % NumPositions;
+                  // Reading float4 (color, quaternion)
+                  float4 ReadFloat4FromBuffer(
+                      Buffer<float> InBuffer, uint Index)
+                  {
+                    uint Base = Index * 4;
+                    return float4(
+                      InBuffer[Base + 0], InBuffer[Base + 1],
+                      InBuffer[Base + 2], InBuffer[Base + 3]);
+                  }
 
-              // Sequential with clamping (no wrap)
-              uint Idx = min(ParticleID, NumPositions - 1);
+          - color: blue
+            title: "Indexing Strategies"
+            content:
+              - type: prose
+                text: "Common patterns for selecting which array element a particle uses:"
+              - type: code
+                src: |
+                  // Sequential (round-robin by particle ID)
+                  uint Idx = ParticleID % NumPositions;
 
-              // Random via MurmurHash3 finalizer
-              uint Hash = ParticleID;
-              Hash ^= Hash >> 16;
-              Hash *= 0x85ebca6b;
-              Hash ^= Hash >> 13;
-              Hash *= 0xc2b2ae35;
-              Hash ^= Hash >> 16;
-              uint Idx = Hash % NumPositions;
+                  // Sequential with clamping (no wrap)
+                  uint Idx = min(ParticleID, NumPositions - 1);
 
-              // Age-based (interpolate through array)
-              float T   = NormalizedAge * (float)Count;
-              uint  Idx = min((uint)T, Count - 1);
+                  // Random via MurmurHash3 finalizer
+                  uint Hash = ParticleID;
+                  Hash ^= Hash >> 16;
+                  Hash *= 0x85ebca6b;
+                  Hash ^= Hash >> 13;
+                  Hash *= 0xc2b2ae35;
+                  Hash ^= Hash >> 16;
+                  uint Idx = Hash % NumPositions;
 
-  # ── SECTION 4: ATTRIBUTES ────────────────────────────────────────────────
-  - id: attributes
-    label: "Particle Attribute Reference"
-    cards:
+                  // Age-based (interpolate through array)
+                  float T   = NormalizedAge * (float)Count;
+                  uint  Idx = min((uint)T, Count - 1);
 
-      - color: blue
-        span: grid-full
-        title: "Particle Attributes · Scratch Pad vs Stateless Access"
-        content:
-          - type: table
-            style: default
-            cols: ["Attribute", "Niagara Namespace", "Stateless Struct", "Notes"]
-            rows:
-              - ["**Position**",         "`Particles.Position`",                  "`Particle.Position`",              "Bind to Scratch Pad pin; world or local-space per emitter setting"]
-              - ["**Previous Position**", "`Particles.PreviousPosition`",          "`Particle.PreviousPosition`",      "Last frame's position — for velocity/trail computation"]
-              - ["**Velocity**",          "`Particles.Velocity`",                  "<em>Derived from Pos delta</em>",  "Scratch Pad has explicit velocity; stateless derives it"]
-              - ["**Age**",               "`Particles.Age`",                       "`Particle.Age`",                   "Time since particle spawned (seconds)"]
-              - ["**Lifetime**",          "`Particles.Lifetime`",                  "`Particle.Lifetime`",              "Total lifespan (seconds)"]
-              - ["**Normalized Age**",    "`Particles.Age / Particles.Lifetime`",  "`Particle.Age / Particle.Lifetime`","0→1 over lifetime; compute manually in both contexts"]
-              - ["**Color**",             "`Particles.Color`",                     "`Particle.Color`",                 "float4 RGBA"]
-              - ["**Scale**",             "`Particles.Scale`",                     "`Particle.Scale`",                 "float3 per-axis scale"]
-              - ["**Mesh Orientation**",  "`Particles.MeshOrientation`",           "`Particle.MeshOrientation`",       "float4 quaternion"]
-              - ["**Execution Index**",   "`ExecutionIndex`",                      "`Context.ExecIndex`",              "Per-particle index for deterministic behavior"]
-              - ["**Unique ID**",         "`Particles.UniqueID`",                  "`Context.ParticleID`",             "Persistent ID — use as hash seed for randomness"]
-              - ["**Delta Time**",        "`Engine.DeltaTime`",                    "<em>Not directly available</em>",  "Frame delta in seconds — bind via Engine namespace"]
+      # ── SECTION 4: ATTRIBUTES ──────────────────────────────────────────────
+      - id: attributes
+        label: "Particle Attribute Reference"
+        cards:
 
-  # ── SECTION 5: PATTERNS ──────────────────────────────────────────────────
-  - id: patterns
-    label: "Patterns &amp; Tips"
-    cards:
+          - color: blue
+            span: grid-full
+            title: "Particle Attributes · Scratch Pad vs Stateless Access"
+            content:
+              - type: table
+                style: default
+                cols: ["Attribute", "Niagara Namespace", "Stateless Struct", "Notes"]
+                rows:
+                  - ["**Position**",         "`Particles.Position`",                  "`Particle.Position`",              "Bind to Scratch Pad pin; world or local-space per emitter setting"]
+                  - ["**Previous Position**", "`Particles.PreviousPosition`",          "`Particle.PreviousPosition`",      "Last frame's position — for velocity/trail computation"]
+                  - ["**Velocity**",          "`Particles.Velocity`",                  "<em>Derived from Pos delta</em>",  "Scratch Pad has explicit velocity; stateless derives it"]
+                  - ["**Age**",               "`Particles.Age`",                       "`Particle.Age`",                   "Time since particle spawned (seconds)"]
+                  - ["**Lifetime**",          "`Particles.Lifetime`",                  "`Particle.Lifetime`",              "Total lifespan (seconds)"]
+                  - ["**Normalized Age**",    "`Particles.Age / Particles.Lifetime`",  "`Particle.Age / Particle.Lifetime`","0→1 over lifetime; compute manually in both contexts"]
+                  - ["**Color**",             "`Particles.Color`",                     "`Particle.Color`",                 "float4 RGBA"]
+                  - ["**Scale**",             "`Particles.Scale`",                     "`Particle.Scale`",                 "float3 per-axis scale"]
+                  - ["**Mesh Orientation**",  "`Particles.MeshOrientation`",           "`Particle.MeshOrientation`",       "float4 quaternion"]
+                  - ["**Execution Index**",   "`ExecutionIndex`",                      "`Context.ExecIndex`",              "Per-particle index for deterministic behavior"]
+                  - ["**Unique ID**",         "`Particles.UniqueID`",                  "`Context.ParticleID`",             "Persistent ID — use as hash seed for randomness"]
+                  - ["**Delta Time**",        "`Engine.DeltaTime`",                    "<em>Not directly available</em>",  "Frame delta in seconds — bind via Engine namespace"]
 
-      - color: green
-        title: "Useful Patterns"
-        content:
-          - type: checklist
-            items:
-              - {icon: ok,   html: "<strong>Random per-particle</strong> — bind <code>Particles.UniqueID</code> to an input pin, use as seed with a hash function"}
-              - {icon: ok,   html: "<strong>Custom module</strong> — wrap HLSL in a Scratch Pad module for reuse across emitters"}
-              - {icon: ok,   html: "<strong>Quaternion math</strong> — multiply quaternions manually (no built-in <code>qmul</code>)"}
-              - {icon: ok,   html: "<strong>Jitter</strong> — pre-bake random sphere offsets: <code>RandomUnitFloat3(seed) * Radius</code>"}
-              - {icon: ok,   html: "<strong>Loop modes</strong> — implement Once/Loop/PingPong via switch on age-based index"}
-              - {icon: ok,   html: "<strong>Early exit</strong> — guard empty arrays: <code>if (NumPositions == 0) return;</code>"}
+      # ── SECTION 5: PATTERNS ────────────────────────────────────────────────
+      - id: patterns
+        label: "Patterns &amp; Tips"
+        cards:
 
-      - color: yellow
-        title: "Quaternion Multiply (Helper)"
-        content:
-          - type: prose
-            text: "No built-in quaternion multiply in Niagara HLSL — use this:"
-          - type: code
-            src: |
-              float4 QuatMultiply(float4 Q1, float4 Q2)
-              {
-                return float4(
-                  Q1.w*Q2.x + Q1.x*Q2.w + Q1.y*Q2.z - Q1.z*Q2.y,
-                  Q1.w*Q2.y - Q1.x*Q2.z + Q1.y*Q2.w + Q1.z*Q2.x,
-                  Q1.w*Q2.z + Q1.x*Q2.y - Q1.y*Q2.x + Q1.z*Q2.w,
-                  Q1.w*Q2.w - Q1.x*Q2.x - Q1.y*Q2.y - Q1.z*Q2.z
-                );
-              }
+          - color: green
+            title: "Useful Patterns"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Random per-particle</strong> — bind <code>Particles.UniqueID</code> to an input pin, use as seed with a hash function"}
+                  - {icon: ok,   html: "<strong>Custom module</strong> — wrap HLSL in a Scratch Pad module for reuse across emitters"}
+                  - {icon: ok,   html: "<strong>Quaternion math</strong> — multiply quaternions manually (no built-in <code>qmul</code>)"}
+                  - {icon: ok,   html: "<strong>Jitter</strong> — pre-bake random sphere offsets: <code>RandomUnitFloat3(seed) * Radius</code>"}
+                  - {icon: ok,   html: "<strong>Loop modes</strong> — implement Once/Loop/PingPong via switch on age-based index"}
+                  - {icon: ok,   html: "<strong>Early exit</strong> — guard empty arrays: <code>if (NumPositions == 0) return;</code>"}
 
-              // Usage: combine rotations
-              Particle.MeshOrientation =
-                QuatMultiply(BaseRot, DeltaRot);
+          - color: yellow
+            title: "Quaternion Multiply (Helper)"
+            content:
+              - type: prose
+                text: "No built-in quaternion multiply in Niagara HLSL — use this:"
+              - type: code
+                src: |
+                  float4 QuatMultiply(float4 Q1, float4 Q2)
+                  {
+                    return float4(
+                      Q1.w*Q2.x + Q1.x*Q2.w + Q1.y*Q2.z - Q1.z*Q2.y,
+                      Q1.w*Q2.y - Q1.x*Q2.z + Q1.y*Q2.w + Q1.z*Q2.x,
+                      Q1.w*Q2.z + Q1.x*Q2.y - Q1.y*Q2.x + Q1.z*Q2.w,
+                      Q1.w*Q2.w - Q1.x*Q2.x - Q1.y*Q2.y - Q1.z*Q2.z
+                    );
+                  }
 
-      - color: orange
-        title: "Debugging Tips"
-        content:
-          - type: checklist
-            items:
-              - {icon: warn, html: "<strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize"}
-              - {icon: warn, html: "<strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges"}
-              - {icon: warn, html: "<strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code>"}
-              - {icon: ok,   html: "<strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering"}
-              - {icon: ok,   html: "<strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads"}
+                  // Usage: combine rotations
+                  Particle.MeshOrientation =
+                    QuatMultiply(BaseRot, DeltaRot);
+
+          - color: orange
+            title: "Debugging Tips"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize"}
+                  - {icon: warn, html: "<strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges"}
+                  - {icon: warn, html: "<strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code>"}
+                  - {icon: ok,   html: "<strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering"}
+                  - {icon: ok,   html: "<strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads"}
+
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  AREA 2 — IN-ENGINE OPTIMIZATION
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "In-Engine Optimization"
+    icon: "⚡"
+    theme: optim
+    sections:
+
+      # ── SECTION 6: PERFORMANCE TIERS ───────────────────────────────────────
+      - id: perf-tiers
+        label: "Performance Tiers at a Glance"
+        cards:
+
+          - color: green
+            title: "Tier 1 — Effectively Free"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, html: "<strong>Combine emitters</strong> — 1 emitter × 1000 particles beats 10 emitters × 100 (fewer VM invokes / GPU dispatches)"}
+                  - {icon: ok, html: "<strong>Fixed Bounds</strong> — enable in System settings to prevent dynamic bounding box recomputation every frame"}
+                  - {icon: ok, html: "<strong>Always stop unused systems</strong> — looping systems that are invisible still consume GPU dispatch and CPU overhead"}
+                  - {icon: ok, html: "<strong>Effect Type asset</strong> — attach one to every system; enables budget-based culling with zero per-frame cost"}
+
+          - color: yellow
+            title: "Tier 2 — Cheap Wins"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>LOD via Scalability</strong> — configure Low / Medium / High / Epic / Cinematic quality levels in Effect Type"}
+                  - {icon: ok,   html: "<strong>Distance culling</strong> — particles 2× farther away cost ~4× less fill rate; set aggressive cull distances"}
+                  - {icon: ok,   html: "<strong>Texture atlasing</strong> — pack 4×4 SubUV frames into one atlas; drive with SubUV Animation module to cut draw calls"}
+                  - {icon: warn, html: "<strong>Translucency budget &lt;3ms</strong> — monitor with <code>stat gpu</code>; translucency is the first budget to watch"}
+
+          - color: orange
+            title: "Tier 3 — Expensive"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>Per-particle collision</strong> — each particle traces a scene query; keep counts low or use Scene Depth approximation"}
+                  - {icon: warn, html: "<strong>Light emission</strong> — only available on CPU sims; each particle light adds a shadow-casting draw call overhead"}
+                  - {icon: warn, html: "<strong>Many dynamic material params</strong> — per-emitter material parameter updates flush batching"}
+                  - {icon: warn, html: "<strong>Full-screen translucent sprites</strong> — overdraw × material cost multiplies; minimize screen coverage"}
+
+          - color: red
+            title: "Tier 4 — Very Expensive"
+            content:
+              - type: checklist
+                items:
+                  - {icon: no, html: "<strong>Unbounded GPU sims &gt;1M particles</strong> — without fixed bounds, culling is unreliable and memory grows unbounded"}
+                  - {icon: no, html: "<strong>Translucent overdraw &gt;5× deep</strong> — the same pixel drawn 5–10 times = 5–10× material cost; use cutout masks instead"}
+                  - {icon: no, html: "<strong>&gt;10 active emitters per actor</strong> — each emitter is a separate compute dispatch; batch aggressively"}
+                  - {icon: no, html: "<strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target device early"}
+
+      # ── SECTION 7: GPU VS CPU ──────────────────────────────────────────────
+      - id: gpu-vs-cpu
+        label: "GPU vs CPU Simulation"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "When to Use GPU vs CPU"
+            content:
+              - type: table
+                style: default
+                cols: ["Decision Factor", "CPU Simulation", "GPU Simulation"]
+                rows:
+                  - ["Particle count sweet spot", "1 – 100", "100+ (thousands to millions)"]
+                  - ["Collision &amp; gameplay events", "Yes — full scene query support", "No — compute only, no callbacks"]
+                  - ["Light emission", "Yes", "No"]
+                  - ["Module feature set", "Full — all Niagara modules", "Limited — compute-compatible only"]
+                  - ["Texture sampling", "Via Data Interface", "Via Texture Sample DI only"]
+                  - ["Per-frame CPU thread cost", "Scales with particle count", "Near-zero (async GPU dispatch)"]
+                  - ["Memory pressure", "System RAM", "VRAM — watch on mobile/consoles"]
+                  - ["Offline / deterministic render", "Yes — CPU path available", "GPU path only (non-deterministic)"]
+
+      # ── SECTION 8: OPTIMIZATION RULES ─────────────────────────────────────
+      - id: perf-rules
+        label: "Optimization Rules"
+        cards:
+
+          - color: green
+            title: "DO — Emitter &amp; System"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, html: "<strong>Enable Fixed Bounds</strong> in System settings — prevents GPU particles from disappearing when emitter actor is off-screen"}
+                  - {icon: ok, html: "<strong>Batch emitters</strong> — combine emitters that share the same material into one emitter with SubUV variation"}
+                  - {icon: ok, html: "<strong>Atlas textures</strong> — 4×4 SubUV atlas = 16 visual variations, 1 draw call"}
+                  - {icon: ok, html: "<strong>Effect Type asset</strong> — define per-quality budgets once and reuse across all systems in the project"}
+                  - {icon: ok, html: "<strong>Deactivate off-screen systems</strong> — use Significance Handler to pause systems beyond a set distance"}
+
+          - color: red
+            title: "AVOID — Emitter &amp; Render"
+            content:
+              - type: checklist
+                items:
+                  - {icon: no,   html: "<strong>Never-ending loops without culling</strong> — idle GPU dispatches drain budget even when nothing is visible"}
+                  - {icon: no,   html: "<strong>Full-screen translucent quads</strong> — overdraw × material cost is your largest GPU risk"}
+                  - {icon: no,   html: "<strong>Dynamic bounding boxes</strong> — force GPU to re-derive bounds every frame; switch to Fixed Bounds for stable sims"}
+                  - {icon: warn, html: "<strong>Translucency &gt;3ms total</strong> — monitor with <code>stat gpu</code> or GPU Insights (UE 5.4+); translucency is additive across all effects"}
+                  - {icon: warn, html: "<strong>No Significance Handler without Effect Type</strong> — budget overruns go unmanaged; add Effect Type first"}
+
+          - color: blue
+            title: "Overdraw Reduction"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Cutout / alpha erosion masks</strong> — replaces full rectangular sprite with shaped cutout, drastically reducing covered pixels"}
+                  - {icon: ok,   html: "<strong>Reduce particle size</strong> — smaller screen footprint = less fill; pair with higher emitter count if needed"}
+                  - {icon: ok,   html: "<strong>Distance-based transparency fade</strong> — fade particles out before they're too small to be meaningful"}
+                  - {icon: warn, html: "<strong>Avoid Lit translucency on small particles</strong> — Unlit is significantly cheaper; reserve Lit for hero VFX only"}
+
+      # ── SECTION 9: SCALABILITY ─────────────────────────────────────────────
+      - id: scalability
+        label: "Scalability &amp; Effect Types"
+        grid: "grid grid-2"
+        cards:
+
+          - color: orange
+            span: grid-full
+            title: "Effect Type Asset — Budget Controls"
+            content:
+              - type: prose
+                text: "The <strong>Effect Type</strong> is a global scalability asset — create one, attach it to every Niagara System via System settings, then configure these per-quality-level budgets:"
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "Max Global Budget Usage", text: "Cull entire systems once the total Niagara ms budget across the scene is exceeded — the most important setting to set"}
+                  - {label: "Max Distance Scale", text: "Shrinks cull distance proportionally as the budget fills — near-full budget = more aggressive distance culling automatically"}
+                  - {label: "Max Instance Count Scale", text: "Globally scales down simultaneous particle system instances across all systems that share this Effect Type"}
+                  - {label: "Max System Instance Count", text: "Per-system instance cap — prevents any one effect from monopolising the budget at the expense of others"}
+                  - {label: "Scalability levels", text: "Low / Medium / High / Epic / Cinematic — configure per-level behaviour in <strong>Project Settings → Niagara</strong>"}
+
+          - color: yellow
+            title: "Significance Handler"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Significance Handler</strong> determines <em>which</em> systems stay active when over budget — closest / most visible effects survive"}
+                  - {icon: ok,   html: "Assign a <strong>Significance Handler asset</strong> in the Effect Type — default handler sorts by distance"}
+                  - {icon: ok,   html: "Custom handlers can weight by screen size, gameplay importance, or camera proximity"}
+                  - {icon: warn, html: "Without an Effect Type, the Significance Handler has no budget thresholds to react to — both must be configured"}
+
+          - color: blue
+            title: "Profiling Tools"
+            content:
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "stat gpu", text: "Console command — shows GPU ms per pass; watch the <em>Translucency</em> and <em>ParticleSimulation</em> rows specifically"}
+                  - {label: "GPU Insights (UE 5.4+)", text: "Visual GPU profiler inside Unreal Insights — shows per-system and per-material GPU time on a timeline"}
+                  - {label: "Niagara Debugger", text: "Window → Niagara Debugger — live particle counts, active systems, budget usage per system while in PIE"}
+                  - {label: "viewmode shadercomplexity", text: "Viewport display mode — visualizes per-pixel instruction cost; target green on all particle materials"}
+                  - {label: "r.Niagara.GPUCmdBufSafety 1", text: "Enables extra GPU safety checks in development builds — disable for shipping builds"}

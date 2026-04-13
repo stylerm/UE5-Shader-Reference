@@ -14,6 +14,7 @@
   --good:      #b8ff57;
   --bad:       #ff5757;
   --warn:      #ffb347;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,9 +47,10 @@ body {
   flex-direction: column;
   z-index: 200;
   overflow-y: auto;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidenav-brand {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--accent);
   padding: 22px 16px 18px;
@@ -65,7 +67,7 @@ body {
   padding: 14px 0;
 }
 .sidenav-links a {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
   text-decoration: none;
@@ -90,8 +92,14 @@ body {
   border-left-color: rgba(0,229,255,0.5);
   background: rgba(0,229,255,0.04);
 }
+/* Active section link inside optim area gets warm highlight */
+.sidenav-links a[data-area="optim"].active-section {
+  color: var(--accent2);
+  border-left-color: rgba(255,107,53,0.5);
+  background: rgba(255,107,53,0.04);
+}
 .sidenav-section {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
   color: var(--muted);
   letter-spacing: 0.2em;
@@ -104,6 +112,17 @@ body {
   margin: 10px 16px;
 }
 
+/* Mobile nav overlay backdrop */
+.nav-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 190;
+  backdrop-filter: blur(2px);
+}
+.nav-overlay.open { display: block; }
+
 /* ── NAV ── */
 .topbar {
   position: sticky;
@@ -112,7 +131,7 @@ body {
   background: rgba(10,12,16,0.92);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
-  margin: -32px -24px 28px; /* pull flush to .page edges */
+  margin: -32px -24px 28px;
   padding: 10px 24px;
   display: flex;
   align-items: center;
@@ -121,7 +140,7 @@ body {
 }
 .topbar-spacer { flex: 1; }
 .topbar a {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   color: var(--text-dim);
   text-decoration: none;
@@ -133,9 +152,8 @@ body {
 .topbar a:hover { color: var(--accent); background: rgba(0,229,255,0.06); }
 .topbar a.active { color: var(--accent); background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); }
 .topbar .sep { color: var(--border); font-size: 14px; }
-/* brand now lives in .sidenav-brand */
 .gh-link {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-dim) !important;
   border: 1px solid var(--border) !important;
@@ -145,7 +163,21 @@ body {
 }
 .gh-link:hover { color: var(--accent) !important; border-color: var(--accent) !important; }
 
-/* page tabs removed — now in .sidenav-links */
+/* Hamburger — hidden on desktop, shown on mobile */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 9px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: color 0.15s, border-color 0.15s;
+}
+.menu-toggle:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ── HEADER ── */
 .header {
@@ -160,7 +192,7 @@ body {
 }
 .header-left { display: flex; flex-direction: column; gap: 2px; }
 .header-tag {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--accent);
   letter-spacing: 0.2em;
@@ -175,13 +207,77 @@ h1 {
 }
 h1 span { color: var(--accent); }
 .header-right {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   color: var(--text-dim);
   text-align: right;
   line-height: 1.8;
 }
 .header-right strong { color: var(--accent2); }
+
+/* ══ AREA WRAPPERS ════════════════════════════════════════════════════════════
+   .area-ref  → cool cyan palette (default)
+   .area-optim → warm amber/orange palette, distinct surface tint
+   ══════════════════════════════════════════════════════════════════════════ */
+.area { position: relative; }
+
+/* Reference area — no extra changes, inherits root variables */
+.area-ref .area-heading {
+  color: var(--accent);
+  border-bottom-color: rgba(0,229,255,0.25);
+}
+
+/* Optimization area — warm surface overrides */
+.area-optim {
+  --surface:  #120e0a;          /* warm dark surface for cards */
+  --border:   #2c1d0f;          /* warm amber border */
+  --code-bg:  #0c0906;          /* deeper warm bg for code */
+  margin-top: 8px;
+  padding: 24px 20px 4px;
+  border: 1px solid rgba(255,107,53,0.15);
+  border-radius: 6px;
+  background: rgba(255,107,53,0.025);
+  position: relative;
+}
+/* Vertical accent stripe on the left edge */
+.area-optim::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(to bottom, var(--accent2), rgba(255,107,53,0.2));
+}
+.area-optim .area-heading {
+  color: var(--accent2);
+  border-bottom-color: rgba(255,107,53,0.3);
+}
+/* Section labels inside optim area get warm muted color */
+.area-optim .section-label {
+  color: rgba(255, 150, 80, 0.55);
+}
+.area-optim .section-label::after {
+  background: rgba(255,107,53,0.18);
+}
+/* Sidenav anchor links for optim sections get warm color */
+.area-optim .card.blue::before   { background: var(--accent); }
+.area-optim .card.orange::before { background: var(--accent2); }
+.area-optim .card.green::before  { background: var(--accent3); }
+.area-optim .card.red::before    { background: var(--bad); }
+.area-optim .card.yellow::before { background: var(--warn); }
+
+/* ── AREA HEADING (shared base) ── */
+.area-heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0 0 10px;
+  border-bottom: 1px solid;
+  margin-bottom: 6px;
+}
+.area-heading + .section-label { margin-top: 18px; }
 
 /* ── SECTION LABELS ── */
 .section-label {
@@ -262,7 +358,7 @@ h1 span { color: var(--accent); }
 
 /* ── CODE ── */
 code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 15px;
   background: var(--code-bg);
   border: 1px solid var(--border);
@@ -271,7 +367,7 @@ code {
   color: #e8f4f8;
 }
 pre {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   background: var(--code-bg);
   border: 1px solid var(--border);
@@ -280,6 +376,7 @@ pre {
   line-height: 1.7;
   overflow-x: auto;
   color: #c5dce8;
+  -webkit-overflow-scrolling: touch;
 }
 pre .c  { color: var(--muted); }
 pre .kw { color: var(--accent); }
@@ -289,21 +386,45 @@ pre .n  { color: var(--accent3); }
 /* ── ROWS ── */
 .row-list { display: flex; flex-direction: column; gap: 8px; }
 .row {
-  display: flex;
+  display: grid;
+  /* label: as wide as its content up to 45% of card; text: rest */
+  grid-template-columns: fit-content(45%) 1fr;
+  gap: 6px 12px;
+  font-size: 16px;
   align-items: baseline;
-  gap: 8px;
-  font-size: 17px;
 }
 .row-label {
   font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-  min-width: 90px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
   color: var(--text-dim);
+  word-break: break-word;
+}
+/* Text cell must be allowed to shrink below intrinsic width */
+.row-text { min-width: 0; }
+
+/* ── STACKED ROWLIST — label above text, one column wide ── */
+.row-list.stacked { gap: 12px; }
+.row-list.stacked .row {
+  grid-template-columns: 1fr;
+  gap: 3px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.row-list.stacked .row:last-child { border-bottom: none; padding-bottom: 0; }
+.row-list.stacked .row-label {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.row-list.stacked .row-text {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.55;
 }
 
 /* ── TABLE ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; }
 th {
   font-size: 11px;
@@ -313,6 +434,7 @@ th {
   padding: 7px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 td {
   padding: 7px 10px;
@@ -334,7 +456,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   font-size: 16px;
 }
 .check-icon {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   flex-shrink: 0;
 }
@@ -351,12 +473,13 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   border-left: 3px solid var(--accent);
   border-radius: 3px;
   padding: 14px 16px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.85;
   color: #b8cfd8;
   white-space: pre;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .prompt-box .ph { color: var(--accent2); }
 .prompt-box .kw { color: var(--accent); }
@@ -367,7 +490,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   position: absolute;
   top: 6px;
   right: 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.08em;
   color: var(--text-dim);
@@ -384,7 +507,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
 
 /* ── SEARCH ── */
 #search-input {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   letter-spacing: 0.1em;
   background: var(--code-bg);
@@ -438,7 +561,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.1em;
   color: #0a0c10;
@@ -490,7 +613,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   display: block;
 }
 .hub-card-title {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -504,7 +627,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   line-height: 1.5;
 }
 .hub-card-count {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--muted);
   margin-top: 12px;
@@ -518,7 +641,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   padding-top: 12px;
   display: flex;
   justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--muted);
   flex-wrap: wrap;
@@ -536,10 +659,12 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
     font-size: 11pt;
     padding: 0;
   }
-  .topbar, .contribute, .gh-link { display: none !important; }
-  .page { max-width: 100%; }
+  .sidenav, .topbar, .contribute, .gh-link, .menu-toggle, .nav-overlay { display: none !important; }
+  .page { max-width: 100%; padding: 12px; }
   .grid, .grid-2, .hub-grid { grid-template-columns: 1fr !important; gap: 8px; }
   .grid-full, .span-2 { grid-column: span 1; }
+  .area-optim { border: 1px solid #ccc !important; background: #fdf8f5 !important; }
+  .area-optim::before { display: none; }
   .card, .hub-card {
     background: #fff !important;
     border: 1px solid #ccc !important;
@@ -552,6 +677,7 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   code { background: #f0f0f0 !important; border-color: #ccc !important; color: #111 !important; }
   pre, .prompt-box { background: #f8f8f8 !important; border-color: #ccc !important; color: #111 !important; }
   .section-label { color: #333 !important; }
+  .area-heading { color: #111 !important; border-bottom-color: #999 !important; }
   .section-label::after { background: #ccc !important; }
   .header { border-bottom-color: #333 !important; }
   h1, h1 span { color: #111 !important; }
@@ -571,43 +697,107 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   .copy-btn { display: none !important; }
 }
 
-/* ── RESPONSIVE — medium screens (tablets, small laptops) ── */
-/* Sidenav stays fixed but narrows; body padding shrinks to match */
+/* ─────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE
+   Desktop (>1100px): sidenav 130px fixed, body padding-left 150px
+   Tablet  (900-1100px): sidenav 110px, body padding-left 130px
+   Mobile  (<600px): sidenav off-canvas slide-in, hamburger button visible
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Tablet ── */
 @media (max-width: 1100px) {
   .sidenav { width: 110px; }
-  body { padding-left: 130px; } /* 110px sidenav + 20px gap */
+  body { padding-left: 130px; }
 }
 
-/* ── RESPONSIVE — genuine mobile only ── */
+/* ── Mobile ── */
 @media (max-width: 600px) {
+
+  /* Body — full width, no left padding (sidenav is off-canvas) */
   body { padding: 0 0 60px; }
+
+  /* Sidenav — off-canvas drawer, slides in from left */
   .sidenav {
-    position: relative;
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    height: auto;
+    transform: translateX(-100%);
+    width: 200px;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
   }
-  .sidenav-brand {
-    border-bottom: none;
-    border-right: 1px solid var(--border);
-    padding: 10px 14px;
-    font-size: 10px;
+  .sidenav.open {
+    transform: translateX(0);
   }
-  .sidenav-links { flex-direction: row; padding: 6px 8px; flex-wrap: wrap; gap: 2px; }
-  .sidenav-links a { padding: 5px 10px; border-left: none; border-bottom: 2px solid transparent; font-size: 10px; }
-  .sidenav-links a.active { border-left: none; border-bottom-color: var(--accent); }
-  /* Keep section labels visible as tiny separators on mobile */
-  .sidenav-section { padding: 4px 8px 2px; font-size: 8px; }
-  .sidenav-divider { display: none; }
+  .sidenav-brand { font-size: 10px; padding: 16px 14px; }
+  .sidenav-links a { padding: 12px 16px; font-size: 11px; }
+  .sidenav-section { font-size: 9px; padding: 14px 16px 4px; }
+
+  /* Show hamburger in topbar */
+  .menu-toggle { display: block; }
+
+  /* Page container */
   .page { padding: 16px; }
+
+  /* Topbar */
+  .topbar {
+    margin: -16px -16px 20px;
+    padding: 8px 12px;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  /* Hide search input on very small screens (still accessible by expanding) */
+  #search-input { width: 80px; font-size: 11px; }
+  #search-input:focus { width: 130px; }
+
+  /* Header */
+  h1 { font-size: 28px; }
+  .header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .header-right { text-align: left; font-size: 12px; }
+  .header-tag { font-size: 10px; }
+
+  /* Grids — single column */
   .grid, .hub-grid { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
-  .span-2 { grid-column: span 1; }
-  h1 { font-size: 28px; }
-  .topbar { gap: 4px; margin: -16px -16px 20px; padding: 8px 16px; }
-  .header { flex-direction: column; align-items: flex-start; }
-  .header-right { text-align: left; }
+  .grid-full, .span-2 { grid-column: span 1; }
+
+  /* Area optim — reduce padding on mobile */
+  .area-optim { padding: 16px 12px 4px; margin-top: 6px; }
+
+  /* Cards — slightly less padding */
+  .card { padding: 14px; }
+
+  /* Tables — horizontal scroll wrapper on mobile */
+  table { min-width: 480px; }
+  .card > table, .card > .checklist ~ table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inject scroll wrapper for all tables in cards via CSS */
+  /* (tables themselves get min-width so they don't collapse) */
+
+  /* Code / prompt boxes — ensure horizontal scroll */
+  pre { font-size: 12px; }
+  .prompt-box { font-size: 12px; }
+
+  /* Row list */
+  .row { font-size: 15px; flex-wrap: wrap; }
+  .row-label { min-width: 70px; font-size: 13px; }
+
+  /* Checklist */
+  .check-item { font-size: 15px; }
+
+  /* Contribute banner */
+  .contribute { flex-direction: column; }
+  .contribute-text p { max-width: 100%; }
+
+  /* Hub grid */
+  .hub-card { padding: 20px 18px; }
+  .hub-card-title { font-size: 14px; }
+  .hub-card-desc { font-size: 14px; }
+
+  /* Footer */
+  .footer { flex-direction: column; gap: 4px; }
+
+  /* Topbar copy buttons overlap less on narrow screens */
+  .copy-btn { font-size: 8px; padding: 2px 5px; }
 }

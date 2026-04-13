@@ -4,9 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns.">
+<meta name="description" content="UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns, and in-engine material optimization.">
 <meta property="og:title" content="Materials — UE5 Shader Cheatsheet">
-<meta property="og:description" content="UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns.">
+<meta property="og:description" content="UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns, and in-engine material optimization.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
 <title>Materials — UE5 Shader Cheatsheet</title>
@@ -17,8 +17,11 @@
 </head>
 <body>
 
+<!-- ── MOBILE NAV OVERLAY ── -->
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
 <!-- ── SIDE NAV ── -->
-<nav class="sidenav">
+<nav class="sidenav" id="sidenav" aria-label="Site navigation">
   <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
   <div class="sidenav-links">
 <a href="index.html">HOME</a>
@@ -37,13 +40,18 @@
 <a href="#wpo">WPO</a>
 <a href="#errors">Errors</a>
 <a href="#templates">Templates</a>
+<a href="#mat-cost">Complexity</a>
+<a href="#mat-rules">Optim Rules</a>
+<a href="#mat-blend">Blend Modes</a>
   </div>
 </nav>
 
 <div class="page">
 
   <!-- Sticky topbar -->
-  <nav class="topbar">
+  <nav class="topbar" aria-label="Page controls">
+    <!-- Hamburger — only visible on mobile via CSS -->
+    <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidenav">&#9776;</button>
     <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
     <span class="topbar-spacer"></span>
     <a class="gh-link" href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">
@@ -65,11 +73,13 @@
     </div>
   </div>
 
+<div class="area area-ref">
+<div class="area-heading">⚗ HLSL Reference</div>
 <div id="context" class="section-label">Context &amp; Setup</div>
 <div class="grid">
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> Always Declare Context First</div>
-<div class="row-list"><div class="row"><span class="row-label">WHERE</span>Custom node / .usf file / Niagara / Plugin shader</div><div class="row"><span class="row-label">UE VERSION</span>5.1 / 5.2 / 5.3 / 5.4+</div><div class="row"><span class="row-label">SHADER MDL</span>SM5 / SM6 / ES3.1</div><div class="row"><span class="row-label">RETURN TYPE</span>float / float3 / float4 / etc.</div><div class="row"><span class="row-label">PLATFORM</span>PC / Mobile / Console / Vulkan</div></div></div>
+<div class="row-list"><div class="row"><span class="row-label">WHERE</span><span class="row-text">Custom node / .usf file / Niagara / Plugin shader</span></div><div class="row"><span class="row-label">UE VERSION</span><span class="row-text">5.1 / 5.2 / 5.3 / 5.4+</span></div><div class="row"><span class="row-label">SHADER MDL</span><span class="row-text">SM5 / SM6 / ES3.1</span></div><div class="row"><span class="row-label">RETURN TYPE</span><span class="row-text">float / float3 / float4 / etc.</span></div><div class="row"><span class="row-label">PLATFORM</span><span class="row-text">PC / Mobile / Console / Vulkan</span></div></div></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> Declare Input Pins Explicitly</div>
 <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Custom node pins become variable names. Always list them:</p><pre><span class="c">// Tell Claude exactly:</span>
@@ -96,7 +106,7 @@ Return type: <span class="kw">float3</span></pre></div>
 <div class="grid">
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Custom Node · Never Do This</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>#include</code></strong> — body is injected mid-shader, includes break compilation</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No top-level function declarations</strong> — inline all logic or use the struct workaround</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No sampler declarations</strong> — pass textures as input pins instead</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No global-scope mutable state</strong> — all vars are local to the body</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No GLSL precision qualifiers</strong> (<code>mediump</code>, <code>highp</code>, <code>lowp</code>)</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>void main()</code></strong> — body only, return value is the output</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No undeclared variable references</strong> — only use explicitly listed input pins</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>#include</code></strong> — body is injected mid-shader, includes break compilation</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No top-level function declarations</strong> — inline all logic or use the struct workaround</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No sampler declarations</strong> — pass textures as input pins instead</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No global-scope mutable state</strong> — all vars are local to the body</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No GLSL precision qualifiers</strong> (<code>mediump</code>, <code>highp</code>, <code>lowp</code>)</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>void main()</code></strong> — body only, return value is the output</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No undeclared variable references</strong> — only use explicitly listed input pins</span></div></div></div>
 <div class="card green">
 <div class="card-title"><span class="dot"></span> Custom Node · Best Practices</div>
 <div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Inline-only logic</strong> — no separate function blocks</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>static const</code></strong> for all constants</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Explicit return value</strong> matching declared return type</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Swizzle count validation</strong> — float3 output ≠ float4 return</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Step-by-step comments</strong> on each major operation</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Feature level guard hints</strong> if targeting ES3.1 / mobile</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Flag texture samples</strong> as <code>[NEEDS TEXTURE PIN]</code> rather than inline</span></div></div></div>
@@ -124,10 +134,10 @@ Helpers H;
 <table><thead><tr><th>Shadertoy</th><th>UE5 Equivalent</th><th>Notes</th></tr></thead><tbody><tr><td class="bad"><code>iTime</code></td><td class="good"><code>float Time input pin</code></td><td class="note">Connect a <strong>Time</strong> node to the pin</td></tr><tr><td class="bad"><code>iResolution.xy</code></td><td class="good"><code>float2 Resolution input pin</code></td><td class="note">Use <strong>SceneTexture:SceneColor</strong> → Size or pass manually</td></tr><tr><td class="bad"><code>iMouse</code></td><td class="good"><em>[No direct equivalent]</em></td><td class="note">Pass via Material Parameter Collection or Blueprint</td></tr><tr><td class="bad"><code>iFrame</code></td><td class="good"><em>[No direct equivalent]</em></td><td class="note">Approximate with <code>floor(Time * FrameRate)</code></td></tr><tr><td class="bad"><code>iChannel0–3</code></td><td class="good"><code>Texture Object input pins</code></td><td class="note">One pin per channel; use <code>Texture2DSample()</code></td></tr><tr><td class="bad"><code>fragCoord</code></td><td class="good"><code>float2 ScreenPos input pin</code></td><td class="note">Connect ScreenPosition node (viewport UV)</td></tr><tr><td class="bad"><code>fragColor</code></td><td class="good"><code>return float4(...);</code></td><td class="note">The Custom node return value <em>is</em> the output</td></tr></tbody></table></div>
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Coordinate System Pitfalls</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code></span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin</span></div></div></div>
 <div class="card yellow">
 <div class="card-title"><span class="dot"></span> Multi-Pass &amp; Buffer Limitations</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div></div></div>
 </div>
 
 <div id="wpo" class="section-label">World Position Offset / Vertex Shader</div>
@@ -137,17 +147,17 @@ Helpers H;
 <div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span>WPO return type is always <strong><code>float3</code></strong> — a <strong>world-space</strong> offset added to each vertex position</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Connect Custom node output to the <strong>World Position Offset</strong> pin on the material</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>absolute world position</code></strong> input pin for world-space vertex position</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Return <code>float3(0,0,0)</code> for no displacement — the value is <em>additive</em></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Great for: wind, waves, procedural animation, terrain deformation</span></div></div></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> Available Vertex Data</div>
-<div class="row-list"><div class="row"><span class="row-label"><code>AbsoluteWorldPosition</code></span>Vertex position in world space</div><div class="row"><span class="row-label"><code>VertexNormalWS</code></span>World-space vertex normal</div><div class="row"><span class="row-label"><code>VertexTangentWS</code></span>World-space vertex tangent</div><div class="row"><span class="row-label"><code>TexCoord[0-7]</code></span>UV channels available via input pins</div><div class="row"><span class="row-label"><code>VertexColor</code></span>Per-vertex RGBA (baked in mesh)</div><div class="row"><span class="row-label"><code>ActorPosition</code></span>Object pivot in world space</div><div class="row"><span class="row-label"><code>ObjectBounds</code></span>Bounding box extent — useful for normalizing offsets</div></div></div>
+<div class="row-list"><div class="row"><span class="row-label"><code>AbsoluteWorldPosition</code></span><span class="row-text">Vertex position in world space</span></div><div class="row"><span class="row-label"><code>VertexNormalWS</code></span><span class="row-text">World-space vertex normal</span></div><div class="row"><span class="row-label"><code>VertexTangentWS</code></span><span class="row-text">World-space vertex tangent</span></div><div class="row"><span class="row-label"><code>TexCoord[0-7]</code></span><span class="row-text">UV channels available via input pins</span></div><div class="row"><span class="row-label"><code>VertexColor</code></span><span class="row-text">Per-vertex RGBA (baked in mesh)</span></div><div class="row"><span class="row-label"><code>ActorPosition</code></span><span class="row-text">Object pivot in world space</span></div><div class="row"><span class="row-label"><code>ObjectBounds</code></span><span class="row-text">Bounding box extent — useful for normalizing offsets</span></div></div></div>
 <div class="card yellow">
 <div class="card-title"><span class="dot"></span> WPO Limitations</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> in vertex stage — these are pixel shader derivatives</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No texture sampling</strong> by default in VS — enable <code>Allow Custom Node Vertex Interpolators</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Shadow &amp; bounds mismatch</strong> — large WPO can push verts outside the bounding box, causing culling. Increase <strong>Bounds Scale</strong></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>VS → PS data</strong> — to pass custom data from vertex to pixel, use <strong>Vertex Interpolator</strong> node in the material graph</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Performance</strong> — WPO runs per vertex every frame; keep math simple on high-poly meshes</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> in vertex stage — these are pixel shader derivatives</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No texture sampling</strong> by default in VS — enable <code>Allow Custom Node Vertex Interpolators</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Shadow &amp; bounds mismatch</strong> — large WPO can push verts outside the bounding box, causing culling. Increase <strong>Bounds Scale</strong></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>VS → PS data</strong> — to pass custom data from vertex to pixel, use <strong>Vertex Interpolator</strong> node in the material graph</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Performance</strong> — WPO runs per vertex every frame; keep math simple on high-poly meshes</span></div></div></div>
 </div>
 
 <div id="errors" class="section-label">Common Errors to Prevent</div>
 <div class="grid">
 <div class="card red grid-full">
 <div class="card-title"><span class="dot"></span> Gotchas That Break Compilation or Produce Wrong Results</div>
-<div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;"><div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>UV origin</strong> — UE flips V; ask Claude to account for <code>1.0 - UV.y</code> if porting</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Swizzle mismatch</strong> — always verify component counts explicitly</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Shadertoy time</strong> is <code>iTime</code> — must be mapped to a <code>float Time</code> input pin</span></div></div><div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>HLSL <code>fmod</code> sign differs</strong> from GLSL <code>mod</code> — use <code>x - y*floor(x/y)</code> for exact match</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong><code>pow()</code> with negative base</strong> is undefined in HLSL — always use <code>pow(abs(x), n)</code></span></div></div></div></div>
+<div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;"><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>UV origin</strong> — UE flips V; ask Claude to account for <code>1.0 - UV.y</code> if porting</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Swizzle mismatch</strong> — always verify component counts explicitly</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Shadertoy time</strong> is <code>iTime</code> — must be mapped to a <code>float Time</code> input pin</span></div></div><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>HLSL <code>fmod</code> sign differs</strong> from GLSL <code>mod</code> — use <code>x - y*floor(x/y)</code> for exact match</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong><code>pow()</code> with negative base</strong> is undefined in HLSL — always use <code>pow(abs(x), n)</code></span></div></div></div></div>
 </div>
 
 <div id="templates" class="section-label">Prompt Templates</div>
@@ -203,6 +213,43 @@ Helpers H;
   - Add a comment for each conversion made</div></div>
 </div>
 
+</div>
+<div class="area area-optim">
+<div class="area-heading">⚡ In-Engine Optimization</div>
+<div id="mat-cost" class="section-label">Material Complexity &amp; Cost Tiers</div>
+<div class="grid grid-2">
+<div class="card green grid-full">
+<div class="card-title"><span class="dot"></span> How to Measure Cost — Profiling Commands</div>
+<div class="row-list stacked"><div class="row"><span class="row-label"><code>viewmode shadercomplexity</code></span><span class="row-text">Visualizes per-pixel instruction cost in-viewport — <strong>green</strong> &lt;30 instructions (lightweight), <strong>yellow</strong> 30–100 (acceptable), <strong>red</strong> &gt;100 (expensive)</span></div><div class="row"><span class="row-label"><code>stat gpu</code></span><span class="row-text">Console command — shows GPU milliseconds per render pass. Watch the <em>BasePass</em> row for opaque material cost and <em>Translucency</em> for particle/glass overdraw</span></div><div class="row"><span class="row-label"><code>Material Stats panel</code></span><span class="row-text">Inside the Material Editor (Window → Stats) — shows instruction counts and sampler usage per quality level and shader permutation before you close the editor</span></div><div class="row"><span class="row-label"><code>Shader Complexity View</code></span><span class="row-text">Editor viewport display mode — enables at-a-glance overdraw and per-pixel complexity identification across the entire scene</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Instruction Count Tiers</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>&lt;30 instructions</strong> — lightweight; suitable for mobile and high-density meshes</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>30–100 instructions</strong> — acceptable for hero/foreground meshes on PC/console</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>100–200 instructions</strong> — expensive; only for primary character or cinematic materials</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>&gt;200 instructions</strong> — only acceptable in offline/cinematic contexts; optimize aggressively</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Sampler &amp; Permutation Cost</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Texture samples</strong> — each adds a memory fetch stall; mobile hard cap is 16 samplers per shader</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Static Switch</strong> nodes double permutation count per switch — minimize them; use <code>DynamicBranch</code> for runtime toggles</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Translucency</strong> — most expensive blend mode due to overdraw; avoid on large screen-covering surfaces</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Pack textures</strong> — store Roughness in R, Metallic in G, AO in B of one texture to save sampler slots</span></div></div></div>
+</div>
+
+<div id="mat-rules" class="section-label">Material Optimization Rules</div>
+<div class="grid">
+<div class="card green">
+<div class="card-title"><span class="dot"></span> DO — Material Setup</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Fully Rough flag</strong> — enable for non-specular surfaces (rocks, cloth, bark) to remove the GGX specular term entirely</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Material Layers</strong> — build a layer library and reuse; avoid duplicating node networks across materials</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>MaterialFloat type</strong> — use in Custom nodes; automatically adapts precision per platform</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Masked blend mode</strong> — cheaper than Translucent for foliage and fences; uses depth buffer correctly</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Texture channel packing</strong> — R/G/B/A for Rough/Metal/AO/Height saves 3 sampler slots over 4 separate textures</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> AVOID — Common Mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>WPO on dense meshes</strong> — vertex count × per-vertex WPO cost; bake displacement to a low-poly mesh where possible</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Opacity Mask on Opaque blend mode</strong> — use <em>Masked</em> blend mode with the <em>Opacity Mask Clip Value</em> instead</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Complex per-pixel normal math</strong> in Base Pass — bake complex detail normals to a normal map texture</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Per-frame dynamic material parameter updates</strong> from Blueprint — batch updates or use a Material Parameter Collection</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Two Sided</strong> without need — doubles rasterizer cost; use only on foliage/thin surfaces where back-faces are visible</span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Mobile-Specific Rules</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Use half precision</strong> (<code>half</code> / <code>half3</code>) in Custom nodes — significant ALU savings on mobile GPUs</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>ES3.1 feature level</strong> — test with <em>Mobile Preview</em> renderer; some features silently degrade</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No dynamic branching on mobile</strong> — GPU may evaluate both sides regardless; prefer <code>lerp</code> over <code>if</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>16-sampler cap</strong> — count total texture samples (including normal, roughness, opacity) across all nodes</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Dithered LOD transitions</strong> — cheaper than material blending on mobile; avoid per-pixel blend between materials</span></div></div></div>
+</div>
+
+<div id="mat-blend" class="section-label">Blend Mode Cost Reference</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Blend Mode Performance Comparison</div>
+<table><thead><tr><th>Blend Mode</th><th>Depth Write</th><th>Depth Test</th><th>Overdraw Cost</th><th>Use Case</th></tr></thead><tbody><tr><td><code>Opaque</code></td><td>Yes</td><td>Yes</td><td>None — cheapest</td><td>Default for solid surfaces</td></tr><tr><td><code>Masked</code></td><td>Yes</td><td>Yes</td><td>Low — early-out possible</td><td>Foliage, fences, hair cards</td></tr><tr><td><code>Translucent</code></td><td>No</td><td>Yes</td><td>High — full overdraw</td><td>Glass, particles, water surface</td></tr><tr><td><code>Additive</code></td><td>No</td><td>Yes</td><td>Medium — adds to scene</td><td>Fire, sparks, holograms</td></tr><tr><td><code>Modulate</code></td><td>No</td><td>Yes</td><td>Medium — multiplies</td><td>Shadows, overlays, lens effects</td></tr><tr><td><code>AlphaComposite</code></td><td>No</td><td>Yes</td><td>High — pre-mult alpha</td><td>UI, compositing, cinematic FX</td></tr></tbody></table></div>
+</div>
+
+</div>
 
 
   <!-- Footer -->
@@ -253,9 +300,7 @@ Helpers H;
 // ── COPY BUTTONS — prompt boxes AND all code blocks ──
 (function() {
   document.querySelectorAll('.prompt-box, pre').forEach(function(box) {
-    var wrap = box.closest('.card') || box.parentElement;
-    if (!wrap) return;
-    // Position relative so button can be absolute
+    if (!box.closest('.card') && !box.parentElement) return;
     if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
     var btn = document.createElement('button');
     btn.className = 'copy-btn';
@@ -272,9 +317,47 @@ Helpers H;
   });
 })();
 
+// ── MOBILE — hamburger menu ──
+(function() {
+  var toggle  = document.getElementById('menu-toggle');
+  var sidenav = document.getElementById('sidenav');
+  var overlay = document.getElementById('nav-overlay');
+  if (!toggle || !sidenav || !overlay) return;
+
+  function openNav() {
+    sidenav.classList.add('open');
+    overlay.classList.add('open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.textContent = '\u2715'; // ×
+    document.body.style.overflow = 'hidden';
+  }
+  function closeNav() {
+    sidenav.classList.remove('open');
+    overlay.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '&#9776;'; // ☰
+    document.body.style.overflow = '';
+  }
+
+  toggle.addEventListener('click', function() {
+    sidenav.classList.contains('open') ? closeNav() : openNav();
+  });
+  overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeNav();
+  });
+
+  // Close nav when a section link is tapped on mobile
+  sidenav.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 600) closeNav();
+    });
+  });
+})();
+
 // ── SIDENAV — highlight active section on scroll ──
 (function() {
-  var anchors = Array.from(document.querySelectorAll('.section-label[id]'));
+  var anchors  = Array.from(document.querySelectorAll('.section-label[id]'));
   var navLinks = Array.from(document.querySelectorAll('.sidenav-links a[href^="#"]'));
   if (!anchors.length || !navLinks.length) return;
   var observer = new IntersectionObserver(function(entries) {
@@ -289,6 +372,17 @@ Helpers H;
     });
   }, { rootMargin: '-10% 0px -80% 0px' });
   anchors.forEach(function(el) { observer.observe(el); });
+})();
+
+// ── TABLE SCROLL WRAPPER ── (inject .table-scroll wrapper around tables in cards)
+(function() {
+  document.querySelectorAll('.card table').forEach(function(tbl) {
+    if (tbl.parentElement.classList.contains('table-scroll')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'table-scroll';
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(tbl);
+  });
 })();
 </script>
 </body>

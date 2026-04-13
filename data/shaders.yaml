@@ -1,6 +1,6 @@
 meta:
   title: "Shaders — UE5 Shader Cheatsheet"
-  description: "UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards."
+  description: "UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards, and compute optimization."
   active: shaders
   favicon: "⚙️"
   header_tag: "● Shader Files · Compute · TGSM · Platform Guards"
@@ -10,328 +10,488 @@ meta:
     Context: <strong>.usf · .ush · Compute Shaders</strong>
     Target: <strong>SM5 / SM6 / ES3.1</strong>
   anchors:
-    - {id: usf-rules, label: USF / USH}
-    - {id: compute,   label: Compute}
-    - {id: tgsm,      label: TGSM}
-    - {id: reference, label: Reference}
-    - {id: sampling,  label: Sampling}
+    - {id: usf-rules,     label: USF / USH}
+    - {id: compute,       label: Compute}
+    - {id: tgsm,          label: TGSM}
+    - {id: reference,     label: Reference}
+    - {id: sampling,      label: Sampling}
+    - {id: compute-perf,  label: Perf Rules}
+    - {id: dispatch-rules,label: Dispatch}
+    - {id: platform-perf, label: Platform}
 
-sections:
+section_groups:
 
-  # ── SECTION 1: USF / USH RULES ───────────────────────────────────────────
-  - id: usf-rules
-    label: ".usf / .ush File Rules"
-    cards:
+  # ════════════════════════════════════════════════════════════════════════════
+  #  AREA 1 — HLSL REFERENCE
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "HLSL Reference"
+    icon: "⚗"
+    theme: ref
+    sections:
 
-      - color: blue
-        title: "File Structure Basics"
-        content:
-          - type: checklist
-            items:
-              - {icon: ok, html: "Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards"}
-              - {icon: ok, html: "Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header"}
-              - {icon: ok, html: "Declare module macro: <strong><code>YOURMODULE_API</code></strong>"}
-              - {icon: ok, html: "Use <strong>virtual shader path</strong> mapping for plugin custom paths"}
-              - {icon: ok, html: "<code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)"}
+      # ── SECTION 1: USF / USH RULES ─────────────────────────────────────────
+      - id: usf-rules
+        label: ".usf / .ush File Rules"
+        cards:
 
-      - color: orange
-        title: "Include Guard Pattern"
-        content:
-          - type: code
-            src: |
-              // Option A: pragma once
-              #pragma once
+          - color: blue
+            title: "File Structure Basics"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, html: "Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards"}
+                  - {icon: ok, html: "Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header"}
+                  - {icon: ok, html: "Declare module macro: <strong><code>YOURMODULE_API</code></strong>"}
+                  - {icon: ok, html: "Use <strong>virtual shader path</strong> mapping for plugin custom paths"}
+                  - {icon: ok, html: "<code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)"}
 
-              // Option B: traditional guards
-              #ifndef MY_SHADER_COMMON_USH
-              #define MY_SHADER_COMMON_USH
+          - color: orange
+            title: "Include Guard Pattern"
+            content:
+              - type: code
+                src: |
+                  // Option A: pragma once
+                  #pragma once
 
-              #include "/Engine/Public/Platform.ush"
-              #include "/MyPlugin/Private/MyCommon.ush"
+                  // Option B: traditional guards
+                  #ifndef MY_SHADER_COMMON_USH
+                  #define MY_SHADER_COMMON_USH
 
-              // Shared types and helpers here
-              struct FMyData {
-                float3 Position;
-                float  Radius;
-                float  Intensity;
-                uint   Flags;
-              };
+                  #include "/Engine/Public/Platform.ush"
+                  #include "/MyPlugin/Private/MyCommon.ush"
 
-              #endif // MY_SHADER_COMMON_USH
+                  // Shared types and helpers here
+                  struct FMyData {
+                    float3 Position;
+                    float  Radius;
+                    float  Intensity;
+                    uint   Flags;
+                  };
 
-      - color: yellow
-        title: "Platform &amp; Feature Guards"
-        content:
-          - type: code
-            src: |
-              // Feature level guard
-              #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-                // SM5+ only code (compute, UAV, etc.)
-              #endif
+                  #endif // MY_SHADER_COMMON_USH
 
-              // SM6-only features
-              #if FEATURE_LEVEL >= FEATURE_LEVEL_SM6
-                // WaveOps, RayQuery, etc.
-              #endif
+          - color: yellow
+            title: "Platform &amp; Feature Guards"
+            content:
+              - type: code
+                src: |
+                  // Feature level guard
+                  #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+                    // SM5+ only code (compute, UAV, etc.)
+                  #endif
 
-              // Platform-specific
-              #if COMPILER_HLSL
-                // HLSL-specific path
-              #elif COMPILER_GLSL || COMPILER_GLSL_ES3_1
-                // Mobile / OpenGL path
-              #endif
+                  // SM6-only features
+                  #if FEATURE_LEVEL >= FEATURE_LEVEL_SM6
+                    // WaveOps, RayQuery, etc.
+                  #endif
 
-              // Vulkan-specific
-              #if VULKAN_PROFILE
-                // Vulkan workarounds
-              #endif
+                  // Platform-specific
+                  #if COMPILER_HLSL
+                    // HLSL-specific path
+                  #elif COMPILER_GLSL || COMPILER_GLSL_ES3_1
+                    // Mobile / OpenGL path
+                  #endif
 
-  # ── SECTION 2: COMPUTE ───────────────────────────────────────────────────
-  - id: compute
-    label: "Compute Shader Patterns"
-    cards:
+                  // Vulkan-specific
+                  #if VULKAN_PROFILE
+                    // Vulkan workarounds
+                  #endif
 
-      - color: green
-        title: "Compute Shader Entry Point"
-        content:
-          - type: code
-            src: |
-              #include "/Engine/Public/Platform.ush"
-              #include "/MyPlugin/Private/MyCommon.ush"
+      # ── SECTION 2: COMPUTE ─────────────────────────────────────────────────
+      - id: compute
+        label: "Compute Shader Patterns"
+        cards:
 
-              // Thread group sizing
-              #define NUM_THREADS_X 8
-              #define NUM_THREADS_Y 8
+          - color: green
+            title: "Compute Shader Entry Point"
+            content:
+              - type: code
+                src: |
+                  #include "/Engine/Public/Platform.ush"
+                  #include "/MyPlugin/Private/MyCommon.ush"
 
-              // Resource bindings
-              Texture2D<float4>   InputTexture;
-              RWTexture2D<float4> OutputTexture;
-              uint Resolution;
+                  // Thread group sizing
+                  #define NUM_THREADS_X 8
+                  #define NUM_THREADS_Y 8
 
-              [numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
-              void MainCS(
-                  uint3 DispatchThreadID : SV_DispatchThreadID,
-                  uint3 GroupThreadID   : SV_GroupThreadID,
-                  uint3 GroupID         : SV_GroupID)
-              {
-                uint x = DispatchThreadID.x;
-                uint y = DispatchThreadID.y;
-                if (x >= Resolution || y >= Resolution)
-                  return;
+                  // Resource bindings
+                  Texture2D<float4>   InputTexture;
+                  RWTexture2D<float4> OutputTexture;
+                  uint Resolution;
 
-                // Read, process, write
-                float4 Val = InputTexture.Load(int3(x, y, 0));
-                OutputTexture[uint2(x, y)] = Val;
-              }
+                  [numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+                  void MainCS(
+                      uint3 DispatchThreadID : SV_DispatchThreadID,
+                      uint3 GroupThreadID   : SV_GroupThreadID,
+                      uint3 GroupID         : SV_GroupID)
+                  {
+                    uint x = DispatchThreadID.x;
+                    uint y = DispatchThreadID.y;
+                    if (x >= Resolution || y >= Resolution)
+                      return;
 
-      - color: red
-        title: "Compute · Common Mistakes"
-        content:
-          - type: checklist
-            items:
-              - {icon: no,   html: "<strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code>"}
-              - {icon: no,   html: "<strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)"}
-              - {icon: no,   html: "<strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates"}
-              - {icon: no,   html: "<strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes"}
-              - {icon: no,   html: "<strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only"}
-              - {icon: warn, html: "<strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits"}
+                    // Read, process, write
+                    float4 Val = InputTexture.Load(int3(x, y, 0));
+                    OutputTexture[uint2(x, y)] = Val;
+                  }
 
-      - color: blue
-        title: "Resource Types"
-        content:
-          - type: rowlist
-            rows:
-              - {label: "Texture2D<T>",           text: "Read-only texture (SRV)"}
-              - {label: "RWTexture2D<T>",          text: "Read-write texture (UAV)"}
-              - {label: "Buffer<T>",               text: "Read-only typed buffer (SRV)"}
-              - {label: "RWBuffer<T>",             text: "Read-write typed buffer (UAV)"}
-              - {label: "StructuredBuffer<T>",     text: "Read-only structured buffer"}
-              - {label: "RWStructuredBuffer<T>",   text: "Read-write structured buffer"}
-              - {label: "SamplerState",            text: "Texture sampler (bilinear, point, etc.)"}
+          - color: red
+            title: "Compute · Common Mistakes"
+            content:
+              - type: checklist
+                items:
+                  - {icon: no,   html: "<strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code>"}
+                  - {icon: no,   html: "<strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)"}
+                  - {icon: no,   html: "<strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates"}
+                  - {icon: no,   html: "<strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes"}
+                  - {icon: no,   html: "<strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only"}
+                  - {icon: warn, html: "<strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits"}
 
-  # ── SECTION 3: TGSM ──────────────────────────────────────────────────────
-  - id: tgsm
-    label: "Thread Group Shared Memory (TGSM)"
-    cards:
+          - color: blue
+            title: "Resource Types"
+            content:
+              - type: rowlist
+                rows:
+                  - {label: "Texture2D<T>",           text: "Read-only texture (SRV)"}
+                  - {label: "RWTexture2D<T>",          text: "Read-write texture (UAV)"}
+                  - {label: "Buffer<T>",               text: "Read-only typed buffer (SRV)"}
+                  - {label: "RWBuffer<T>",             text: "Read-write typed buffer (UAV)"}
+                  - {label: "StructuredBuffer<T>",     text: "Read-only structured buffer"}
+                  - {label: "RWStructuredBuffer<T>",   text: "Read-write structured buffer"}
+                  - {label: "SamplerState",            text: "Texture sampler (bilinear, point, etc.)"}
 
-      - color: orange
-        title: "TGSM Pattern"
-        content:
-          - type: prose
-            text: "Use <code>groupshared</code> memory to share data between threads in a group, reducing global memory reads:"
-          - type: code
-            src: |
-              // Declare tile cache
-              #define TILE_DIM 10  // 8 + 1-pixel halo each side
-              groupshared float TileCache[TILE_DIM][TILE_DIM];
+      # ── SECTION 3: TGSM ────────────────────────────────────────────────────
+      - id: tgsm
+        label: "Thread Group Shared Memory (TGSM)"
+        cards:
 
-              // 1. Load tile from global memory
-              int2 LoadPos = GroupID.xy * 8
-                + GroupThreadID.xy - 1;  // halo offset
-              LoadPos = clamp(LoadPos,
-                int2(0,0), int2(Res-1,Res-1));
-              TileCache[GroupThreadID.y][GroupThreadID.x]
-                = SourceGrid.Load(int3(LoadPos, 0)).r;
+          - color: orange
+            title: "TGSM Pattern"
+            content:
+              - type: prose
+                text: "Use <code>groupshared</code> memory to share data between threads in a group, reducing global memory reads:"
+              - type: code
+                src: |
+                  // Declare tile cache
+                  #define TILE_DIM 10  // 8 + 1-pixel halo each side
+                  groupshared float TileCache[TILE_DIM][TILE_DIM];
 
-              // 2. Sync all threads
-              GroupMemoryBarrierWithGroupSync();
+                  // 1. Load tile from global memory
+                  int2 LoadPos = GroupID.xy * 8
+                    + GroupThreadID.xy - 1;  // halo offset
+                  LoadPos = clamp(LoadPos,
+                    int2(0,0), int2(Res-1,Res-1));
+                  TileCache[GroupThreadID.y][GroupThreadID.x]
+                    = SourceGrid.Load(int3(LoadPos, 0)).r;
 
-              // 3. Read from cache (fast)
-              float Center = TileCache[ly][lx];
-              float Left   = TileCache[ly][lx-1];
-              float Right  = TileCache[ly][lx+1];
+                  // 2. Sync all threads
+                  GroupMemoryBarrierWithGroupSync();
 
-      - color: yellow
-        title: "TGSM Rules"
-        content:
-          - type: checklist
-            items:
-              - {icon: ok,   html: "<strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group"}
-              - {icon: ok,   html: "<strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read"}
-              - {icon: ok,   html: "<strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations"}
-              - {icon: ok,   html: "<strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes"}
-              - {icon: warn, html: "<strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed"}
-              - {icon: warn, html: "<strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads"}
+                  // 3. Read from cache (fast)
+                  float Center = TileCache[ly][lx];
+                  float Left   = TileCache[ly][lx-1];
+                  float Right  = TileCache[ly][lx+1];
 
-      - color: green
-        title: "TGSM Macro Pattern"
-        content:
-          - type: prose
-            text: "Use macros to make TGSM reusable across passes:"
-          - type: code
-            src: |
-              // Declare macro for float tiles
-              #define DECLARE_TILE_CACHE_FLOAT(Name) \
-                groupshared float Name[TILE_DIM][TILE_DIM]
+          - color: yellow
+            title: "TGSM Rules"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group"}
+                  - {icon: ok,   html: "<strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read"}
+                  - {icon: ok,   html: "<strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations"}
+                  - {icon: ok,   html: "<strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes"}
+                  - {icon: warn, html: "<strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed"}
+                  - {icon: warn, html: "<strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads"}
 
-              // Load macro with scroll compensation
-              #define LOAD_TILE_SCROLLED(Cache, Tex, ...) \
-                { /* load with offset + clamp */ \
-                  GroupMemoryBarrierWithGroupSync(); }
+          - color: green
+            title: "TGSM Macro Pattern"
+            content:
+              - type: prose
+                text: "Use macros to make TGSM reusable across passes:"
+              - type: code
+                src: |
+                  // Declare macro for float tiles
+                  #define DECLARE_TILE_CACHE_FLOAT(Name) \
+                    groupshared float Name[TILE_DIM][TILE_DIM]
 
-              // Usage in compute shader
-              DECLARE_TILE_CACHE_FLOAT(SDFCache);
-              LOAD_TILE_SCROLLED(SDFCache, SDFTex, ...);
+                  // Load macro with scroll compensation
+                  #define LOAD_TILE_SCROLLED(Cache, Tex, ...) \
+                    { /* load with offset + clamp */ \
+                      GroupMemoryBarrierWithGroupSync(); }
 
-  # ── SECTION 4: REFERENCE ─────────────────────────────────────────────────
-  - id: reference
-    label: "Quick Reference"
-    cards:
+                  // Usage in compute shader
+                  DECLARE_TILE_CACHE_FLOAT(SDFCache);
+                  LOAD_TILE_SCROLLED(SDFCache, SDFTex, ...);
 
-      - color: blue
-        title: "Feature Level Capabilities"
-        content:
-          - type: table
-            style: feature_matrix
-            cols: ["Feature", "ES3.1", "SM5", "SM6"]
-            rows:
-              - ["Wave Intrinsics",   "✗", "✗", "✓"]
-              - ["RayQuery / DXR",    "✗", "✗", "✓"]
-              - ["ddx / ddy",         "✗", "✓", "✓"]
-              - ["Bindless Resources","✗", "✗", "✓"]
-              - ["half precision",    "✓", "✓", "✓"]
-              - ["Compute / UAV",     "✗", "✓", "✓"]
-              - ["Geometry Shaders",  "✗", "✓", "✓"]
-              - ["TGSM (groupshared)","✗", "✓", "✓"]
-              - ["Typed SRV Buffers", "✗", "✓", "✓"]
+      # ── SECTION 4: REFERENCE ───────────────────────────────────────────────
+      - id: reference
+        label: "Quick Reference"
+        cards:
 
-      - color: orange
-        title: "UE Type Keywords &amp; Hints"
-        content:
-          - type: rowlist
-            rows:
-              - {label: "MaterialFloat", text: "Adapts precision per platform automatically"}
-              - {label: "half / half3",  text: "16-bit — use on mobile for performance"}
-              - {label: "float / float3",text: "32-bit — default for PC / console"}
-              - {label: "BRANCH",        text: "<code>[branch]</code> hint — forces dynamic branching"}
-              - {label: "FLATTEN",       text: "<code>[flatten]</code> hint — forces both paths evaluated"}
-              - {label: "UNROLL",        text: "<code>[unroll]</code> — unroll loop at compile time"}
-              - {label: "LOOP",          text: "<code>[loop]</code> — force dynamic loop (required for dynamic bounds)"}
+          - color: blue
+            title: "Feature Level Capabilities"
+            content:
+              - type: table
+                style: feature_matrix
+                cols: ["Feature", "ES3.1", "SM5", "SM6"]
+                rows:
+                  - ["Wave Intrinsics",   "✗", "✗", "✓"]
+                  - ["RayQuery / DXR",    "✗", "✗", "✓"]
+                  - ["ddx / ddy",         "✗", "✓", "✓"]
+                  - ["Bindless Resources","✗", "✗", "✓"]
+                  - ["half precision",    "✓", "✓", "✓"]
+                  - ["Compute / UAV",     "✗", "✓", "✓"]
+                  - ["Geometry Shaders",  "✗", "✓", "✓"]
+                  - ["TGSM (groupshared)","✗", "✓", "✓"]
+                  - ["Typed SRV Buffers", "✗", "✓", "✓"]
 
-      - color: red
-        title: "Common Shader Errors"
-        content:
-          - type: checklist
-            items:
-              - {icon: no,   html: "Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major"}
-              - {icon: no,   html: "<strong>Missing include guard</strong> — double-include causes redefinition errors"}
-              - {icon: no,   html: "<strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code>"}
-              - {icon: no,   html: "<strong>Uninitialized groupshared</strong> — TGSM is undefined until written"}
-              - {icon: no,   html: "<strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code>"}
-              - {icon: warn, html: "<strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn"}
+          - color: orange
+            title: "UE Type Keywords &amp; Hints"
+            content:
+              - type: rowlist
+                rows:
+                  - {label: "MaterialFloat", text: "Adapts precision per platform automatically"}
+                  - {label: "half / half3",  text: "16-bit — use on mobile for performance"}
+                  - {label: "float / float3",text: "32-bit — default for PC / console"}
+                  - {label: "BRANCH",        text: "<code>[branch]</code> hint — forces dynamic branching"}
+                  - {label: "FLATTEN",       text: "<code>[flatten]</code> hint — forces both paths evaluated"}
+                  - {label: "UNROLL",        text: "<code>[unroll]</code> — unroll loop at compile time"}
+                  - {label: "LOOP",          text: "<code>[loop]</code> — force dynamic loop (required for dynamic bounds)"}
 
-  # ── SECTION 5: SAMPLING ──────────────────────────────────────────────────
-  - id: sampling
-    label: "Texture Sampling &amp; SDF Patterns"
-    cards:
+          - color: red
+            title: "Common Shader Errors"
+            content:
+              - type: checklist
+                items:
+                  - {icon: no,   html: "Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major"}
+                  - {icon: no,   html: "<strong>Missing include guard</strong> — double-include causes redefinition errors"}
+                  - {icon: no,   html: "<strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code>"}
+                  - {icon: no,   html: "<strong>Uninitialized groupshared</strong> — TGSM is undefined until written"}
+                  - {icon: no,   html: "<strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code>"}
+                  - {icon: warn, html: "<strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn"}
 
-      - color: blue
-        title: "Sampling Methods"
-        content:
-          - type: code
-            src: |
-              // Load (integer coords, no filtering)
-              float4 Val = Tex.Load(int3(x, y, 0));
+      # ── SECTION 5: SAMPLING ────────────────────────────────────────────────
+      - id: sampling
+        label: "Texture Sampling &amp; SDF Patterns"
+        cards:
 
-              // SampleLevel (UV coords, explicit mip)
-              float4 Val = Tex.SampleLevel(Sampler, UV, 0);
+          - color: blue
+            title: "Sampling Methods"
+            content:
+              - type: code
+                src: |
+                  // Load (integer coords, no filtering)
+                  float4 Val = Tex.Load(int3(x, y, 0));
 
-              // In Material Custom Node:
-              // Texture2DSample(Tex, TexSampler, UV)
-              // Texture2DSampleLevel(Tex, TexSampler, UV, Lod)
+                  // SampleLevel (UV coords, explicit mip)
+                  float4 Val = Tex.SampleLevel(Sampler, UV, 0);
 
-              // External texture (registered via GUID)
-              int32 TexCode = Compiler->ExternalTexture(GUID);
-              int32 Sample  = Compiler->TextureSample(
-                TexCode, UVCode, SAMPLERTYPE_External);
+                  // In Material Custom Node:
+                  // Texture2DSample(Tex, TexSampler, UV)
+                  // Texture2DSampleLevel(Tex, TexSampler, UV, Lod)
 
-      - color: orange
-        title: "Central-Difference Gradient"
-        content:
-          - type: prose
-            text: "Compute gradient from a scalar field (e.g. SDF distance):"
-          - type: code
-            src: |
-              // Read neighbors
-              float Left  = Grid.Load(int3(max(x-1, 0),      y, 0)).r;
-              float Right = Grid.Load(int3(min(x+1, Res-1),  y, 0)).r;
-              float Up    = Grid.Load(int3(x, max(y-1, 0),      0)).r;
-              float Down  = Grid.Load(int3(x, min(y+1, Res-1),  0)).r;
+                  // External texture (registered via GUID)
+                  int32 TexCode = Compiler->ExternalTexture(GUID);
+                  int32 Sample  = Compiler->TextureSample(
+                    TexCode, UVCode, SAMPLERTYPE_External);
 
-              // Central difference
-              float2 Gradient = float2(Right - Left, Down - Up);
-              float  Len = length(Gradient);
-              if (Len > 0.001)
-                Gradient /= Len;  // Normalize
+          - color: orange
+            title: "Central-Difference Gradient"
+            content:
+              - type: prose
+                text: "Compute gradient from a scalar field (e.g. SDF distance):"
+              - type: code
+                src: |
+                  // Read neighbors
+                  float Left  = Grid.Load(int3(max(x-1, 0),      y, 0)).r;
+                  float Right = Grid.Load(int3(min(x+1, Res-1),  y, 0)).r;
+                  float Up    = Grid.Load(int3(x, max(y-1, 0),      0)).r;
+                  float Down  = Grid.Load(int3(x, min(y+1, Res-1),  0)).r;
 
-              // Output: R=dist, GB=direction, A=mag
-              OutputRT[Pixel] = float4(
-                NormDist, Gradient.x, Gradient.y, Len);
+                  // Central difference
+                  float2 Gradient = float2(Right - Left, Down - Up);
+                  float  Len = length(Gradient);
+                  if (Len > 0.001)
+                    Gradient /= Len;  // Normalize
 
-      - color: green
-        title: "SDF Math Helpers"
-        content:
-          - type: code
-            src: |
-              // Smooth minimum (polynomial blend)
-              float SmoothMin(float a, float b, float k)
-              {
-                if (k <= 0.0) return min(a, b);
-                float h = saturate(0.5 + 0.5 * (b - a) / k);
-                return lerp(b, a, h) - k * h * (1.0 - h);
-              }
+                  // Output: R=dist, GB=direction, A=mag
+                  OutputRT[Pixel] = float4(
+                    NormDist, Gradient.x, Gradient.y, Len);
 
-              // Distance to point
-              float PointDist(float2 P, float2 C, float R)
-              {
-                return length(P - C) - R;
-              }
+          - color: green
+            title: "SDF Math Helpers"
+            content:
+              - type: code
+                src: |
+                  // Smooth minimum (polynomial blend)
+                  float SmoothMin(float a, float b, float k)
+                  {
+                    if (k <= 0.0) return min(a, b);
+                    float h = saturate(0.5 + 0.5 * (b - a) / k);
+                    return lerp(b, a, h) - k * h * (1.0 - h);
+                  }
 
-              // Distance to line segment
-              float SegmentDist(float2 P,
-                  float2 A, float2 B, float R)
-              {
-                float2 AB = B - A;
-                float  t  = saturate(dot(P - A, AB) / dot(AB, AB));
-                return length(P - A - AB * t) - R;
-              }
+                  // Distance to point
+                  float PointDist(float2 P, float2 C, float R)
+                  {
+                    return length(P - C) - R;
+                  }
+
+                  // Distance to line segment
+                  float SegmentDist(float2 P,
+                      float2 A, float2 B, float R)
+                  {
+                    float2 AB = B - A;
+                    float  t  = saturate(dot(P - A, AB) / dot(AB, AB));
+                    return length(P - A - AB * t) - R;
+                  }
+
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  AREA 2 — IN-ENGINE OPTIMIZATION
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "In-Engine Optimization"
+    icon: "⚡"
+    theme: optim
+    sections:
+
+      # ── SECTION 6: COMPUTE PERFORMANCE ────────────────────────────────────
+      - id: compute-perf
+        label: "Compute Shader Performance Rules"
+        cards:
+
+          - color: green
+            title: "Occupancy &amp; ALU"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Target 75%+ GPU occupancy</strong> — reduce register pressure by reusing temporaries and simplifying arithmetic chains"}
+                  - {icon: ok,   html: "<strong>Thread group size 8×8 (64 threads)</strong> — safe on all targets including mobile ES3.1 and SM5 desktop"}
+                  - {icon: warn, html: "<strong>16×16 (256 threads)</strong> — risks exceeding 32KB shared memory limit on some mobile/integrated GPUs; test explicitly"}
+                  - {icon: ok,   html: "<strong>Minimize register use</strong> — declare variables inside loop bodies where possible; fewer live registers = higher occupancy"}
+                  - {icon: warn, html: "<strong>Avoid branch divergence</strong> — if half the threads take each side of an <code>if</code>, you pay 2× the cost; restructure with <code>lerp</code> / <code>select</code>"}
+
+          - color: orange
+            title: "Memory Bandwidth"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>TGSM is the primary bandwidth tool</strong> — load a tile of data once into groupshared, read it many times within the group"}
+                  - {icon: ok,   html: "<strong>Coalesce global reads/writes</strong> — adjacent threads should access adjacent memory addresses (stride-1 access patterns)"}
+                  - {icon: no,   html: "<strong>Scattered UAV writes are slow</strong> — random-address writes break GPU memory coalescing; prefer sorted or sequential indices"}
+                  - {icon: no,   html: "<strong>Never read/write the same UAV in one dispatch</strong> — use ping-pong buffers (read A, write B; next frame swap)"}
+                  - {icon: ok,   html: "<strong>Minimize RW texture round-trips</strong> — avoid dispatches that write a texture and immediately read it in the same pass"}
+
+          - color: blue
+            span: grid-full
+            title: "Thread Group Size Cheat Sheet"
+            content:
+              - type: table
+                style: default
+                cols: ["Size", "Threads", "TGSM Budget", "Recommended For"]
+                rows:
+                  - ["`8×8×1`",   "64",  "~1.6KB float",  "Safe on all targets — textures, SDF, general 2D"]
+                  - ["`8×8×1`",   "64",  "~3.2KB float2", "Gradient / neighbor reads with halo"]
+                  - ["`16×16×1`", "256", "~6.4KB float",  "PC/SM5+ only — larger tiles, reduce dispatch overhead"]
+                  - ["`64×1×1`",  "64",  "—",             "1D passes: histograms, prefix sums, buffer ops"]
+                  - ["`32×1×1`",  "32",  "—",             "Mobile-safe 1D — matches warp/wavefront size"]
+
+      # ── SECTION 7: DISPATCH & RESOURCE RULES ──────────────────────────────
+      - id: dispatch-rules
+        label: "Dispatch &amp; Resource Rules"
+        grid: "grid grid-2"
+        cards:
+
+          - color: orange
+            span: grid-full
+            title: "Dispatch Setup Rules"
+            content:
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "Dispatch size", text: "<code>ceil(Resolution / ThreadGroupSize)</code> — never dispatch without a bounds check inside the shader; out-of-bounds threads must return early"}
+                  - {label: "Ping-pong buffers", text: "Never read and write the same UAV in a single dispatch — use two separate buffers (A and B) and swap which one is read vs written each frame"}
+                  - {label: "Async compute", text: "Overlap GPU work (e.g. shadow depth pass + simulation) using the async compute queue — reduces overall frame latency without extra CPU cost"}
+                  - {label: "RDG resources", text: "Use <code>FRDGBuilder</code> to declare textures and buffers — the Render Dependency Graph handles barrier insertion and lifetime automatically"}
+                  - {label: "Indirect dispatch", text: "Use when dispatch dimensions are determined on the GPU (e.g. particle counts) — avoids an expensive CPU readback stall"}
+
+          - color: yellow
+            title: "RDG (Render Dependency Graph) Patterns"
+            content:
+              - type: prose
+                text: "UE5 native render pass system — always prefer RDG over manual render commands:"
+              - type: code
+                src: |
+                  // Declare RDG texture
+                  FRDGTextureRef OutputTex = GraphBuilder.CreateTexture(
+                    FRDGTextureDesc::Create2D(
+                      FIntPoint(Width, Height),
+                      PF_FloatRGBA,
+                      FClearValueBinding::Black,
+                      TexCreate_UAV | TexCreate_ShaderResource),
+                    TEXT("MyOutputTexture"));
+
+                  // Pass parameters
+                  FMyShaderParameters* PassParams =
+                    GraphBuilder.AllocParameters<FMyShaderParameters>();
+                  PassParams->OutputTexture =
+                    GraphBuilder.CreateUAV(OutputTex);
+
+                  // Add compute pass
+                  GraphBuilder.AddPass(
+                    RDG_EVENT_NAME("MyComputePass"),
+                    PassParams,
+                    ERDGPassFlags::Compute,
+                    [PassParams, Width, Height](FRHIComputeCommandList& RHICmdList)
+                    {
+                      // Dispatch here
+                    });
+
+          - color: blue
+            title: "Profiling Compute Shaders"
+            content:
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "stat gpu", text: "Console command — shows GPU time per pass; look for your pass name from <code>RDG_EVENT_NAME</code>"}
+                  - {label: "RenderDoc", text: "Frame capture tool — inspect every dispatch, view UAV contents, check thread occupancy"}
+                  - {label: "GPU Insights (5.4+)", text: "Built-in Unreal Insights GPU view — shows compute pass durations on a timeline"}
+                  - {label: "r.RDG.Debug 1", text: "Enables RDG validation — catches missing barriers, resource aliasing, and UAV hazards"}
+                  - {label: "profilegpu", text: "Console command — dumps per-pass GPU timings to the output log"}
+
+      # ── SECTION 8: PLATFORM PERFORMANCE ───────────────────────────────────
+      - id: platform-perf
+        label: "Platform-Specific Performance Notes"
+        cards:
+
+          - color: blue
+            title: "SM5 / SM6 Desktop"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed"}
+                  - {icon: ok,   html: "<strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan"}
+                  - {icon: ok,   html: "<strong>16×16 thread groups safe</strong> — desktop GPUs have ≥32KB shared memory and high register files"}
+                  - {icon: warn, html: "<strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6"}
+
+          - color: orange
+            title: "Mobile (ES3.1)"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at 2× the throughput of 32-bit"}
+                  - {icon: no,   html: "<strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only"}
+                  - {icon: no,   html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives"}
+                  - {icon: warn, html: "<strong>16 sampler cap</strong> — total texture samples (all stages) must stay under 16 on most mobile GPUs"}
+                  - {icon: warn, html: "<strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device"}
+
+          - color: yellow
+            title: "Vulkan / Metal Specifics"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)"}
+                  - {icon: warn, html: "<strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions"}
+                  - {icon: warn, html: "<strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction"}
+                  - {icon: ok,   html: "<strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes"}

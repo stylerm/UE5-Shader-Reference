@@ -4,9 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules.">
+<meta name="description" content="UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules, and in-engine optimization best practices.">
 <meta property="og:title" content="Niagara — UE5 Shader Cheatsheet">
-<meta property="og:description" content="UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules.">
+<meta property="og:description" content="UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules, and in-engine optimization best practices.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
 <title>Niagara — UE5 Shader Cheatsheet</title>
@@ -17,8 +17,11 @@
 </head>
 <body>
 
+<!-- ── MOBILE NAV OVERLAY ── -->
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
 <!-- ── SIDE NAV ── -->
-<nav class="sidenav">
+<nav class="sidenav" id="sidenav" aria-label="Site navigation">
   <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
   <div class="sidenav-links">
 <a href="index.html">HOME</a>
@@ -35,13 +38,19 @@
 <a href="#stateless">Stateless</a>
 <a href="#attributes">Attributes</a>
 <a href="#patterns">Patterns</a>
+<a href="#perf-tiers">Perf Tiers</a>
+<a href="#gpu-vs-cpu">GPU vs CPU</a>
+<a href="#perf-rules">Optim Rules</a>
+<a href="#scalability">Scalability</a>
   </div>
 </nav>
 
 <div class="page">
 
   <!-- Sticky topbar -->
-  <nav class="topbar">
+  <nav class="topbar" aria-label="Page controls">
+    <!-- Hamburger — only visible on mobile via CSS -->
+    <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidenav">&#9776;</button>
     <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
     <span class="topbar-spacer"></span>
     <a class="gh-link" href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">
@@ -63,6 +72,8 @@
     </div>
   </div>
 
+<div class="area area-ref">
+<div class="area-heading">⚗ HLSL Reference</div>
 <div id="scratch-pad" class="section-label">Scratch Pad Module HLSL</div>
 <div class="grid">
 <div class="card blue">
@@ -85,14 +96,14 @@ OutColor    = <span class="kw">float4</span>(1,0,0,1);        <span class="c">//
 <span class="c">// No return, no OutputParameters — output pins are the writes</span></pre></div>
 <div class="card green">
 <div class="card-title"><span class="dot"></span> Niagara Random Intrinsics</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Niagara provides seeded random functions (not HLSL standard):</p><div class="row-list"><div class="row"><span class="row-label"><code>RandomUInt(seed)</code></span>Seeded random integer — deterministic per particle</div><div class="row"><span class="row-label"><code>RandomFloat(seed)</code></span>Seeded random float [0,1]</div><div class="row"><span class="row-label"><code>RandomUnitFloat3(seed)</code></span>Random direction on unit sphere</div><div class="row"><span class="row-label"><code>Particles.UniqueID</code></span>Bind to an input pin; use as hash seed for per-particle randomness</div></div></div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Niagara provides seeded random functions (not HLSL standard):</p><div class="row-list"><div class="row"><span class="row-label"><code>RandomUInt(seed)</code></span><span class="row-text">Seeded random integer — deterministic per particle</span></div><div class="row"><span class="row-label"><code>RandomFloat(seed)</code></span><span class="row-text">Seeded random float [0,1]</span></div><div class="row"><span class="row-label"><code>RandomUnitFloat3(seed)</code></span><span class="row-text">Random direction on unit sphere</span></div><div class="row"><span class="row-label"><code>Particles.UniqueID</code></span><span class="row-text">Bind to an input pin; use as hash seed for per-particle randomness</span></div></div></div>
 </div>
 
 <div id="restrictions" class="section-label">Restrictions &amp; Things to Avoid</div>
 <div class="grid">
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Niagara HLSL · Never Do This</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>No raw <code>Texture2DSample()</code></strong> calls in Scratch Pad HLSL — use the <strong>Texture Sample Data Interface</strong> module instead; it wraps the texture correctly for GPU sim</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>No raw <code>Texture2DSample()</code></strong> calls in Scratch Pad HLSL — use the <strong>Texture Sample Data Interface</strong> module instead; it wraps the texture correctly for GPU sim</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only</span></div></div></div>
 <div class="card yellow">
 <div class="card-title"><span class="dot"></span> Simulation vs Render Stage</div>
 <div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Simulation HLSL</strong> (Spawn/Update) runs as <strong>compute</strong> — no raw texture calls in HLSL, no derivatives; use Texture Sample <em>Data Interface</em> for texture access</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Render HLSL</strong> (Particle Render) differs from simulation HLSL — different available functions</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Data Interface HLSL</strong> runs in its own context — check DI docs for available functions</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection</span></div></div></div>
@@ -198,6 +209,59 @@ Particle.MeshOrientation =
 <div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads</span></div></div></div>
 </div>
 
+</div>
+<div class="area area-optim">
+<div class="area-heading">⚡ In-Engine Optimization</div>
+<div id="perf-tiers" class="section-label">Performance Tiers at a Glance</div>
+<div class="grid">
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Tier 1 — Effectively Free</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Combine emitters</strong> — 1 emitter × 1000 particles beats 10 emitters × 100 (fewer VM invokes / GPU dispatches)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Fixed Bounds</strong> — enable in System settings to prevent dynamic bounding box recomputation every frame</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Always stop unused systems</strong> — looping systems that are invisible still consume GPU dispatch and CPU overhead</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Effect Type asset</strong> — attach one to every system; enables budget-based culling with zero per-frame cost</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Tier 2 — Cheap Wins</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>LOD via Scalability</strong> — configure Low / Medium / High / Epic / Cinematic quality levels in Effect Type</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Distance culling</strong> — particles 2× farther away cost ~4× less fill rate; set aggressive cull distances</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Texture atlasing</strong> — pack 4×4 SubUV frames into one atlas; drive with SubUV Animation module to cut draw calls</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Translucency budget &lt;3ms</strong> — monitor with <code>stat gpu</code>; translucency is the first budget to watch</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Tier 3 — Expensive</div>
+<div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Per-particle collision</strong> — each particle traces a scene query; keep counts low or use Scene Depth approximation</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Light emission</strong> — only available on CPU sims; each particle light adds a shadow-casting draw call overhead</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Many dynamic material params</strong> — per-emitter material parameter updates flush batching</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Full-screen translucent sprites</strong> — overdraw × material cost multiplies; minimize screen coverage</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Tier 4 — Very Expensive</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Unbounded GPU sims &gt;1M particles</strong> — without fixed bounds, culling is unreliable and memory grows unbounded</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Translucent overdraw &gt;5× deep</strong> — the same pixel drawn 5–10 times = 5–10× material cost; use cutout masks instead</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>&gt;10 active emitters per actor</strong> — each emitter is a separate compute dispatch; batch aggressively</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target device early</span></div></div></div>
+</div>
+
+<div id="gpu-vs-cpu" class="section-label">GPU vs CPU Simulation</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> When to Use GPU vs CPU</div>
+<table><thead><tr><th>Decision Factor</th><th>CPU Simulation</th><th>GPU Simulation</th></tr></thead><tbody><tr><td>Particle count sweet spot</td><td>1 – 100</td><td>100+ (thousands to millions)</td></tr><tr><td>Collision &amp; gameplay events</td><td>Yes — full scene query support</td><td>No — compute only, no callbacks</td></tr><tr><td>Light emission</td><td>Yes</td><td>No</td></tr><tr><td>Module feature set</td><td>Full — all Niagara modules</td><td>Limited — compute-compatible only</td></tr><tr><td>Texture sampling</td><td>Via Data Interface</td><td>Via Texture Sample DI only</td></tr><tr><td>Per-frame CPU thread cost</td><td>Scales with particle count</td><td>Near-zero (async GPU dispatch)</td></tr><tr><td>Memory pressure</td><td>System RAM</td><td>VRAM — watch on mobile/consoles</td></tr><tr><td>Offline / deterministic render</td><td>Yes — CPU path available</td><td>GPU path only (non-deterministic)</td></tr></tbody></table></div>
+</div>
+
+<div id="perf-rules" class="section-label">Optimization Rules</div>
+<div class="grid">
+<div class="card green">
+<div class="card-title"><span class="dot"></span> DO — Emitter &amp; System</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Enable Fixed Bounds</strong> in System settings — prevents GPU particles from disappearing when emitter actor is off-screen</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Batch emitters</strong> — combine emitters that share the same material into one emitter with SubUV variation</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Atlas textures</strong> — 4×4 SubUV atlas = 16 visual variations, 1 draw call</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Effect Type asset</strong> — define per-quality budgets once and reuse across all systems in the project</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Deactivate off-screen systems</strong> — use Significance Handler to pause systems beyond a set distance</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> AVOID — Emitter &amp; Render</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Never-ending loops without culling</strong> — idle GPU dispatches drain budget even when nothing is visible</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Full-screen translucent quads</strong> — overdraw × material cost is your largest GPU risk</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Dynamic bounding boxes</strong> — force GPU to re-derive bounds every frame; switch to Fixed Bounds for stable sims</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Translucency &gt;3ms total</strong> — monitor with <code>stat gpu</code> or GPU Insights (UE 5.4+); translucency is additive across all effects</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>No Significance Handler without Effect Type</strong> — budget overruns go unmanaged; add Effect Type first</span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Overdraw Reduction</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Cutout / alpha erosion masks</strong> — replaces full rectangular sprite with shaped cutout, drastically reducing covered pixels</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Reduce particle size</strong> — smaller screen footprint = less fill; pair with higher emitter count if needed</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Distance-based transparency fade</strong> — fade particles out before they're too small to be meaningful</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Avoid Lit translucency on small particles</strong> — Unlit is significantly cheaper; reserve Lit for hero VFX only</span></div></div></div>
+</div>
+
+<div id="scalability" class="section-label">Scalability &amp; Effect Types</div>
+<div class="grid grid-2">
+<div class="card orange grid-full">
+<div class="card-title"><span class="dot"></span> Effect Type Asset — Budget Controls</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">The <strong>Effect Type</strong> is a global scalability asset — create one, attach it to every Niagara System via System settings, then configure these per-quality-level budgets:</p><div class="row-list stacked"><div class="row"><span class="row-label"><code>Max Global Budget Usage</code></span><span class="row-text">Cull entire systems once the total Niagara ms budget across the scene is exceeded — the most important setting to set</span></div><div class="row"><span class="row-label"><code>Max Distance Scale</code></span><span class="row-text">Shrinks cull distance proportionally as the budget fills — near-full budget = more aggressive distance culling automatically</span></div><div class="row"><span class="row-label"><code>Max Instance Count Scale</code></span><span class="row-text">Globally scales down simultaneous particle system instances across all systems that share this Effect Type</span></div><div class="row"><span class="row-label"><code>Max System Instance Count</code></span><span class="row-text">Per-system instance cap — prevents any one effect from monopolising the budget at the expense of others</span></div><div class="row"><span class="row-label"><code>Scalability levels</code></span><span class="row-text">Low / Medium / High / Epic / Cinematic — configure per-level behaviour in <strong>Project Settings → Niagara</strong></span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Significance Handler</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Significance Handler</strong> determines <em>which</em> systems stay active when over budget — closest / most visible effects survive</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Assign a <strong>Significance Handler asset</strong> in the Effect Type — default handler sorts by distance</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Custom handlers can weight by screen size, gameplay importance, or camera proximity</span></div><div class="check-item"><span class="check-icon warn">!</span><span>Without an Effect Type, the Significance Handler has no budget thresholds to react to — both must be configured</span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Profiling Tools</div>
+<div class="row-list stacked"><div class="row"><span class="row-label"><code>stat gpu</code></span><span class="row-text">Console command — shows GPU ms per pass; watch the <em>Translucency</em> and <em>ParticleSimulation</em> rows specifically</span></div><div class="row"><span class="row-label"><code>GPU Insights (UE 5.4+)</code></span><span class="row-text">Visual GPU profiler inside Unreal Insights — shows per-system and per-material GPU time on a timeline</span></div><div class="row"><span class="row-label"><code>Niagara Debugger</code></span><span class="row-text">Window → Niagara Debugger — live particle counts, active systems, budget usage per system while in PIE</span></div><div class="row"><span class="row-label"><code>viewmode shadercomplexity</code></span><span class="row-text">Viewport display mode — visualizes per-pixel instruction cost; target green on all particle materials</span></div><div class="row"><span class="row-label"><code>r.Niagara.GPUCmdBufSafety 1</code></span><span class="row-text">Enables extra GPU safety checks in development builds — disable for shipping builds</span></div></div></div>
+</div>
+
+</div>
 
 
   <!-- Footer -->
@@ -248,9 +312,7 @@ Particle.MeshOrientation =
 // ── COPY BUTTONS — prompt boxes AND all code blocks ──
 (function() {
   document.querySelectorAll('.prompt-box, pre').forEach(function(box) {
-    var wrap = box.closest('.card') || box.parentElement;
-    if (!wrap) return;
-    // Position relative so button can be absolute
+    if (!box.closest('.card') && !box.parentElement) return;
     if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
     var btn = document.createElement('button');
     btn.className = 'copy-btn';
@@ -267,9 +329,47 @@ Particle.MeshOrientation =
   });
 })();
 
+// ── MOBILE — hamburger menu ──
+(function() {
+  var toggle  = document.getElementById('menu-toggle');
+  var sidenav = document.getElementById('sidenav');
+  var overlay = document.getElementById('nav-overlay');
+  if (!toggle || !sidenav || !overlay) return;
+
+  function openNav() {
+    sidenav.classList.add('open');
+    overlay.classList.add('open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.textContent = '\u2715'; // ×
+    document.body.style.overflow = 'hidden';
+  }
+  function closeNav() {
+    sidenav.classList.remove('open');
+    overlay.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '&#9776;'; // ☰
+    document.body.style.overflow = '';
+  }
+
+  toggle.addEventListener('click', function() {
+    sidenav.classList.contains('open') ? closeNav() : openNav();
+  });
+  overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeNav();
+  });
+
+  // Close nav when a section link is tapped on mobile
+  sidenav.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 600) closeNav();
+    });
+  });
+})();
+
 // ── SIDENAV — highlight active section on scroll ──
 (function() {
-  var anchors = Array.from(document.querySelectorAll('.section-label[id]'));
+  var anchors  = Array.from(document.querySelectorAll('.section-label[id]'));
   var navLinks = Array.from(document.querySelectorAll('.sidenav-links a[href^="#"]'));
   if (!anchors.length || !navLinks.length) return;
   var observer = new IntersectionObserver(function(entries) {
@@ -284,6 +384,17 @@ Particle.MeshOrientation =
     });
   }, { rootMargin: '-10% 0px -80% 0px' });
   anchors.forEach(function(el) { observer.observe(el); });
+})();
+
+// ── TABLE SCROLL WRAPPER ── (inject .table-scroll wrapper around tables in cards)
+(function() {
+  document.querySelectorAll('.card table').forEach(function(tbl) {
+    if (tbl.parentElement.classList.contains('table-scroll')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'table-scroll';
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(tbl);
+  });
 })();
 </script>
 </body>

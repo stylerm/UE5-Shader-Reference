@@ -4,9 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards.">
+<meta name="description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards, and compute optimization.">
 <meta property="og:title" content="Shaders — UE5 Shader Cheatsheet">
-<meta property="og:description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards.">
+<meta property="og:description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards, and compute optimization.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
 <title>Shaders — UE5 Shader Cheatsheet</title>
@@ -17,8 +17,11 @@
 </head>
 <body>
 
+<!-- ── MOBILE NAV OVERLAY ── -->
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+
 <!-- ── SIDE NAV ── -->
-<nav class="sidenav">
+<nav class="sidenav" id="sidenav" aria-label="Site navigation">
   <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
   <div class="sidenav-links">
 <a href="index.html">HOME</a>
@@ -35,13 +38,18 @@
 <a href="#tgsm">TGSM</a>
 <a href="#reference">Reference</a>
 <a href="#sampling">Sampling</a>
+<a href="#compute-perf">Perf Rules</a>
+<a href="#dispatch-rules">Dispatch</a>
+<a href="#platform-perf">Platform</a>
   </div>
 </nav>
 
 <div class="page">
 
   <!-- Sticky topbar -->
-  <nav class="topbar">
+  <nav class="topbar" aria-label="Page controls">
+    <!-- Hamburger — only visible on mobile via CSS -->
+    <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidenav">&#9776;</button>
     <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
     <span class="topbar-spacer"></span>
     <a class="gh-link" href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">
@@ -63,6 +71,8 @@
     </div>
   </div>
 
+<div class="area area-ref">
+<div class="area-heading">⚗ HLSL Reference</div>
 <div id="usf-rules" class="section-label">.usf / .ush File Rules</div>
 <div class="grid">
 <div class="card blue">
@@ -147,10 +157,10 @@
 }</pre></div>
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Compute · Common Mistakes</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div></div></div>
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> Resource Types</div>
-<div class="row-list"><div class="row"><span class="row-label"><code>Texture2D<T></code></span>Read-only texture (SRV)</div><div class="row"><span class="row-label"><code>RWTexture2D<T></code></span>Read-write texture (UAV)</div><div class="row"><span class="row-label"><code>Buffer<T></code></span>Read-only typed buffer (SRV)</div><div class="row"><span class="row-label"><code>RWBuffer<T></code></span>Read-write typed buffer (UAV)</div><div class="row"><span class="row-label"><code>StructuredBuffer<T></code></span>Read-only structured buffer</div><div class="row"><span class="row-label"><code>RWStructuredBuffer<T></code></span>Read-write structured buffer</div><div class="row"><span class="row-label"><code>SamplerState</code></span>Texture sampler (bilinear, point, etc.)</div></div></div>
+<div class="row-list"><div class="row"><span class="row-label"><code>Texture2D<T></code></span><span class="row-text">Read-only texture (SRV)</span></div><div class="row"><span class="row-label"><code>RWTexture2D<T></code></span><span class="row-text">Read-write texture (UAV)</span></div><div class="row"><span class="row-label"><code>Buffer<T></code></span><span class="row-text">Read-only typed buffer (SRV)</span></div><div class="row"><span class="row-label"><code>RWBuffer<T></code></span><span class="row-text">Read-write typed buffer (UAV)</span></div><div class="row"><span class="row-label"><code>StructuredBuffer<T></code></span><span class="row-text">Read-only structured buffer</span></div><div class="row"><span class="row-label"><code>RWStructuredBuffer<T></code></span><span class="row-text">Read-write structured buffer</span></div><div class="row"><span class="row-label"><code>SamplerState</code></span><span class="row-text">Texture sampler (bilinear, point, etc.)</span></div></div></div>
 </div>
 
 <div id="tgsm" class="section-label">Thread Group Shared Memory (TGSM)</div>
@@ -202,10 +212,10 @@ TileCache[GroupThreadID.y][GroupThreadID.x]
 <table><thead><tr><th>Feature</th><th>ES3.1</th><th>SM5</th><th>SM6</th></tr></thead><tbody><tr><td><strong>Wave Intrinsics</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>RayQuery / DXR</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>ddx / ddy</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Bindless Resources</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>half precision</strong></td><td class="good">✓</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Compute / UAV</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Geometry Shaders</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>TGSM (groupshared)</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Typed SRV Buffers</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr></tbody></table></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> UE Type Keywords &amp; Hints</div>
-<div class="row-list"><div class="row"><span class="row-label"><code>MaterialFloat</code></span>Adapts precision per platform automatically</div><div class="row"><span class="row-label"><code>half / half3</code></span>16-bit — use on mobile for performance</div><div class="row"><span class="row-label"><code>float / float3</code></span>32-bit — default for PC / console</div><div class="row"><span class="row-label"><code>BRANCH</code></span><code>[branch]</code> hint — forces dynamic branching</div><div class="row"><span class="row-label"><code>FLATTEN</code></span><code>[flatten]</code> hint — forces both paths evaluated</div><div class="row"><span class="row-label"><code>UNROLL</code></span><code>[unroll]</code> — unroll loop at compile time</div><div class="row"><span class="row-label"><code>LOOP</code></span><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</div></div></div>
+<div class="row-list"><div class="row"><span class="row-label"><code>MaterialFloat</code></span><span class="row-text">Adapts precision per platform automatically</span></div><div class="row"><span class="row-label"><code>half / half3</code></span><span class="row-text">16-bit — use on mobile for performance</span></div><div class="row"><span class="row-label"><code>float / float3</code></span><span class="row-text">32-bit — default for PC / console</span></div><div class="row"><span class="row-label"><code>BRANCH</code></span><span class="row-text"><code>[branch]</code> hint — forces dynamic branching</span></div><div class="row"><span class="row-label"><code>FLATTEN</code></span><span class="row-text"><code>[flatten]</code> hint — forces both paths evaluated</span></div><div class="row"><span class="row-label"><code>UNROLL</code></span><span class="row-text"><code>[unroll]</code> — unroll loop at compile time</span></div><div class="row"><span class="row-label"><code>LOOP</code></span><span class="row-text"><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</span></div></div></div>
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Common Shader Errors</div>
-<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div></div></div>
 </div>
 
 <div id="sampling" class="section-label">Texture Sampling &amp; SDF Patterns</div>
@@ -269,6 +279,72 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
 }</pre></div>
 </div>
 
+</div>
+<div class="area area-optim">
+<div class="area-heading">⚡ In-Engine Optimization</div>
+<div id="compute-perf" class="section-label">Compute Shader Performance Rules</div>
+<div class="grid">
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Occupancy &amp; ALU</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Target 75%+ GPU occupancy</strong> — reduce register pressure by reusing temporaries and simplifying arithmetic chains</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Thread group size 8×8 (64 threads)</strong> — safe on all targets including mobile ES3.1 and SM5 desktop</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>16×16 (256 threads)</strong> — risks exceeding 32KB shared memory limit on some mobile/integrated GPUs; test explicitly</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Minimize register use</strong> — declare variables inside loop bodies where possible; fewer live registers = higher occupancy</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Avoid branch divergence</strong> — if half the threads take each side of an <code>if</code>, you pay 2× the cost; restructure with <code>lerp</code> / <code>select</code></span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Memory Bandwidth</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>TGSM is the primary bandwidth tool</strong> — load a tile of data once into groupshared, read it many times within the group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Coalesce global reads/writes</strong> — adjacent threads should access adjacent memory addresses (stride-1 access patterns)</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Scattered UAV writes are slow</strong> — random-address writes break GPU memory coalescing; prefer sorted or sequential indices</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Never read/write the same UAV in one dispatch</strong> — use ping-pong buffers (read A, write B; next frame swap)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Minimize RW texture round-trips</strong> — avoid dispatches that write a texture and immediately read it in the same pass</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Thread Group Size Cheat Sheet</div>
+<table><thead><tr><th>Size</th><th>Threads</th><th>TGSM Budget</th><th>Recommended For</th></tr></thead><tbody><tr><td><code>8×8×1</code></td><td>64</td><td>~1.6KB float</td><td>Safe on all targets — textures, SDF, general 2D</td></tr><tr><td><code>8×8×1</code></td><td>64</td><td>~3.2KB float2</td><td>Gradient / neighbor reads with halo</td></tr><tr><td><code>16×16×1</code></td><td>256</td><td>~6.4KB float</td><td>PC/SM5+ only — larger tiles, reduce dispatch overhead</td></tr><tr><td><code>64×1×1</code></td><td>64</td><td>—</td><td>1D passes: histograms, prefix sums, buffer ops</td></tr><tr><td><code>32×1×1</code></td><td>32</td><td>—</td><td>Mobile-safe 1D — matches warp/wavefront size</td></tr></tbody></table></div>
+</div>
+
+<div id="dispatch-rules" class="section-label">Dispatch &amp; Resource Rules</div>
+<div class="grid grid-2">
+<div class="card orange grid-full">
+<div class="card-title"><span class="dot"></span> Dispatch Setup Rules</div>
+<div class="row-list stacked"><div class="row"><span class="row-label"><code>Dispatch size</code></span><span class="row-text"><code>ceil(Resolution / ThreadGroupSize)</code> — never dispatch without a bounds check inside the shader; out-of-bounds threads must return early</span></div><div class="row"><span class="row-label"><code>Ping-pong buffers</code></span><span class="row-text">Never read and write the same UAV in a single dispatch — use two separate buffers (A and B) and swap which one is read vs written each frame</span></div><div class="row"><span class="row-label"><code>Async compute</code></span><span class="row-text">Overlap GPU work (e.g. shadow depth pass + simulation) using the async compute queue — reduces overall frame latency without extra CPU cost</span></div><div class="row"><span class="row-label"><code>RDG resources</code></span><span class="row-text">Use <code>FRDGBuilder</code> to declare textures and buffers — the Render Dependency Graph handles barrier insertion and lifetime automatically</span></div><div class="row"><span class="row-label"><code>Indirect dispatch</code></span><span class="row-text">Use when dispatch dimensions are determined on the GPU (e.g. particle counts) — avoids an expensive CPU readback stall</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> RDG (Render Dependency Graph) Patterns</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">UE5 native render pass system — always prefer RDG over manual render commands:</p><pre><span class="c">// Declare RDG texture</span>
+FRDGTextureRef OutputTex = GraphBuilder.<span class="fn">CreateTexture</span>(
+  FRDGTextureDesc::<span class="fn">Create2D</span>(
+    <span class="fn">FIntPoint</span>(Width, Height),
+    PF_FloatRGBA,
+    FClearValueBinding::Black,
+    TexCreate_UAV | TexCreate_ShaderResource),
+  <span class="fn">TEXT</span>(&quot;MyOutputTexture&quot;));
+
+<span class="c">// Pass parameters</span>
+FMyShaderParameters* PassParams =
+  GraphBuilder.AllocParameters&lt;FMyShaderParameters&gt;();
+PassParams-&gt;OutputTexture =
+  GraphBuilder.<span class="fn">CreateUAV</span>(OutputTex);
+
+<span class="c">// Add compute pass</span>
+GraphBuilder.<span class="fn">AddPass</span>(
+  <span class="fn">RDG_EVENT_NAME</span>(&quot;MyComputePass&quot;),
+  PassParams,
+  ERDGPassFlags::Compute,
+  [PassParams, Width, Height](FRHIComputeCommandList&amp; RHICmdList)
+  {
+    <span class="c">// Dispatch here</span>
+  });</pre></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Profiling Compute Shaders</div>
+<div class="row-list stacked"><div class="row"><span class="row-label"><code>stat gpu</code></span><span class="row-text">Console command — shows GPU time per pass; look for your pass name from <code>RDG_EVENT_NAME</code></span></div><div class="row"><span class="row-label"><code>RenderDoc</code></span><span class="row-text">Frame capture tool — inspect every dispatch, view UAV contents, check thread occupancy</span></div><div class="row"><span class="row-label"><code>GPU Insights (5.4+)</code></span><span class="row-text">Built-in Unreal Insights GPU view — shows compute pass durations on a timeline</span></div><div class="row"><span class="row-label"><code>r.RDG.Debug 1</code></span><span class="row-text">Enables RDG validation — catches missing barriers, resource aliasing, and UAV hazards</span></div><div class="row"><span class="row-label"><code>profilegpu</code></span><span class="row-text">Console command — dumps per-pass GPU timings to the output log</span></div></div></div>
+</div>
+
+<div id="platform-perf" class="section-label">Platform-Specific Performance Notes</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> SM5 / SM6 Desktop</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>16×16 thread groups safe</strong> — desktop GPUs have ≥32KB shared memory and high register files</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Mobile (ES3.1)</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at 2× the throughput of 32-bit</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>16 sampler cap</strong> — total texture samples (all stages) must stay under 16 on most mobile GPUs</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Vulkan / Metal Specifics</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes</span></div></div></div>
+</div>
+
+</div>
 
 
   <!-- Footer -->
@@ -319,9 +395,7 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
 // ── COPY BUTTONS — prompt boxes AND all code blocks ──
 (function() {
   document.querySelectorAll('.prompt-box, pre').forEach(function(box) {
-    var wrap = box.closest('.card') || box.parentElement;
-    if (!wrap) return;
-    // Position relative so button can be absolute
+    if (!box.closest('.card') && !box.parentElement) return;
     if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
     var btn = document.createElement('button');
     btn.className = 'copy-btn';
@@ -338,9 +412,47 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
   });
 })();
 
+// ── MOBILE — hamburger menu ──
+(function() {
+  var toggle  = document.getElementById('menu-toggle');
+  var sidenav = document.getElementById('sidenav');
+  var overlay = document.getElementById('nav-overlay');
+  if (!toggle || !sidenav || !overlay) return;
+
+  function openNav() {
+    sidenav.classList.add('open');
+    overlay.classList.add('open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.textContent = '\u2715'; // ×
+    document.body.style.overflow = 'hidden';
+  }
+  function closeNav() {
+    sidenav.classList.remove('open');
+    overlay.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '&#9776;'; // ☰
+    document.body.style.overflow = '';
+  }
+
+  toggle.addEventListener('click', function() {
+    sidenav.classList.contains('open') ? closeNav() : openNav();
+  });
+  overlay.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeNav();
+  });
+
+  // Close nav when a section link is tapped on mobile
+  sidenav.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 600) closeNav();
+    });
+  });
+})();
+
 // ── SIDENAV — highlight active section on scroll ──
 (function() {
-  var anchors = Array.from(document.querySelectorAll('.section-label[id]'));
+  var anchors  = Array.from(document.querySelectorAll('.section-label[id]'));
   var navLinks = Array.from(document.querySelectorAll('.sidenav-links a[href^="#"]'));
   if (!anchors.length || !navLinks.length) return;
   var observer = new IntersectionObserver(function(entries) {
@@ -355,6 +467,17 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
     });
   }, { rootMargin: '-10% 0px -80% 0px' });
   anchors.forEach(function(el) { observer.observe(el); });
+})();
+
+// ── TABLE SCROLL WRAPPER ── (inject .table-scroll wrapper around tables in cards)
+(function() {
+  document.querySelectorAll('.card table').forEach(function(tbl) {
+    if (tbl.parentElement.classList.contains('table-scroll')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'table-scroll';
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(tbl);
+  });
 })();
 </script>
 </body>

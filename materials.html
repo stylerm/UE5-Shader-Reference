@@ -1,45 +1,58 @@
 <!DOCTYPE html>
+<!-- AUTO-GENERATED — edit data/<page>.yaml and run: python build.py -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns.">
+<meta property="og:title" content="Materials — UE5 Shader Cheatsheet">
+<meta property="og:description" content="UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns.">
+<meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
 <title>Materials — UE5 Shader Cheatsheet</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<!-- ── SIDE NAV ── -->
+<nav class="sidenav">
+  <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
+  <div class="sidenav-links">
+<a href="index.html">HOME</a>
+<div class="sidenav-divider"></div>
+<span class="sidenav-section">PAGES</span>
+<a href="materials.html" class="active">MATERIALS</a>
+<a href="niagara.html">NIAGARA</a>
+<a href="shaders.html">SHADERS</a>
+
+    <div class="sidenav-divider"></div>
+    <span class="sidenav-section">ON THIS PAGE</span>
+<a href="#context">Context</a>
+<a href="#syntax">Syntax</a>
+<a href="#custom-node">Custom Node</a>
+<a href="#shadertoy">Shadertoy</a>
+<a href="#wpo">WPO</a>
+<a href="#errors">Errors</a>
+<a href="#templates">Templates</a>
+  </div>
+</nav>
+
 <div class="page">
 
-  <!-- Sticky Nav -->
+  <!-- Sticky topbar -->
   <nav class="topbar">
-    <a href="index.html" class="topbar-brand">⚗ UE5 SHADER REF</a>
-    <div class="page-tabs">
-      <a href="index.html">HOME</a>
-      <a href="materials.html" class="active">MATERIALS</a>
-      <a href="niagara.html">NIAGARA</a>
-      <a href="shaders.html">SHADERS</a>
-    </div>
     <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
-    <a href="#context">Context</a>
-    <span class="sep">·</span>
-    <a href="#syntax">Syntax</a>
-    <span class="sep">·</span>
-    <a href="#custom-node">Custom Node</a>
-    <span class="sep">·</span>
-    <a href="#shadertoy">Shadertoy</a>
-    <span class="sep">·</span>
-    <a href="#wpo">WPO</a>
-    <span class="sep">·</span>
-    <a href="#templates">Templates</a>
+    <span class="topbar-spacer"></span>
     <a class="gh-link" href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.6.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 5 18 5.3 18 5.3c.7 1.6.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.3v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
       GitHub
     </a>
   </nav>
 
-  <!-- Header -->
+  <!-- Page header -->
   <div class="header">
     <div class="header-left">
       <span class="header-tag">● Materials · Custom Nodes · Shadertoy Porting</span>
@@ -52,116 +65,44 @@
     </div>
   </div>
 
-  <!-- ── SECTION 1: CONTEXT ── -->
-  <div id="context" class="section-label">Context &amp; Setup</div>
-  <div class="grid">
+<div id="context" class="section-label">Context &amp; Setup</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Always Declare Context First</div>
+<div class="row-list"><div class="row"><span class="row-label">WHERE</span>Custom node / .usf file / Niagara / Plugin shader</div><div class="row"><span class="row-label">UE VERSION</span>5.1 / 5.2 / 5.3 / 5.4+</div><div class="row"><span class="row-label">SHADER MDL</span>SM5 / SM6 / ES3.1</div><div class="row"><span class="row-label">RETURN TYPE</span>float / float3 / float4 / etc.</div><div class="row"><span class="row-label">PLATFORM</span>PC / Mobile / Console / Vulkan</div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Declare Input Pins Explicitly</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Custom node pins become variable names. Always list them:</p><pre><span class="c">// Tell Claude exactly:</span>
+Inputs:
+  <span class="kw">float3</span>  WorldNormal
+  <span class="kw">float2</span>  UV
+  <span class="kw">float</span>   Time
+  <span class="kw">float</span>   Roughness
 
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Always Declare Context First</div>
-      <div class="row-list">
-        <div class="row"><span class="row-label">WHERE</span>Custom node / .usf file / Niagara / Plugin shader</div>
-        <div class="row"><span class="row-label">UE VERSION</span>5.1 / 5.2 / 5.3 / 5.4+</div>
-        <div class="row"><span class="row-label">SHADER MDL</span>SM5 / SM6 / ES3.1</div>
-        <div class="row"><span class="row-label">RETURN TYPE</span>float / float3 / float4 / etc.</div>
-        <div class="row"><span class="row-label">PLATFORM</span>PC / Mobile / Console / Vulkan</div>
-      </div>
-    </div>
+Return type: <span class="kw">float3</span></pre></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Specify UE Globals Needed</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span><strong>View.GameTime</strong> — elapsed time</span></div><div class="check-item"><span class="check-icon arrow">→</span><span><strong>ResolvedView.WorldCameraOrigin</strong></span></div><div class="check-item"><span class="check-icon arrow">→</span><span><strong>Primitive.LocalToWorld</strong></span></div><div class="check-item"><span class="check-icon arrow">→</span><span><strong>View.ScreenPositionScaleBias</strong></span></div><div class="check-item"><span class="check-icon warn">!</span><span>If not needed, ask for <strong>self-contained</strong> code with no injected globals</span></div></div></div>
+</div>
 
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Declare Input Pins Explicitly</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Custom node pins become variable names. Always list them:</p>
-      <pre><span class="c">// Tell Claude exactly:</span>
-<span class="kw">Inputs:</span>
-  <span class="n">float3</span>  WorldNormal
-  <span class="n">float2</span>  UV
-  <span class="n">float</span>   Time
-  <span class="n">float</span>   Roughness
+<div id="syntax" class="section-label">GLSL → HLSL Intrinsic Mapping</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Always Use HLSL Intrinsics · Full Conversion Table</div>
+<table><thead><tr><th>GLSL (source)</th><th>HLSL / UE Equivalent</th><th>Notes</th></tr></thead><tbody><tr><td class="bad"><code>mix(a, b, t)</code></td><td class="good"><code>lerp(a, b, t)</code></td><td class="note">Most common mistake from Shadertoy ports</td></tr><tr><td class="bad"><code>fract(x)</code></td><td class="good"><code>frac(x)</code></td><td class="note">Identical behavior, different name</td></tr><tr><td class="bad"><code>mod(x, y)</code></td><td class="good"><code>fmod(x, y)</code></td><td class="note">Sign behavior differs for negatives — use <code>glsl_mod(x,y) = x - y*floor(x/y)</code> for exact GLSL match</td></tr><tr><td class="bad"><code>atan(y, x)</code></td><td class="good"><code>atan2(y, x)</code></td><td class="note">Argument order is the same</td></tr><tr><td class="bad"><code>dFdx / dFdy</code></td><td class="good"><code>ddx / ddy</code></td><td class="note">Pixel shader only — not available in vertex or compute</td></tr><tr><td class="bad"><code>inversesqrt(x)</code></td><td class="good"><code>rsqrt(x)</code></td><td class="note">Fast reciprocal square root</td></tr><tr><td class="bad"><code>vec2 / vec3 / vec4</code></td><td class="good"><code>float2 / float3 / float4</code></td><td class="note">UE also accepts <code>half2/3/4</code> for mobile perf</td></tr><tr><td class="bad"><code>mat3 / mat4</code></td><td class="good"><code>float3x3 / float4x4</code></td><td class="note">Row-major in HLSL vs column-major in GLSL — may need transpose</td></tr><tr><td class="bad"><code>texture(sampler, uv)</code></td><td class="good"><code>Texture2DSample(...)</code></td><td class="note">Use UE material texture input pins instead</td></tr><tr><td class="bad"><code>layout(location=0) out</code></td><td class="good"><em>[Implicit in Custom node]</em></td><td class="note">No output declarations needed in body-only mode</td></tr><tr><td class="bad"><code>gl_FragCoord</code></td><td class="good"><code>SvPosition</code></td><td class="note">In full shaders; in Custom node use a ScreenPosition pin</td></tr><tr><td class="bad"><code>step(edge, x)</code></td><td class="good"><code>step(edge, x)</code></td><td class="note">Same name — but GLSL arg order is reversed from some docs</td></tr><tr><td class="bad"><code>smoothstep(e0, e1, x)</code></td><td class="good"><code>smoothstep(e0, e1, x)</code></td><td class="note">Same name and arg order — hermite interpolation</td></tr><tr><td class="bad"><code>clamp(x, 0.0, 1.0)</code></td><td class="good"><code>saturate(x)</code></td><td class="note">Preferred UE shorthand for 0–1 clamping; <code>clamp()</code> also works</td></tr><tr><td class="bad"><code>pow(base, exp)</code></td><td class="good"><code>pow(abs(base), exp)</code></td><td class="note">HLSL <code>pow</code> is <strong>undefined for negative base</strong> — always wrap with <code>abs()</code></td></tr><tr><td class="bad"><code>abs(x)</code></td><td class="good"><code>abs(x)</code></td><td class="note">Same — but integer <code>abs()</code> may behave differently on some platforms</td></tr><tr><td class="bad"><code>sign(x)</code></td><td class="good"><code>sign(x)</code></td><td class="note">Same name — returns -1, 0, or 1</td></tr><tr><td class="bad"><code>noise()</code></td><td class="good"><em>[USE UE NOISE NODE]</em></td><td class="note">Not available in HLSL — use hash functions: <code>frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453)</code></td></tr><tr><td class="bad"><code>textureLod(s, uv, lod)</code></td><td class="good"><code>Texture2DSampleLevel(Tex, TexSampler, uv, lod)</code></td><td class="note">Requires Tex + TexSampler pair from input pins</td></tr><tr><td class="bad"><code>textureSize(sampler, 0)</code></td><td class="good"><em>[Use a float2 TexelSize input pin]</em></td><td class="note">No direct equivalent — pass dimensions as a parameter</td></tr></tbody></table></div>
+</div>
 
-<span class="kw">Return type:</span> <span class="n">float3</span></pre>
-    </div>
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> Specify UE Globals Needed</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">→</span><span><strong>View.GameTime</strong> — elapsed time</span></div>
-        <div class="check-item"><span class="check-icon ok">→</span><span><strong>ResolvedView.WorldCameraOrigin</strong></span></div>
-        <div class="check-item"><span class="check-icon ok">→</span><span><strong>Primitive.LocalToWorld</strong></span></div>
-        <div class="check-item"><span class="check-icon ok">→</span><span><strong>View.ScreenPositionScaleBias</strong></span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span>If not needed, ask for <strong>self-contained</strong> code with no injected globals</span></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 2: SYNTAX ── -->
-  <div id="syntax" class="section-label">GLSL → HLSL Intrinsic Mapping</div>
-  <div class="grid">
-    <div class="card blue grid-full">
-      <div class="card-title"><span class="dot"></span> Always Use HLSL Intrinsics · Full Conversion Table</div>
-      <table>
-        <thead>
-          <tr><th>GLSL (source)</th><th>HLSL / UE Equivalent</th><th>Notes</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="bad"><code>mix(a, b, t)</code></td><td class="good"><code>lerp(a, b, t)</code></td><td class="note">Most common mistake from Shadertoy ports</td></tr>
-          <tr><td class="bad"><code>fract(x)</code></td><td class="good"><code>frac(x)</code></td><td class="note">Identical behavior, different name</td></tr>
-          <tr><td class="bad"><code>mod(x, y)</code></td><td class="good"><code>fmod(x, y)</code></td><td class="note">Sign behavior differs for negatives — use <code>glsl_mod(x,y) = x - y*floor(x/y)</code> for exact GLSL match</td></tr>
-          <tr><td class="bad"><code>atan(y, x)</code></td><td class="good"><code>atan2(y, x)</code></td><td class="note">Argument order is the same</td></tr>
-          <tr><td class="bad"><code>dFdx / dFdy</code></td><td class="good"><code>ddx / ddy</code></td><td class="note">Pixel shader only — not available in vertex or compute</td></tr>
-          <tr><td class="bad"><code>inversesqrt(x)</code></td><td class="good"><code>rsqrt(x)</code></td><td class="note">Fast reciprocal square root</td></tr>
-          <tr><td class="bad"><code>vec2 / vec3 / vec4</code></td><td class="good"><code>float2 / float3 / float4</code></td><td class="note">UE also accepts <code>half2/3/4</code> for mobile perf</td></tr>
-          <tr><td class="bad"><code>mat3 / mat4</code></td><td class="good"><code>float3x3 / float4x4</code></td><td class="note">Row-major in HLSL vs column-major in GLSL — may need transpose</td></tr>
-          <tr><td class="bad"><code>texture(sampler, uv)</code></td><td class="good"><code>Texture2DSample(...)</code></td><td class="note">Use UE material texture input pins instead</td></tr>
-          <tr><td class="bad"><code>layout(location=0) out</code></td><td class="good"><em>Implicit in Custom node</em></td><td class="note">No output declarations needed in body-only mode</td></tr>
-          <tr><td class="bad"><code>gl_FragCoord</code></td><td class="good"><code>SvPosition</code></td><td class="note">In full shaders; in Custom node use a ScreenPosition pin</td></tr>
-          <tr><td class="bad"><code>step(edge, x)</code></td><td class="good"><code>step(edge, x)</code></td><td class="note">Same name — but GLSL arg order is reversed from some docs</td></tr>
-          <tr><td class="bad"><code>smoothstep(e0, e1, x)</code></td><td class="good"><code>smoothstep(e0, e1, x)</code></td><td class="note">Same name and arg order — hermite interpolation</td></tr>
-          <tr><td class="bad"><code>clamp(x, 0.0, 1.0)</code></td><td class="good"><code>saturate(x)</code></td><td class="note">Preferred UE shorthand for 0–1 clamping; <code>clamp()</code> also works</td></tr>
-          <tr><td class="bad"><code>pow(base, exp)</code></td><td class="good"><code>pow(abs(base), exp)</code></td><td class="note">HLSL <code>pow</code> is <strong>undefined for negative base</strong> — always wrap with <code>abs()</code></td></tr>
-          <tr><td class="bad"><code>abs(x)</code></td><td class="good"><code>abs(x)</code></td><td class="note">Same — but integer <code>abs()</code> may behave differently on some platforms</td></tr>
-          <tr><td class="bad"><code>sign(x)</code></td><td class="good"><code>sign(x)</code></td><td class="note">Same name — returns -1, 0, or 1</td></tr>
-          <tr><td class="bad"><code>noise()</code></td><td class="good"><em>[USE UE NOISE NODE]</em></td><td class="note">Not available in HLSL — use hash functions: <code>frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453)</code></td></tr>
-          <tr><td class="bad"><code>textureLod(s, uv, lod)</code></td><td class="good"><code>Texture2DSampleLevel(Tex, TexSampler, uv, lod)</code></td><td class="note">Requires Tex + TexSampler pair from input pins</td></tr>
-          <tr><td class="bad"><code>textureSize(sampler, 0)</code></td><td class="good"><em>Use a <code>float2 TexelSize</code> input pin</em></td><td class="note">No direct equivalent — pass dimensions as a parameter</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── SECTION 3: CUSTOM NODE ── -->
-  <div id="custom-node" class="section-label">Custom Node Rules</div>
-  <div class="grid">
-
-    <div class="card red">
-      <div class="card-title"><span class="dot"></span> Custom Node · Never Do This</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>#include</code></strong> — body is injected mid-shader, includes break compilation</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No top-level function declarations</strong> — inline all logic or use the struct workaround</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No sampler declarations</strong> — pass textures as input pins instead</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No global-scope mutable state</strong> — all vars are local to the body</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No GLSL precision qualifiers</strong> (<code>mediump</code>, <code>highp</code>, <code>lowp</code>)</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>void main()</code></strong> — body only, return value is the output</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No undeclared variable references</strong> — only use explicitly listed input pins</span></div>
-      </div>
-    </div>
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> Custom Node · Best Practices</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Inline-only logic</strong> — no separate function blocks</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>static const</code></strong> for all constants</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Explicit return value</strong> matching declared return type</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Swizzle count validation</strong> — float3 output ≠ float4 return</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Step-by-step comments</strong> on each major operation</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Feature level guard hints</strong> if targeting ES3.1 / mobile</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Flag texture samples</strong> as <code>[NEEDS TEXTURE PIN]</code> rather than inline</span></div>
-      </div>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> Struct Workaround for Helper Functions</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Custom nodes inject code inside a function body — top-level function defs cause C2059. Wrap helpers in a struct:</p>
-      <pre><span class="c">// Struct trick — works inside Custom node body</span>
+<div id="custom-node" class="section-label">Custom Node Rules</div>
+<div class="grid">
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Custom Node · Never Do This</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>#include</code></strong> — body is injected mid-shader, includes break compilation</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No top-level function declarations</strong> — inline all logic or use the struct workaround</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No sampler declarations</strong> — pass textures as input pins instead</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No global-scope mutable state</strong> — all vars are local to the body</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No GLSL precision qualifiers</strong> (<code>mediump</code>, <code>highp</code>, <code>lowp</code>)</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>void main()</code></strong> — body only, return value is the output</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No undeclared variable references</strong> — only use explicitly listed input pins</span></div></div></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Custom Node · Best Practices</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Inline-only logic</strong> — no separate function blocks</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>static const</code></strong> for all constants</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Explicit return value</strong> matching declared return type</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Swizzle count validation</strong> — float3 output ≠ float4 return</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Step-by-step comments</strong> on each major operation</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Feature level guard hints</strong> if targeting ES3.1 / mobile</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Flag texture samples</strong> as <code>[NEEDS TEXTURE PIN]</code> rather than inline</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Struct Workaround for Helper Functions</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Custom nodes inject code inside a function body — top-level function defs cause C2059. Wrap helpers in a struct:</p><pre><span class="c">// Struct trick — works inside Custom node body</span>
 <span class="kw">struct</span> Helpers {
   <span class="kw">float</span> <span class="fn">hash21</span>(<span class="kw">float2</span> p) {
     p = <span class="fn">frac</span>(p * <span class="kw">float2</span>(123.34, 456.21));
@@ -173,125 +114,47 @@
   }
 };
 Helpers H;
-<span class="kw">return</span> H.<span class="fn">hash21</span>(UV);</pre>
-    </div>
+<span class="kw">return</span> H.<span class="fn">hash21</span>(UV);</pre></div>
+</div>
 
-  </div>
+<div id="shadertoy" class="section-label">Shadertoy / GLSL Port Guide</div>
+<div class="grid">
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Shadertoy Uniform Mapping</div>
+<table><thead><tr><th>Shadertoy</th><th>UE5 Equivalent</th><th>Notes</th></tr></thead><tbody><tr><td class="bad"><code>iTime</code></td><td class="good"><code>float Time input pin</code></td><td class="note">Connect a <strong>Time</strong> node to the pin</td></tr><tr><td class="bad"><code>iResolution.xy</code></td><td class="good"><code>float2 Resolution input pin</code></td><td class="note">Use <strong>SceneTexture:SceneColor</strong> → Size or pass manually</td></tr><tr><td class="bad"><code>iMouse</code></td><td class="good"><em>[No direct equivalent]</em></td><td class="note">Pass via Material Parameter Collection or Blueprint</td></tr><tr><td class="bad"><code>iFrame</code></td><td class="good"><em>[No direct equivalent]</em></td><td class="note">Approximate with <code>floor(Time * FrameRate)</code></td></tr><tr><td class="bad"><code>iChannel0–3</code></td><td class="good"><code>Texture Object input pins</code></td><td class="note">One pin per channel; use <code>Texture2DSample()</code></td></tr><tr><td class="bad"><code>fragCoord</code></td><td class="good"><code>float2 ScreenPos input pin</code></td><td class="note">Connect ScreenPosition node (viewport UV)</td></tr><tr><td class="bad"><code>fragColor</code></td><td class="good"><code>return float4(...);</code></td><td class="note">The Custom node return value <em>is</em> the output</td></tr></tbody></table></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Coordinate System Pitfalls</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code></span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Multi-Pass &amp; Buffer Limitations</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div></div></div>
+</div>
 
-  <!-- ── SECTION 4: SHADERTOY ── -->
-  <div id="shadertoy" class="section-label">Shadertoy / GLSL Port Guide</div>
-  <div class="grid">
+<div id="wpo" class="section-label">World Position Offset / Vertex Shader</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> WPO Basics</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span>WPO return type is always <strong><code>float3</code></strong> — a <strong>world-space</strong> offset added to each vertex position</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Connect Custom node output to the <strong>World Position Offset</strong> pin on the material</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>absolute world position</code></strong> input pin for world-space vertex position</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Return <code>float3(0,0,0)</code> for no displacement — the value is <em>additive</em></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Great for: wind, waves, procedural animation, terrain deformation</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Available Vertex Data</div>
+<div class="row-list"><div class="row"><span class="row-label"><code>AbsoluteWorldPosition</code></span>Vertex position in world space</div><div class="row"><span class="row-label"><code>VertexNormalWS</code></span>World-space vertex normal</div><div class="row"><span class="row-label"><code>VertexTangentWS</code></span>World-space vertex tangent</div><div class="row"><span class="row-label"><code>TexCoord[0-7]</code></span>UV channels available via input pins</div><div class="row"><span class="row-label"><code>VertexColor</code></span>Per-vertex RGBA (baked in mesh)</div><div class="row"><span class="row-label"><code>ActorPosition</code></span>Object pivot in world space</div><div class="row"><span class="row-label"><code>ObjectBounds</code></span>Bounding box extent — useful for normalizing offsets</div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> WPO Limitations</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> in vertex stage — these are pixel shader derivatives</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No texture sampling</strong> by default in VS — enable <code>Allow Custom Node Vertex Interpolators</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Shadow &amp; bounds mismatch</strong> — large WPO can push verts outside the bounding box, causing culling. Increase <strong>Bounds Scale</strong></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>VS → PS data</strong> — to pass custom data from vertex to pixel, use <strong>Vertex Interpolator</strong> node in the material graph</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Performance</strong> — WPO runs per vertex every frame; keep math simple on high-poly meshes</span></div></div></div>
+</div>
 
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Shadertoy Uniform Mapping</div>
-      <table>
-        <thead><tr><th>Shadertoy</th><th>UE5 Equivalent</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td class="bad"><code>iTime</code></td><td class="good"><code>float Time</code> input pin</td><td class="note">Connect a <strong>Time</strong> node to the pin</td></tr>
-          <tr><td class="bad"><code>iResolution.xy</code></td><td class="good"><code>float2 Resolution</code> input pin</td><td class="note">Use <strong>SceneTexture:SceneColor</strong> → Size or pass manually</td></tr>
-          <tr><td class="bad"><code>iMouse</code></td><td class="good"><em>No direct equivalent</em></td><td class="note">Pass via Material Parameter Collection or Blueprint</td></tr>
-          <tr><td class="bad"><code>iFrame</code></td><td class="good"><em>No direct equivalent</em></td><td class="note">Approximate with <code>floor(Time * FrameRate)</code></td></tr>
-          <tr><td class="bad"><code>iChannel0–3</code></td><td class="good">Texture Object input pins</td><td class="note">One pin per channel; use <code>Texture2DSample()</code></td></tr>
-          <tr><td class="bad"><code>fragCoord</code></td><td class="good"><code>float2 ScreenPos</code> input pin</td><td class="note">Connect ScreenPosition node (viewport UV)</td></tr>
-          <tr><td class="bad"><code>fragColor</code></td><td class="good"><code>return float4(...);</code></td><td class="note">The Custom node return value <em>is</em> the output</td></tr>
-        </tbody>
-      </table>
-    </div>
+<div id="errors" class="section-label">Common Errors to Prevent</div>
+<div class="grid">
+<div class="card red grid-full">
+<div class="card-title"><span class="dot"></span> Gotchas That Break Compilation or Produce Wrong Results</div>
+<div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;"><div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>UV origin</strong> — UE flips V; ask Claude to account for <code>1.0 - UV.y</code> if porting</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Swizzle mismatch</strong> — always verify component counts explicitly</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Shadertoy time</strong> is <code>iTime</code> — must be mapped to a <code>float Time</code> input pin</span></div></div><div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>HLSL <code>fmod</code> sign differs</strong> from GLSL <code>mod</code> — use <code>x - y*floor(x/y)</code> for exact match</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong><code>pow()</code> with negative base</strong> is undefined in HLSL — always use <code>pow(abs(x), n)</code></span></div></div></div></div>
+</div>
 
-    <div class="card red">
-      <div class="card-title"><span class="dot"></span> Coordinate System Pitfalls</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code></span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized</span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same</span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin</span></div>
-      </div>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> Multi-Pass &amp; Buffer Limitations</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 5: WPO ── -->
-  <div id="wpo" class="section-label">World Position Offset / Vertex Shader</div>
-  <div class="grid">
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> WPO Basics</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span>WPO return type is always <strong><code>float3</code></strong> — an object-space offset added to each vertex</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Connect Custom node output to the <strong>World Position Offset</strong> pin on the material</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>absolute world position</code></strong> input pin for world-space vertex position</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Return <code>float3(0,0,0)</code> for no displacement — the value is <em>additive</em></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Great for: wind, waves, procedural animation, terrain deformation</span></div>
-      </div>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Available Vertex Data</div>
-      <div class="row-list">
-        <div class="row"><span class="row-label"><code>AbsoluteWorldPosition</code></span>Vertex position in world space</div>
-        <div class="row"><span class="row-label"><code>VertexNormalWS</code></span>World-space vertex normal</div>
-        <div class="row"><span class="row-label"><code>VertexTangentWS</code></span>World-space vertex tangent</div>
-        <div class="row"><span class="row-label"><code>TexCoord[0-7]</code></span>UV channels available via input pins</div>
-        <div class="row"><span class="row-label"><code>VertexColor</code></span>Per-vertex RGBA (baked in mesh)</div>
-        <div class="row"><span class="row-label"><code>ActorPosition</code></span>Object pivot in world space</div>
-        <div class="row"><span class="row-label"><code>ObjectBounds</code></span>Bounding box extent — useful for normalizing offsets</div>
-      </div>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> WPO Limitations</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> in vertex stage — these are pixel shader derivatives</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No texture sampling</strong> by default in VS — enable <code>Allow Custom Node Vertex Interpolators</code></span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Shadow & bounds mismatch</strong> — large WPO can push verts outside the bounding box, causing culling. Increase <strong>Bounds Scale</strong></span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>VS → PS data</strong> — to pass custom data from vertex to pixel, use <strong>Vertex Interpolator</strong> node in the material graph</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Performance</strong> — WPO runs per vertex every frame; keep math simple on high-poly meshes</span></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 6: ERRORS ── -->
-  <div id="errors" class="section-label">Common Errors to Prevent</div>
-  <div class="grid">
-    <div class="card red grid-full">
-      <div class="card-title"><span class="dot"></span> Gotchas That Break Compilation or Produce Wrong Results</div>
-      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
-        <div class="checklist">
-          <div class="check-item"><span class="check-icon no">!</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div>
-          <div class="check-item"><span class="check-icon no">!</span><span><strong>UV origin</strong> — UE flips V; ask Claude to account for <code>1.0 - UV.y</code> if porting</span></div>
-          <div class="check-item"><span class="check-icon no">!</span><span><strong>Swizzle mismatch</strong> — always verify component counts explicitly</span></div>
-          <div class="check-item"><span class="check-icon no">!</span><span><strong>Shadertoy time</strong> is <code>iTime</code> — must be mapped to a <code>float Time</code> input pin</span></div>
-        </div>
-        <div class="checklist">
-          <div class="check-item"><span class="check-icon no">!</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div>
-          <div class="check-item"><span class="check-icon no">!</span><span><strong>No implicit broadcast</strong> — <code>float3(1)</code> fails; use <code>float3(1,1,1)</code></span></div>
-          <div class="check-item"><span class="check-icon no">!</span><span><strong>HLSL <code>fmod</code> sign differs</strong> from GLSL <code>mod</code> — use <code>x - y*floor(x/y)</code> for exact match</span></div>
-          <div class="check-item"><span class="check-icon no">!</span><span><strong><code>pow()</code> with negative base</strong> is undefined in HLSL — always use <code>pow(abs(x), n)</code></span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SECTION 7: TEMPLATES ── -->
-  <div id="templates" class="section-label">Prompt Templates</div>
-  <div class="grid grid-2">
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Template A · Material Custom Node</div>
-      <div class="prompt-box"><span class="kw">Context:</span>    <span class="ph">UE5 Material Custom Node (body only, no signature)</span>
+<div id="templates" class="section-label">Prompt Templates</div>
+<div class="grid grid-2">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Template A · Material Custom Node</div>
+<div class="prompt-box"><span class="kw">Context:</span>    <span class="ph">UE5 Material Custom Node (body only, no signature)</span>
 <span class="kw">UE Version:</span> <span class="ph">5.4</span>
 <span class="kw">Shader Model:</span><span class="ph"> SM5</span>
 <span class="kw">Platform:</span>   <span class="ph">PC / Vulkan</span>
@@ -312,12 +175,10 @@ Helpers H;
   - HLSL intrinsics only (no GLSL)
   - Validate all swizzle component counts
   - Comment each major step
-  - Return type must match: <span class="ph">float3</span></div>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Template B · Shadertoy / GLSL Port</div>
-      <div class="prompt-box"><span class="kw">Task:</span> Port the following GLSL to a UE5 Custom node
+  - Return type must match: <span class="ph">float3</span></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Template B · Shadertoy / GLSL Port</div>
+<div class="prompt-box"><span class="kw">Task:</span> Port the following GLSL to a UE5 Custom node
 
 <span class="kw">Source:</span>
 <span class="ph">[paste GLSL shader here]</span>
@@ -339,10 +200,10 @@ Helpers H;
   - No sampler declarations
   - Flag texture samples as [NEEDS TEXTURE PIN]
   - Use struct workaround if helper functions needed
-  - Add a comment for each conversion made</div>
-    </div>
+  - Add a comment for each conversion made</div></div>
+</div>
 
-  </div>
+
 
   <!-- Footer -->
   <div class="footer">
@@ -378,7 +239,9 @@ Helpers H;
       while (el && !el.classList.contains('section-label') && !el.classList.contains('footer')) {
         if (el.classList.contains('card') && !el.classList.contains('dimmed')) anyVisible = true;
         if (el.classList.contains('grid')) {
-          el.querySelectorAll('.card').forEach(function(c) { if (!c.classList.contains('dimmed')) anyVisible = true; });
+          el.querySelectorAll('.card').forEach(function(c) {
+            if (!c.classList.contains('dimmed')) anyVisible = true;
+          });
         }
         el = el.nextElementSibling;
       }
@@ -387,14 +250,18 @@ Helpers H;
   });
 })();
 
-// ── COPY BUTTONS ──
+// ── COPY BUTTONS — prompt boxes AND all code blocks ──
 (function() {
-  document.querySelectorAll('.prompt-box').forEach(function(box) {
+  document.querySelectorAll('.prompt-box, pre').forEach(function(box) {
+    var wrap = box.closest('.card') || box.parentElement;
+    if (!wrap) return;
+    // Position relative so button can be absolute
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
     var btn = document.createElement('button');
     btn.className = 'copy-btn';
     btn.textContent = '[COPY]';
     btn.addEventListener('click', function() {
-      var text = box.textContent.replace('[COPY]', '').replace('[COPIED]', '').trim();
+      var text = box.textContent.replace(/\[COP(?:Y|IED)\]/g, '').trim();
       navigator.clipboard.writeText(text).then(function() {
         btn.textContent = '[COPIED]';
         btn.classList.add('copied');
@@ -403,6 +270,25 @@ Helpers H;
     });
     box.appendChild(btn);
   });
+})();
+
+// ── SIDENAV — highlight active section on scroll ──
+(function() {
+  var anchors = Array.from(document.querySelectorAll('.section-label[id]'));
+  var navLinks = Array.from(document.querySelectorAll('.sidenav-links a[href^="#"]'));
+  if (!anchors.length || !navLinks.length) return;
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var id = entry.target.id;
+        navLinks.forEach(function(link) {
+          link.classList.toggle('active-section',
+            link.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  anchors.forEach(function(el) { observer.observe(el); });
 })();
 </script>
 </body>

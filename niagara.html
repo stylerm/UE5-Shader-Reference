@@ -1,43 +1,56 @@
 <!DOCTYPE html>
+<!-- AUTO-GENERATED — edit data/<page>.yaml and run: python build.py -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules.">
+<meta property="og:title" content="Niagara — UE5 Shader Cheatsheet">
+<meta property="og:description" content="UE5 Niagara Custom HLSL reference — particle attribute access, stateless modules, GPU simulation rules.">
+<meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
 <title>Niagara — UE5 Shader Cheatsheet</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<!-- ── SIDE NAV ── -->
+<nav class="sidenav">
+  <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
+  <div class="sidenav-links">
+<a href="index.html">HOME</a>
+<div class="sidenav-divider"></div>
+<span class="sidenav-section">PAGES</span>
+<a href="materials.html">MATERIALS</a>
+<a href="niagara.html" class="active">NIAGARA</a>
+<a href="shaders.html">SHADERS</a>
+
+    <div class="sidenav-divider"></div>
+    <span class="sidenav-section">ON THIS PAGE</span>
+<a href="#scratch-pad">Scratch Pad</a>
+<a href="#restrictions">Restrictions</a>
+<a href="#stateless">Stateless</a>
+<a href="#attributes">Attributes</a>
+<a href="#patterns">Patterns</a>
+  </div>
+</nav>
+
 <div class="page">
 
-  <!-- Sticky Nav -->
+  <!-- Sticky topbar -->
   <nav class="topbar">
-    <a href="index.html" class="topbar-brand">⚗ UE5 SHADER REF</a>
-    <div class="page-tabs">
-      <a href="index.html">HOME</a>
-      <a href="materials.html">MATERIALS</a>
-      <a href="niagara.html" class="active">NIAGARA</a>
-      <a href="shaders.html">SHADERS</a>
-    </div>
     <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
-    <a href="#scratch-pad">Scratch Pad</a>
-    <span class="sep">·</span>
-    <a href="#restrictions">Restrictions</a>
-    <span class="sep">·</span>
-    <a href="#stateless">Stateless</a>
-    <span class="sep">·</span>
-    <a href="#attributes">Attributes</a>
-    <span class="sep">·</span>
-    <a href="#patterns">Patterns</a>
+    <span class="topbar-spacer"></span>
     <a class="gh-link" href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.6.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 5 18 5.3 18 5.3c.7 1.6.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.3v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
       GitHub
     </a>
   </nav>
 
-  <!-- Header -->
+  <!-- Page header -->
   <div class="header">
     <div class="header-left">
       <span class="header-tag">● Niagara · Custom HLSL · GPU Particle Simulation</span>
@@ -50,128 +63,73 @@
     </div>
   </div>
 
-  <!-- ── SECTION 1: SCRATCH PAD BASICS ── -->
-  <div id="scratch-pad" class="section-label">Scratch Pad Module HLSL</div>
-  <div class="grid">
+<div id="scratch-pad" class="section-label">Scratch Pad Module HLSL</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Scratch Pad Basics</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span>Niagara uses a <strong>restricted HLSL subset</strong> — not the same as Material Custom nodes</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>In the Scratch Pad UI, add input/output <strong>map pins</strong> and bind each to a <strong><code>Particles.X</code></strong> attribute — the local pin name is what you use in HLSL</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>Parameters.X</code></strong> refers to <em>module-level user parameters</em> (exposed inputs), NOT particle attributes</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>ExecutionIndex</code></strong> gives the current particle index for per-particle logic</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>Emitter.LocalSpace</code></strong> / <strong><code>Emitter.Age</code></strong> for emitter-level data</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Write results via your <strong>output pin names</strong> — no <code>return</code> statement, no <code>OutputParameters</code></span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Scratch Pad Access Pattern</div>
+<pre><span class="c">// Bind pins in Scratch Pad UI: Particles.Position → &quot;InPosition&quot;</span>
+<span class="c">// In HLSL you use the LOCAL PIN NAME you chose in the UI</span>
+<span class="kw">float3</span> Pos      = InPosition;   <span class="c">// bound to Particles.Position</span>
+<span class="kw">float</span>  Age      = InAge;        <span class="c">// bound to Particles.Age</span>
+<span class="kw">float</span>  Life     = InLifetime;   <span class="c">// bound to Particles.Lifetime</span>
+<span class="kw">float</span>  DT       = InDeltaTime;  <span class="c">// bound to Engine.DeltaTime</span>
+<span class="kw">int</span>    ID       = InUniqueID;   <span class="c">// bound to Particles.UniqueID</span>
 
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Scratch Pad Basics</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Niagara uses a <strong>restricted HLSL subset</strong> — not the same as Material Custom nodes</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Access particle attributes via <strong><code>Parameters.AttributeName</code></strong> — not raw variable names</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>ExecutionIndex</code></strong> gives the current particle index for per-particle logic</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Map inputs/outputs explicitly in the <strong>Scratch Pad</strong> module UI</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>Emitter.LocalSpace</code></strong> / <strong><code>Emitter.Age</code></strong> for emitter-level data</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Write results to <strong>output parameters</strong> — no <code>return</code> statement</span></div>
-      </div>
-    </div>
+<span class="c">// Writing: assign to your output pin names (bound in UI)</span>
+OutPosition = Pos + InVelocity * DT; <span class="c">// → Particles.Position</span>
+OutColor    = <span class="kw">float4</span>(1,0,0,1);        <span class="c">// → Particles.Color</span>
 
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Scratch Pad Access Pattern</div>
-      <pre><span class="c">// Reading particle attributes</span>
-<span class="kw">float3</span> Pos = <span class="fn">Parameters</span>.Position;
-<span class="kw">float</span>  Age = <span class="fn">Parameters</span>.Age;
-<span class="kw">float</span>  Life = <span class="fn">Parameters</span>.Lifetime;
-<span class="kw">float</span>  DT = <span class="fn">Parameters</span>.DeltaTime;
-<span class="kw">int</span>    ID = <span class="fn">Parameters</span>.UniqueID;
+<span class="c">// No return, no OutputParameters — output pins are the writes</span></pre></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Niagara Random Intrinsics</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Niagara provides seeded random functions (not HLSL standard):</p><div class="row-list"><div class="row"><span class="row-label"><code>RandomUInt(seed)</code></span>Seeded random integer — deterministic per particle</div><div class="row"><span class="row-label"><code>RandomFloat(seed)</code></span>Seeded random float [0,1]</div><div class="row"><span class="row-label"><code>RandomUnitFloat3(seed)</code></span>Random direction on unit sphere</div><div class="row"><span class="row-label"><code>Particles.UniqueID</code></span>Bind to an input pin; use as hash seed for per-particle randomness</div></div></div>
+</div>
 
-<span class="c">// Writing output attributes</span>
-<span class="fn">OutputParameters</span>.Position = Pos + Velocity * DT;
-<span class="fn">OutputParameters</span>.Color = <span class="kw">float4</span>(1,0,0,1);
+<div id="restrictions" class="section-label">Restrictions &amp; Things to Avoid</div>
+<div class="grid">
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Niagara HLSL · Never Do This</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>No raw <code>Texture2DSample()</code></strong> calls in Scratch Pad HLSL — use the <strong>Texture Sample Data Interface</strong> module instead; it wraps the texture correctly for GPU sim</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Simulation vs Render Stage</div>
+<div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Simulation HLSL</strong> (Spawn/Update) runs as <strong>compute</strong> — no raw texture calls in HLSL, no derivatives; use Texture Sample <em>Data Interface</em> for texture access</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Render HLSL</strong> (Particle Render) differs from simulation HLSL — different available functions</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Data Interface HLSL</strong> runs in its own context — check DI docs for available functions</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection</span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> What IS Available</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span>Standard math: <code>lerp</code>, <code>saturate</code>, <code>smoothstep</code>, <code>clamp</code>, <code>abs</code>, <code>sign</code>, <code>pow</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Vector math: <code>dot</code>, <code>cross</code>, <code>normalize</code>, <code>length</code>, <code>distance</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Trig: <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>atan2</code>, <code>asin</code>, <code>acos</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Floor/ceil: <code>floor</code>, <code>ceil</code>, <code>round</code>, <code>frac</code>, <code>fmod</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Flow control: <code>BRANCH</code>, <code>FLATTEN</code>, <code>UNROLL</code>, <code>LOOP</code> hints</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Typed buffer reads: <code>Buffer&lt;float&gt;</code> SRV access via index</span></div></div></div>
+</div>
 
-<span class="c">// No return statement — write to outputs</span></pre>
-    </div>
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> Niagara Random Intrinsics</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Niagara provides seeded random functions (not HLSL standard):</p>
-      <div class="row-list">
-        <div class="row"><span class="row-label"><code>RandomUInt(seed)</code></span>Seeded random integer — deterministic per particle</div>
-        <div class="row"><span class="row-label"><code>RandomFloat(seed)</code></span>Seeded random float [0,1]</div>
-        <div class="row"><span class="row-label"><code>RandomUnitFloat3(seed)</code></span>Random direction on unit sphere</div>
-        <div class="row"><span class="row-label"><code>Parameters.UniqueID</code></span>Use as hash seed for per-particle randomness</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 2: RESTRICTIONS ── -->
-  <div id="restrictions" class="section-label">Restrictions &amp; Things to Avoid</div>
-  <div class="grid">
-
-    <div class="card red">
-      <div class="card-title"><span class="dot"></span> Niagara HLSL · Never Do This</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No texture sampling</strong> in Particle Update / Spawn stages — GPU sim doesn't allow it</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only</span></div>
-      </div>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> Simulation vs Render Stage</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Simulation HLSL</strong> (Spawn/Update) runs as <strong>compute</strong> — no texture sampling, no derivatives</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Render HLSL</strong> (Particle Render) differs from simulation HLSL — different available functions</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Data Interface HLSL</strong> runs in its own context — check DI docs for available functions</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection</span></div>
-      </div>
-    </div>
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> What IS Available</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Standard math: <code>lerp</code>, <code>saturate</code>, <code>smoothstep</code>, <code>clamp</code>, <code>abs</code>, <code>sign</code>, <code>pow</code></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Vector math: <code>dot</code>, <code>cross</code>, <code>normalize</code>, <code>length</code>, <code>distance</code></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Trig: <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>atan2</code>, <code>asin</code>, <code>acos</code></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Floor/ceil: <code>floor</code>, <code>ceil</code>, <code>round</code>, <code>frac</code>, <code>fmod</code></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Flow control: <code>BRANCH</code>, <code>FLATTEN</code>, <code>UNROLL</code>, <code>LOOP</code> hints</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Typed buffer reads: <code>Buffer&lt;float&gt;</code> SRV access via index</span></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 3: STATELESS ── -->
-  <div id="stateless" class="section-label">Stateless Module Patterns · From Real Code</div>
-  <div class="grid">
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Stateless Particle Struct</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:</p>
-      <pre><span class="c">// Stateless module entry point</span>
+<div id="stateless" class="section-label">Stateless Module Patterns · From Real Code</div>
+<div class="grid">
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Stateless Particle Struct</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:</p><pre><span class="c">// Stateless module entry point</span>
 <span class="kw">void</span> <span class="fn">MyModule_Initialize</span>(
-    <span class="kw">inout</span> FStatelessParticle Particle,
-    <span class="kw">in</span> FStatelessParticleContext Context)
+    <span class="kw">inout</span> <span class="kw">FStatelessParticle</span> Particle,
+    <span class="kw">in</span> <span class="kw">FStatelessParticleContext</span> Context)
 {
   <span class="c">// Read state</span>
-  <span class="kw">uint</span> Idx = Context.ExecIndex;
+  <span class="kw">uint</span>   Idx = Context.ExecIndex;
   <span class="kw">float3</span> Pos = Particle.Position;
-  <span class="kw">float</span> Age = Particle.Age;
+  <span class="kw">float</span>  Age = Particle.Age;
 
   <span class="c">// Write state directly</span>
-  Particle.Position = NewPos;
+  Particle.Position         = NewPos;
   Particle.PreviousPosition = OldPos;
-  Particle.Scale = <span class="kw">float3</span>(1,1,1);
-  Particle.Color = <span class="kw">float4</span>(1,0,0,1);
-  Particle.MeshOrientation = NewQuat;
-}</pre>
-    </div>
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> GPU Buffer Access Pattern</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:</p>
-      <pre><span class="c">// Reading float3 from typed float buffer</span>
+  Particle.Scale            = <span class="kw">float3</span>(1,1,1);
+  Particle.Color            = <span class="kw">float4</span>(1,0,0,1);
+  Particle.MeshOrientation  = NewQuat;
+}</pre></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> GPU Buffer Access Pattern</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:</p><pre><span class="c">// Reading float3 from typed float buffer</span>
 <span class="kw">float3</span> <span class="fn">ReadFloat3FromBuffer</span>(
-    Buffer&lt;<span class="kw">float</span>&gt; InBuffer, <span class="kw">uint</span> Index)
+    <span class="kw">Buffer</span>&lt;<span class="kw">float</span>&gt; InBuffer, <span class="kw">uint</span> Index)
 {
   <span class="kw">uint</span> Base = Index * 3;
-  <span class="kw">return float3</span>(
+  <span class="kw">return</span> <span class="kw">float3</span>(
     InBuffer[Base + 0],
     InBuffer[Base + 1],
     InBuffer[Base + 2]);
@@ -179,19 +137,16 @@
 
 <span class="c">// Reading float4 (color, quaternion)</span>
 <span class="kw">float4</span> <span class="fn">ReadFloat4FromBuffer</span>(
-    Buffer&lt;<span class="kw">float</span>&gt; InBuffer, <span class="kw">uint</span> Index)
+    <span class="kw">Buffer</span>&lt;<span class="kw">float</span>&gt; InBuffer, <span class="kw">uint</span> Index)
 {
   <span class="kw">uint</span> Base = Index * 4;
-  <span class="kw">return float4</span>(
+  <span class="kw">return</span> <span class="kw">float4</span>(
     InBuffer[Base + 0], InBuffer[Base + 1],
     InBuffer[Base + 2], InBuffer[Base + 3]);
-}</pre>
-    </div>
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Indexing Strategies</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Common patterns for selecting which array element a particle uses:</p>
-      <pre><span class="c">// Sequential (round-robin by particle ID)</span>
+}</pre></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Indexing Strategies</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Common patterns for selecting which array element a particle uses:</p><pre><span class="c">// Sequential (round-robin by particle ID)</span>
 <span class="kw">uint</span> Idx = ParticleID % NumPositions;
 
 <span class="c">// Sequential with clamping (no wrap)</span>
@@ -199,69 +154,35 @@
 
 <span class="c">// Random via MurmurHash3 finalizer</span>
 <span class="kw">uint</span> Hash = ParticleID;
-Hash ^= Hash >> 16;
+Hash ^= Hash &gt;&gt; 16;
 Hash *= 0x85ebca6b;
-Hash ^= Hash >> 13;
+Hash ^= Hash &gt;&gt; 13;
 Hash *= 0xc2b2ae35;
-Hash ^= Hash >> 16;
+Hash ^= Hash &gt;&gt; 16;
 <span class="kw">uint</span> Idx = Hash % NumPositions;
 
 <span class="c">// Age-based (interpolate through array)</span>
-<span class="kw">float</span> T = NormalizedAge * (<span class="kw">float</span>)Count;
-<span class="kw">uint</span> Idx = <span class="fn">min</span>((<span class="kw">uint</span>)T, Count - 1);</pre>
-    </div>
+<span class="kw">float</span> T   = NormalizedAge * (<span class="kw">float</span>)Count;
+<span class="kw">uint</span>  Idx = <span class="fn">min</span>((<span class="kw">uint</span>)T, Count - 1);</pre></div>
+</div>
 
-  </div>
+<div id="attributes" class="section-label">Particle Attribute Reference</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Particle Attributes · Scratch Pad vs Stateless Access</div>
+<table><thead><tr><th>Attribute</th><th>Niagara Namespace</th><th>Stateless Struct</th><th>Notes</th></tr></thead><tbody><tr><td>**Position**</td><td><code>Particles.Position</code></td><td><code>Particle.Position</code></td><td>Bind to Scratch Pad pin; world or local-space per emitter setting</td></tr><tr><td>**Previous Position**</td><td><code>Particles.PreviousPosition</code></td><td><code>Particle.PreviousPosition</code></td><td>Last frame's position — for velocity/trail computation</td></tr><tr><td>**Velocity**</td><td><code>Particles.Velocity</code></td><td><em>Derived from Pos delta</em></td><td>Scratch Pad has explicit velocity; stateless derives it</td></tr><tr><td>**Age**</td><td><code>Particles.Age</code></td><td><code>Particle.Age</code></td><td>Time since particle spawned (seconds)</td></tr><tr><td>**Lifetime**</td><td><code>Particles.Lifetime</code></td><td><code>Particle.Lifetime</code></td><td>Total lifespan (seconds)</td></tr><tr><td>**Normalized Age**</td><td><code>Particles.Age / Particles.Lifetime</code></td><td><code>Particle.Age / Particle.Lifetime</code></td><td>0→1 over lifetime; compute manually in both contexts</td></tr><tr><td>**Color**</td><td><code>Particles.Color</code></td><td><code>Particle.Color</code></td><td>float4 RGBA</td></tr><tr><td>**Scale**</td><td><code>Particles.Scale</code></td><td><code>Particle.Scale</code></td><td>float3 per-axis scale</td></tr><tr><td>**Mesh Orientation**</td><td><code>Particles.MeshOrientation</code></td><td><code>Particle.MeshOrientation</code></td><td>float4 quaternion</td></tr><tr><td>**Execution Index**</td><td><code>ExecutionIndex</code></td><td><code>Context.ExecIndex</code></td><td>Per-particle index for deterministic behavior</td></tr><tr><td>**Unique ID**</td><td><code>Particles.UniqueID</code></td><td><code>Context.ParticleID</code></td><td>Persistent ID — use as hash seed for randomness</td></tr><tr><td>**Delta Time**</td><td><code>Engine.DeltaTime</code></td><td><em>Not directly available</em></td><td>Frame delta in seconds — bind via Engine namespace</td></tr></tbody></table></div>
+</div>
 
-  <!-- ── SECTION 4: ATTRIBUTES ── -->
-  <div id="attributes" class="section-label">Particle Attribute Reference</div>
-  <div class="grid">
-
-    <div class="card blue grid-full">
-      <div class="card-title"><span class="dot"></span> Particle Attributes · Scratch Pad vs Stateless Access</div>
-      <table>
-        <thead><tr><th>Attribute</th><th>Scratch Pad</th><th>Stateless Struct</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Position</strong></td><td class="good"><code>Parameters.Position</code></td><td class="good"><code>Particle.Position</code></td><td class="note">World-space or local-space depending on emitter setting</td></tr>
-          <tr><td><strong>Previous Position</strong></td><td class="good"><code>Parameters.PreviousPosition</code></td><td class="good"><code>Particle.PreviousPosition</code></td><td class="note">Last frame's position — for velocity/trail computation</td></tr>
-          <tr><td><strong>Velocity</strong></td><td class="good"><code>Parameters.Velocity</code></td><td class="note"><em>Derived from Pos delta</em></td><td class="note">Scratch Pad has explicit velocity; stateless derives it</td></tr>
-          <tr><td><strong>Age</strong></td><td class="good"><code>Parameters.Age</code></td><td class="good"><code>Particle.Age</code></td><td class="note">Time since particle spawned (seconds)</td></tr>
-          <tr><td><strong>Lifetime</strong></td><td class="good"><code>Parameters.Lifetime</code></td><td class="good"><code>Particle.Lifetime</code></td><td class="note">Total lifespan (seconds)</td></tr>
-          <tr><td><strong>Normalized Age</strong></td><td class="good"><code>Parameters.NormalizedAge</code></td><td class="note"><code>Particle.Age / Particle.Lifetime</code></td><td class="note">0→1 over lifetime; compute manually in stateless</td></tr>
-          <tr><td><strong>Color</strong></td><td class="good"><code>Parameters.Color</code></td><td class="good"><code>Particle.Color</code></td><td class="note">float4 RGBA</td></tr>
-          <tr><td><strong>Scale</strong></td><td class="good"><code>Parameters.Scale</code></td><td class="good"><code>Particle.Scale</code></td><td class="note">float3 per-axis scale</td></tr>
-          <tr><td><strong>Mesh Orientation</strong></td><td class="good"><code>Parameters.MeshOrientation</code></td><td class="good"><code>Particle.MeshOrientation</code></td><td class="note">float4 quaternion</td></tr>
-          <tr><td><strong>Execution Index</strong></td><td class="good"><code>ExecutionIndex</code></td><td class="good"><code>Context.ExecIndex</code></td><td class="note">Per-particle index for deterministic behavior</td></tr>
-          <tr><td><strong>Unique ID</strong></td><td class="good"><code>Parameters.UniqueID</code></td><td class="good"><code>Context.ParticleID</code></td><td class="note">Persistent ID — use as hash seed for randomness</td></tr>
-          <tr><td><strong>Delta Time</strong></td><td class="good"><code>Parameters.DeltaTime</code></td><td class="note"><em>Not directly available</em></td><td class="note">Frame delta in seconds</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 5: PATTERNS ── -->
-  <div id="patterns" class="section-label">Patterns &amp; Tips</div>
-  <div class="grid">
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> Useful Patterns</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Random per-particle</strong> — use <code>Parameters.UniqueID</code> as seed with a hash function</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Custom module</strong> — wrap HLSL in a Scratch Pad module for reuse across emitters</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Quaternion math</strong> — multiply quaternions manually (no built-in <code>qmul</code>)</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Jitter</strong> — pre-bake random sphere offsets: <code>RandomUnitFloat3(seed) * Radius</code></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Loop modes</strong> — implement Once/Loop/PingPong via switch on age-based index</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Early exit</strong> — guard empty arrays: <code>if (NumPositions == 0) return;</code></span></div>
-      </div>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> Quaternion Multiply (Helper)</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">No built-in quaternion multiply in Niagara HLSL — use this:</p>
-      <pre><span class="kw">float4</span> <span class="fn">QuatMultiply</span>(<span class="kw">float4</span> Q1, <span class="kw">float4</span> Q2)
+<div id="patterns" class="section-label">Patterns &amp; Tips</div>
+<div class="grid">
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Useful Patterns</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Random per-particle</strong> — bind <code>Particles.UniqueID</code> to an input pin, use as seed with a hash function</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Custom module</strong> — wrap HLSL in a Scratch Pad module for reuse across emitters</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Quaternion math</strong> — multiply quaternions manually (no built-in <code>qmul</code>)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Jitter</strong> — pre-bake random sphere offsets: <code>RandomUnitFloat3(seed) * Radius</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Loop modes</strong> — implement Once/Loop/PingPong via switch on age-based index</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Early exit</strong> — guard empty arrays: <code>if (NumPositions == 0) return;</code></span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Quaternion Multiply (Helper)</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">No built-in quaternion multiply in Niagara HLSL — use this:</p><pre><span class="kw">float4</span> <span class="fn">QuatMultiply</span>(<span class="kw">float4</span> Q1, <span class="kw">float4</span> Q2)
 {
-  <span class="kw">return float4</span>(
+  <span class="kw">return</span> <span class="kw">float4</span>(
     Q1.w*Q2.x + Q1.x*Q2.w + Q1.y*Q2.z - Q1.z*Q2.y,
     Q1.w*Q2.y - Q1.x*Q2.z + Q1.y*Q2.w + Q1.z*Q2.x,
     Q1.w*Q2.z + Q1.x*Q2.y - Q1.y*Q2.x + Q1.z*Q2.w,
@@ -271,21 +192,13 @@ Hash ^= Hash >> 16;
 
 <span class="c">// Usage: combine rotations</span>
 Particle.MeshOrientation =
-  <span class="fn">QuatMultiply</span>(BaseRot, DeltaRot);</pre>
-    </div>
+  <span class="fn">QuatMultiply</span>(BaseRot, DeltaRot);</pre></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Debugging Tips</div>
+<div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads</span></div></div></div>
+</div>
 
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Debugging Tips</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads</span></div>
-      </div>
-    </div>
 
-  </div>
 
   <!-- Footer -->
   <div class="footer">
@@ -321,13 +234,56 @@ Particle.MeshOrientation =
       while (el && !el.classList.contains('section-label') && !el.classList.contains('footer')) {
         if (el.classList.contains('card') && !el.classList.contains('dimmed')) anyVisible = true;
         if (el.classList.contains('grid')) {
-          el.querySelectorAll('.card').forEach(function(c) { if (!c.classList.contains('dimmed')) anyVisible = true; });
+          el.querySelectorAll('.card').forEach(function(c) {
+            if (!c.classList.contains('dimmed')) anyVisible = true;
+          });
         }
         el = el.nextElementSibling;
       }
       label.classList.toggle('dimmed', !anyVisible);
     });
   });
+})();
+
+// ── COPY BUTTONS — prompt boxes AND all code blocks ──
+(function() {
+  document.querySelectorAll('.prompt-box, pre').forEach(function(box) {
+    var wrap = box.closest('.card') || box.parentElement;
+    if (!wrap) return;
+    // Position relative so button can be absolute
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '[COPY]';
+    btn.addEventListener('click', function() {
+      var text = box.textContent.replace(/\[COP(?:Y|IED)\]/g, '').trim();
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = '[COPIED]';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = '[COPY]'; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+    box.appendChild(btn);
+  });
+})();
+
+// ── SIDENAV — highlight active section on scroll ──
+(function() {
+  var anchors = Array.from(document.querySelectorAll('.section-label[id]'));
+  var navLinks = Array.from(document.querySelectorAll('.sidenav-links a[href^="#"]'));
+  if (!anchors.length || !navLinks.length) return;
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var id = entry.target.id;
+        navLinks.forEach(function(link) {
+          link.classList.toggle('active-section',
+            link.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  anchors.forEach(function(el) { observer.observe(el); });
 })();
 </script>
 </body>

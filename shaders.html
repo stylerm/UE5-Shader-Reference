@@ -1,43 +1,56 @@
 <!DOCTYPE html>
+<!-- AUTO-GENERATED — edit data/<page>.yaml and run: python build.py -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards.">
+<meta property="og:title" content="Shaders — UE5 Shader Cheatsheet">
+<meta property="og:description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards.">
+<meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
 <title>Shaders — UE5 Shader Cheatsheet</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<!-- ── SIDE NAV ── -->
+<nav class="sidenav">
+  <a href="index.html" class="sidenav-brand">⚗ UE5<br>SHADER<br>REF</a>
+  <div class="sidenav-links">
+<a href="index.html">HOME</a>
+<div class="sidenav-divider"></div>
+<span class="sidenav-section">PAGES</span>
+<a href="materials.html">MATERIALS</a>
+<a href="niagara.html">NIAGARA</a>
+<a href="shaders.html" class="active">SHADERS</a>
+
+    <div class="sidenav-divider"></div>
+    <span class="sidenav-section">ON THIS PAGE</span>
+<a href="#usf-rules">USF / USH</a>
+<a href="#compute">Compute</a>
+<a href="#tgsm">TGSM</a>
+<a href="#reference">Reference</a>
+<a href="#sampling">Sampling</a>
+  </div>
+</nav>
+
 <div class="page">
 
-  <!-- Sticky Nav -->
+  <!-- Sticky topbar -->
   <nav class="topbar">
-    <a href="index.html" class="topbar-brand">⚗ UE5 SHADER REF</a>
-    <div class="page-tabs">
-      <a href="index.html">HOME</a>
-      <a href="materials.html">MATERIALS</a>
-      <a href="niagara.html">NIAGARA</a>
-      <a href="shaders.html" class="active">SHADERS</a>
-    </div>
     <input type="text" id="search-input" placeholder="FILTER..." aria-label="Filter cards">
-    <a href="#usf-rules">USF/USH</a>
-    <span class="sep">·</span>
-    <a href="#compute">Compute</a>
-    <span class="sep">·</span>
-    <a href="#tgsm">TGSM</a>
-    <span class="sep">·</span>
-    <a href="#reference">Reference</a>
-    <span class="sep">·</span>
-    <a href="#sampling">Sampling</a>
+    <span class="topbar-spacer"></span>
     <a class="gh-link" href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.6.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 5 18 5.3 18 5.3c.7 1.6.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.3v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
       GitHub
     </a>
   </nav>
 
-  <!-- Header -->
+  <!-- Page header -->
   <div class="header">
     <div class="header-left">
       <span class="header-tag">● Shader Files · Compute · TGSM · Platform Guards</span>
@@ -50,32 +63,22 @@
     </div>
   </div>
 
-  <!-- ── SECTION 1: USF/USH RULES ── -->
-  <div id="usf-rules" class="section-label">.usf / .ush File Rules</div>
-  <div class="grid">
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> File Structure Basics</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Declare module macro: <strong><code>YOURMODULE_API</code></strong></span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong>virtual shader path</strong> mapping for plugin custom paths</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)</span></div>
-      </div>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Include Guard Pattern</div>
-      <pre><span class="c">// Option A: pragma once</span>
-<span class="kw">#pragma once</span>
+<div id="usf-rules" class="section-label">.usf / .ush File Rules</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> File Structure Basics</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Declare module macro: <strong><code>YOURMODULE_API</code></strong></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong>virtual shader path</strong> mapping for plugin custom paths</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Include Guard Pattern</div>
+<pre><span class="c">// Option A: pragma once</span>
+<span class="kw">#pragma</span> once
 
 <span class="c">// Option B: traditional guards</span>
 <span class="kw">#ifndef</span> MY_SHADER_COMMON_USH
 <span class="kw">#define</span> MY_SHADER_COMMON_USH
 
-<span class="kw">#include</span> "/Engine/Public/Platform.ush"
-<span class="kw">#include</span> "/MyPlugin/Private/MyCommon.ush"
+<span class="kw">#include</span> &quot;/Engine/Public/Platform.ush&quot;
+<span class="kw">#include</span> &quot;/MyPlugin/Private/MyCommon.ush&quot;
 
 <span class="c">// Shared types and helpers here</span>
 <span class="kw">struct</span> FMyData {
@@ -85,18 +88,16 @@
   <span class="kw">uint</span>   Flags;
 };
 
-<span class="kw">#endif</span> <span class="c">// MY_SHADER_COMMON_USH</span></pre>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> Platform &amp; Feature Guards</div>
-      <pre><span class="c">// Feature level guard</span>
-<span class="kw">#if</span> FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+<span class="kw">#endif</span> <span class="c">// MY_SHADER_COMMON_USH</span></pre></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Platform &amp; Feature Guards</div>
+<pre><span class="c">// Feature level guard</span>
+<span class="kw">#if</span> FEATURE_LEVEL &gt;= FEATURE_LEVEL_SM5
   <span class="c">// SM5+ only code (compute, UAV, etc.)</span>
 <span class="kw">#endif</span>
 
 <span class="c">// SM6-only features</span>
-<span class="kw">#if</span> FEATURE_LEVEL >= FEATURE_LEVEL_SM6
+<span class="kw">#if</span> FEATURE_LEVEL &gt;= FEATURE_LEVEL_SM6
   <span class="c">// WaveOps, RayQuery, etc.</span>
 <span class="kw">#endif</span>
 
@@ -110,84 +111,55 @@
 <span class="c">// Vulkan-specific</span>
 <span class="kw">#if</span> VULKAN_PROFILE
   <span class="c">// Vulkan workarounds</span>
-<span class="kw">#endif</span></pre>
-    </div>
+<span class="kw">#endif</span></pre></div>
+</div>
 
-  </div>
-
-  <!-- ── SECTION 2: COMPUTE ── -->
-  <div id="compute" class="section-label">Compute Shader Patterns</div>
-  <div class="grid">
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> Compute Shader Entry Point</div>
-      <pre><span class="kw">#include</span> "/Engine/Public/Platform.ush"
-<span class="kw">#include</span> "/MyPlugin/Private/MyCommon.ush"
+<div id="compute" class="section-label">Compute Shader Patterns</div>
+<div class="grid">
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Compute Shader Entry Point</div>
+<pre><span class="kw">#include</span> &quot;/Engine/Public/Platform.ush&quot;
+<span class="kw">#include</span> &quot;/MyPlugin/Private/MyCommon.ush&quot;
 
 <span class="c">// Thread group sizing</span>
 <span class="kw">#define</span> NUM_THREADS_X 8
 <span class="kw">#define</span> NUM_THREADS_Y 8
 
 <span class="c">// Resource bindings</span>
-Texture2D&lt;<span class="kw">float4</span>&gt; InputTexture;
-RWTexture2D&lt;<span class="kw">float4</span>&gt; OutputTexture;
+<span class="kw">Texture2D</span>&lt;<span class="kw">float4</span>&gt;   InputTexture;
+<span class="kw">RWTexture2D</span>&lt;<span class="kw">float4</span>&gt; OutputTexture;
 <span class="kw">uint</span> Resolution;
 
-[numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+[<span class="fn">numthreads</span>(NUM_THREADS_X, NUM_THREADS_Y, 1)]
 <span class="kw">void</span> <span class="fn">MainCS</span>(
-    <span class="kw">uint3</span> DispatchThreadID : SV_DispatchThreadID,
-    <span class="kw">uint3</span> GroupThreadID : SV_GroupThreadID,
-    <span class="kw">uint3</span> GroupID : SV_GroupID)
+    <span class="kw">uint3</span> DispatchThreadID : <span class="kw">SV_DispatchThreadID</span>,
+    <span class="kw">uint3</span> GroupThreadID   : <span class="kw">SV_GroupThreadID</span>,
+    <span class="kw">uint3</span> GroupID         : <span class="kw">SV_GroupID</span>)
 {
   <span class="kw">uint</span> x = DispatchThreadID.x;
   <span class="kw">uint</span> y = DispatchThreadID.y;
-  <span class="kw">if</span> (x >= Resolution || y >= Resolution)
+  <span class="kw">if</span> (x &gt;= Resolution || y &gt;= Resolution)
     <span class="kw">return</span>;
 
   <span class="c">// Read, process, write</span>
-  <span class="kw">float4</span> Val = InputTexture.<span class="fn">Load</span>(
-    <span class="kw">int3</span>(x, y, 0));
+  <span class="kw">float4</span> Val = InputTexture.<span class="fn">Load</span>(<span class="kw">int3</span>(x, y, 0));
   OutputTexture[<span class="kw">uint2</span>(x, y)] = Val;
-}</pre>
-    </div>
+}</pre></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Compute · Common Mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Resource Types</div>
+<div class="row-list"><div class="row"><span class="row-label"><code>Texture2D<T></code></span>Read-only texture (SRV)</div><div class="row"><span class="row-label"><code>RWTexture2D<T></code></span>Read-write texture (UAV)</div><div class="row"><span class="row-label"><code>Buffer<T></code></span>Read-only typed buffer (SRV)</div><div class="row"><span class="row-label"><code>RWBuffer<T></code></span>Read-write typed buffer (UAV)</div><div class="row"><span class="row-label"><code>StructuredBuffer<T></code></span>Read-only structured buffer</div><div class="row"><span class="row-label"><code>RWStructuredBuffer<T></code></span>Read-write structured buffer</div><div class="row"><span class="row-label"><code>SamplerState</code></span>Texture sampler (bilinear, point, etc.)</div></div></div>
+</div>
 
-    <div class="card red">
-      <div class="card-title"><span class="dot"></span> Compute · Common Mistakes</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div>
-        <div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div>
-      </div>
-    </div>
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Resource Types</div>
-      <div class="row-list">
-        <div class="row"><span class="row-label"><code>Texture2D&lt;T&gt;</code></span>Read-only texture (SRV)</div>
-        <div class="row"><span class="row-label"><code>RWTexture2D&lt;T&gt;</code></span>Read-write texture (UAV)</div>
-        <div class="row"><span class="row-label"><code>Buffer&lt;T&gt;</code></span>Read-only typed buffer (SRV)</div>
-        <div class="row"><span class="row-label"><code>RWBuffer&lt;T&gt;</code></span>Read-write typed buffer (UAV)</div>
-        <div class="row"><span class="row-label"><code>StructuredBuffer&lt;T&gt;</code></span>Read-only structured buffer</div>
-        <div class="row"><span class="row-label"><code>RWStructuredBuffer&lt;T&gt;</code></span>Read-write structured buffer</div>
-        <div class="row"><span class="row-label"><code>SamplerState</code></span>Texture sampler (bilinear, point, etc.)</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 3: TGSM ── -->
-  <div id="tgsm" class="section-label">Thread Group Shared Memory (TGSM)</div>
-  <div class="grid">
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> TGSM Pattern</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use <code>groupshared</code> memory to share data between threads in a group, reducing global memory reads:</p>
-      <pre><span class="c">// Declare tile cache</span>
+<div id="tgsm" class="section-label">Thread Group Shared Memory (TGSM)</div>
+<div class="grid">
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> TGSM Pattern</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use <code>groupshared</code> memory to share data between threads in a group, reducing global memory reads:</p><pre><span class="c">// Declare tile cache</span>
 <span class="kw">#define</span> TILE_DIM 10  <span class="c">// 8 + 1-pixel halo each side</span>
-<span class="kw">groupshared float</span> TileCache[TILE_DIM][TILE_DIM];
+<span class="kw">groupshared</span> <span class="kw">float</span> TileCache[TILE_DIM][TILE_DIM];
 
 <span class="c">// 1. Load tile from global memory</span>
 <span class="kw">int2</span> LoadPos = GroupID.xy * 8
@@ -203,152 +175,86 @@ TileCache[GroupThreadID.y][GroupThreadID.x]
 <span class="c">// 3. Read from cache (fast)</span>
 <span class="kw">float</span> Center = TileCache[ly][lx];
 <span class="kw">float</span> Left   = TileCache[ly][lx-1];
-<span class="kw">float</span> Right  = TileCache[ly][lx+1];</pre>
-    </div>
-
-    <div class="card yellow">
-      <div class="card-title"><span class="dot"></span> TGSM Rules</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations</span></div>
-        <div class="check-item"><span class="check-icon ok">✓</span><span><strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed</span></div>
-        <div class="check-item"><span class="check-icon warn">!</span><span><strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads</span></div>
-      </div>
-    </div>
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> TGSM Macro Pattern</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use macros to make TGSM reusable across passes:</p>
-      <pre><span class="c">// Declare macro for float tiles</span>
+<span class="kw">float</span> Right  = TileCache[ly][lx+1];</pre></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> TGSM Rules</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads</span></div></div></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> TGSM Macro Pattern</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use macros to make TGSM reusable across passes:</p><pre><span class="c">// Declare macro for float tiles</span>
 <span class="kw">#define</span> <span class="fn">DECLARE_TILE_CACHE_FLOAT</span>(Name) \
-  <span class="kw">groupshared float</span> Name[TILE_DIM][TILE_DIM]
+  <span class="kw">groupshared</span> <span class="kw">float</span> Name[TILE_DIM][TILE_DIM]
 
 <span class="c">// Load macro with scroll compensation</span>
 <span class="kw">#define</span> <span class="fn">LOAD_TILE_SCROLLED</span>(Cache, Tex, ...) \
-  { <span class="c">/* load with offset + clamp */</span> \
+  { /* load with offset + <span class="fn">clamp</span> */ \
     <span class="fn">GroupMemoryBarrierWithGroupSync</span>(); }
 
 <span class="c">// Usage in compute shader</span>
 <span class="fn">DECLARE_TILE_CACHE_FLOAT</span>(SDFCache);
-<span class="fn">LOAD_TILE_SCROLLED</span>(SDFCache, SDFTex, ...);</pre>
-    </div>
+<span class="fn">LOAD_TILE_SCROLLED</span>(SDFCache, SDFTex, ...);</pre></div>
+</div>
 
-  </div>
+<div id="reference" class="section-label">Quick Reference</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Feature Level Capabilities</div>
+<table><thead><tr><th>Feature</th><th>ES3.1</th><th>SM5</th><th>SM6</th></tr></thead><tbody><tr><td><strong>Wave Intrinsics</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>RayQuery / DXR</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>ddx / ddy</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Bindless Resources</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>half precision</strong></td><td class="good">✓</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Compute / UAV</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Geometry Shaders</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>TGSM (groupshared)</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Typed SRV Buffers</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr></tbody></table></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> UE Type Keywords &amp; Hints</div>
+<div class="row-list"><div class="row"><span class="row-label"><code>MaterialFloat</code></span>Adapts precision per platform automatically</div><div class="row"><span class="row-label"><code>half / half3</code></span>16-bit — use on mobile for performance</div><div class="row"><span class="row-label"><code>float / float3</code></span>32-bit — default for PC / console</div><div class="row"><span class="row-label"><code>BRANCH</code></span><code>[branch]</code> hint — forces dynamic branching</div><div class="row"><span class="row-label"><code>FLATTEN</code></span><code>[flatten]</code> hint — forces both paths evaluated</div><div class="row"><span class="row-label"><code>UNROLL</code></span><code>[unroll]</code> — unroll loop at compile time</div><div class="row"><span class="row-label"><code>LOOP</code></span><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common Shader Errors</div>
+<div class="checklist"><div class="check-item"><span class="check-icon False">False</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div><div class="check-item"><span class="check-icon False">False</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div></div></div>
+</div>
 
-  <!-- ── SECTION 4: REFERENCE ── -->
-  <div id="reference" class="section-label">Quick Reference</div>
-  <div class="grid">
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Feature Level Capabilities</div>
-      <table>
-        <thead><tr><th>Feature</th><th>ES3.1</th><th>SM5</th><th>SM6</th></tr></thead>
-        <tbody>
-          <tr><td>Wave Intrinsics</td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr>
-          <tr><td>RayQuery / DXR</td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr>
-          <tr><td>ddx / ddy</td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr>
-          <tr><td>Bindless Resources</td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr>
-          <tr><td>half precision</td><td class="good">✓</td><td class="good">✓</td><td class="good">✓</td></tr>
-          <tr><td>Compute / UAV</td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr>
-          <tr><td>Geometry Shaders</td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr>
-          <tr><td>TGSM (groupshared)</td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr>
-          <tr><td>Typed SRV Buffers</td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> UE Type Keywords &amp; Hints</div>
-      <div class="row-list">
-        <div class="row"><span class="row-label"><code>MaterialFloat</code></span>Adapts precision per platform automatically</div>
-        <div class="row"><span class="row-label"><code>half / half3</code></span>16-bit — use on mobile for performance</div>
-        <div class="row"><span class="row-label"><code>float / float3</code></span>32-bit — default for PC / console</div>
-        <div class="row"><span class="row-label"><code>BRANCH</code></span><code>[branch]</code> hint — forces dynamic branching</div>
-        <div class="row"><span class="row-label"><code>FLATTEN</code></span><code>[flatten]</code> hint — forces both paths evaluated</div>
-        <div class="row"><span class="row-label"><code>UNROLL</code></span><code>[unroll]</code> — unroll loop at compile time</div>
-        <div class="row"><span class="row-label"><code>LOOP</code></span><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</div>
-      </div>
-    </div>
-
-    <div class="card red">
-      <div class="card-title"><span class="dot"></span> Common Shader Errors</div>
-      <div class="checklist">
-        <div class="check-item"><span class="check-icon no">!</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div>
-        <div class="check-item"><span class="check-icon no">!</span><span><strong>No implicit broadcast</strong> — <code>float3(1)</code> fails; use <code>float3(1,1,1)</code></span></div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- ── SECTION 5: SAMPLING ── -->
-  <div id="sampling" class="section-label">Texture Sampling &amp; SDF Patterns</div>
-  <div class="grid">
-
-    <div class="card blue">
-      <div class="card-title"><span class="dot"></span> Sampling Methods</div>
-      <pre><span class="c">// Load (integer coords, no filtering)</span>
+<div id="sampling" class="section-label">Texture Sampling &amp; SDF Patterns</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Sampling Methods</div>
+<pre><span class="c">// Load (integer coords, no filtering)</span>
 <span class="kw">float4</span> Val = Tex.<span class="fn">Load</span>(<span class="kw">int3</span>(x, y, 0));
 
 <span class="c">// SampleLevel (UV coords, explicit mip)</span>
-<span class="kw">float4</span> Val = Tex.<span class="fn">SampleLevel</span>(
-  Sampler, UV, 0);
+<span class="kw">float4</span> Val = Tex.<span class="fn">SampleLevel</span>(Sampler, UV, 0);
 
 <span class="c">// In Material Custom Node:</span>
 <span class="c">// Texture2DSample(Tex, TexSampler, UV)</span>
 <span class="c">// Texture2DSampleLevel(Tex, TexSampler, UV, Lod)</span>
 
 <span class="c">// External texture (registered via GUID)</span>
-<span class="kw">int32</span> TexCode = Compiler-><span class="fn">ExternalTexture</span>(GUID);
-<span class="kw">int32</span> Sample = Compiler-><span class="fn">TextureSample</span>(
-  TexCode, UVCode, SAMPLERTYPE_External);</pre>
-    </div>
-
-    <div class="card orange">
-      <div class="card-title"><span class="dot"></span> Central-Difference Gradient</div>
-      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Compute gradient from a scalar field (e.g. SDF distance):</p>
-      <pre><span class="c">// Read neighbors</span>
-<span class="kw">float</span> Left  = Grid.<span class="fn">Load</span>(
-  <span class="kw">int3</span>(<span class="fn">max</span>(x-1, 0), y, 0)).r;
-<span class="kw">float</span> Right = Grid.<span class="fn">Load</span>(
-  <span class="kw">int3</span>(<span class="fn">min</span>(x+1, Res-1), y, 0)).r;
-<span class="kw">float</span> Up    = Grid.<span class="fn">Load</span>(
-  <span class="kw">int3</span>(x, <span class="fn">max</span>(y-1, 0), 0)).r;
-<span class="kw">float</span> Down  = Grid.<span class="fn">Load</span>(
-  <span class="kw">int3</span>(x, <span class="fn">min</span>(y+1, Res-1), 0)).r;
+<span class="kw">int32</span> TexCode = Compiler-&gt;<span class="fn">ExternalTexture</span>(GUID);
+<span class="kw">int32</span> Sample  = Compiler-&gt;<span class="fn">TextureSample</span>(
+  TexCode, UVCode, SAMPLERTYPE_External);</pre></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Central-Difference Gradient</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Compute gradient from a scalar field (e.g. SDF distance):</p><pre><span class="c">// Read neighbors</span>
+<span class="kw">float</span> Left  = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(<span class="fn">max</span>(x-1, 0),      y, 0)).r;
+<span class="kw">float</span> Right = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(<span class="fn">min</span>(x+1, Res-1),  y, 0)).r;
+<span class="kw">float</span> Up    = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(x, <span class="fn">max</span>(y-1, 0),      0)).r;
+<span class="kw">float</span> Down  = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(x, <span class="fn">min</span>(y+1, Res-1),  0)).r;
 
 <span class="c">// Central difference</span>
-<span class="kw">float2</span> Gradient = <span class="kw">float2</span>(
-  Right - Left, Down - Up);
-<span class="kw">float</span> Len = <span class="fn">length</span>(Gradient);
-<span class="kw">if</span> (Len > 0.001)
+<span class="kw">float2</span> Gradient = <span class="kw">float2</span>(Right - Left, Down - Up);
+<span class="kw">float</span>  Len = <span class="fn">length</span>(Gradient);
+<span class="kw">if</span> (Len &gt; 0.001)
   Gradient /= Len;  <span class="c">// Normalize</span>
 
 <span class="c">// Output: R=dist, GB=direction, A=mag</span>
 OutputRT[Pixel] = <span class="kw">float4</span>(
-  NormDist, Gradient.x, Gradient.y, Len);</pre>
-    </div>
-
-    <div class="card green">
-      <div class="card-title"><span class="dot"></span> SDF Math Helpers</div>
-      <pre><span class="c">// Smooth minimum (polynomial blend)</span>
+  NormDist, Gradient.x, Gradient.y, Len);</pre></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> SDF Math Helpers</div>
+<pre><span class="c">// Smooth minimum (polynomial blend)</span>
 <span class="kw">float</span> <span class="fn">SmoothMin</span>(<span class="kw">float</span> a, <span class="kw">float</span> b, <span class="kw">float</span> k)
 {
-  <span class="kw">if</span> (k <= 0.0) <span class="kw">return</span> <span class="fn">min</span>(a, b);
-  <span class="kw">float</span> h = <span class="fn">saturate</span>(
-    0.5 + 0.5 * (b - a) / k);
-  <span class="kw">return</span> <span class="fn">lerp</span>(b, a, h)
-    - k * h * (1.0 - h);
+  <span class="kw">if</span> (k &lt;= 0.0) <span class="kw">return</span> <span class="fn">min</span>(a, b);
+  <span class="kw">float</span> h = <span class="fn">saturate</span>(0.5 + 0.5 * (b - a) / k);
+  <span class="kw">return</span> <span class="fn">lerp</span>(b, a, h) - k * h * (1.0 - h);
 }
 
 <span class="c">// Distance to point</span>
-<span class="kw">float</span> <span class="fn">PointDist</span>(<span class="kw">float2</span> P, <span class="kw">float2</span> C,
-    <span class="kw">float</span> R)
+<span class="kw">float</span> <span class="fn">PointDist</span>(<span class="kw">float2</span> P, <span class="kw">float2</span> C, <span class="kw">float</span> R)
 {
   <span class="kw">return</span> <span class="fn">length</span>(P - C) - R;
 }
@@ -358,13 +264,12 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
     <span class="kw">float2</span> A, <span class="kw">float2</span> B, <span class="kw">float</span> R)
 {
   <span class="kw">float2</span> AB = B - A;
-  <span class="kw">float</span> t = <span class="fn">saturate</span>(
-    <span class="fn">dot</span>(P - A, AB) / <span class="fn">dot</span>(AB, AB));
+  <span class="kw">float</span>  t  = <span class="fn">saturate</span>(<span class="fn">dot</span>(P - A, AB) / <span class="fn">dot</span>(AB, AB));
   <span class="kw">return</span> <span class="fn">length</span>(P - A - AB * t) - R;
-}</pre>
-    </div>
+}</pre></div>
+</div>
 
-  </div>
+
 
   <!-- Footer -->
   <div class="footer">
@@ -400,13 +305,56 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
       while (el && !el.classList.contains('section-label') && !el.classList.contains('footer')) {
         if (el.classList.contains('card') && !el.classList.contains('dimmed')) anyVisible = true;
         if (el.classList.contains('grid')) {
-          el.querySelectorAll('.card').forEach(function(c) { if (!c.classList.contains('dimmed')) anyVisible = true; });
+          el.querySelectorAll('.card').forEach(function(c) {
+            if (!c.classList.contains('dimmed')) anyVisible = true;
+          });
         }
         el = el.nextElementSibling;
       }
       label.classList.toggle('dimmed', !anyVisible);
     });
   });
+})();
+
+// ── COPY BUTTONS — prompt boxes AND all code blocks ──
+(function() {
+  document.querySelectorAll('.prompt-box, pre').forEach(function(box) {
+    var wrap = box.closest('.card') || box.parentElement;
+    if (!wrap) return;
+    // Position relative so button can be absolute
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '[COPY]';
+    btn.addEventListener('click', function() {
+      var text = box.textContent.replace(/\[COP(?:Y|IED)\]/g, '').trim();
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = '[COPIED]';
+        btn.classList.add('copied');
+        setTimeout(function() { btn.textContent = '[COPY]'; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+    box.appendChild(btn);
+  });
+})();
+
+// ── SIDENAV — highlight active section on scroll ──
+(function() {
+  var anchors = Array.from(document.querySelectorAll('.section-label[id]'));
+  var navLinks = Array.from(document.querySelectorAll('.sidenav-links a[href^="#"]'));
+  if (!anchors.length || !navLinks.length) return;
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var id = entry.target.id;
+        navLinks.forEach(function(link) {
+          link.classList.toggle('active-section',
+            link.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  anchors.forEach(function(el) { observer.observe(el); });
 })();
 </script>
 </body>

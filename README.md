@@ -6,21 +6,43 @@ A practical, community-maintained reference for converting **GLSL/HLSL shaders**
 
 ---
 
+## Pages
+
+| Page | Content |
+|------|---------|
+| [**Home**](index.html) | Hub overview, core GLSL→HLSL conversions, UE globals quick reference |
+| [**Materials**](materials.html) | Custom node rules, full intrinsic table, Shadertoy porting guide, WPO/vertex patterns, prompt templates |
+| [**Niagara**](niagara.html) | Scratch Pad HLSL, attribute namespaces, Stateless module patterns, GPU sim restrictions, compute buffer access |
+| [**Shaders**](shaders.html) | `.usf`/`.ush` file rules, compute shader patterns, TGSM, feature level matrix, platform guards, texture sampling |
+
+---
+
 ## What's Inside
 
-- **Context checklist** — what to declare before writing any UE5 shader
-- **GLSL → HLSL intrinsic mapping table** — `mix`, `fract`, `mod`, `atan`, and more
-- **Custom node rules** — what's allowed and what breaks compilation
-- **`.usf` / `.ush` file rules** — include guards, virtual paths, feature level guards
-- **Copy-paste prompt templates** — for AI-assisted shader writing and Shadertoy ports
-- **Feature level matrix** — SM5 vs SM6 vs ES3.1 capability comparison
-- **Common gotchas** — UV flipping, matrix order, integer division, swizzle mismatches
+### Materials
+- **GLSL → HLSL intrinsic mapping** — 20-row table: `mix`, `fract`, `mod`, `atan`, `smoothstep`, `textureLod`, and more
+- **Custom node DOs and DON'Ts** — struct workaround for helper functions (C2059 fix), Include File Paths
+- **Shadertoy porting guide** — `iTime`, `iResolution`, `iMouse` mappings; UV/coordinate differences; multi-pass limitations
+- **World Position Offset** — WPO basics, available vertex data, limitations
+- **Prompt templates** — copy-paste AI prompts for Custom node and Shadertoy conversion
+
+### Niagara
+- **Scratch Pad HLSL patterns** — pin binding, `Particles.X` namespace, output pin writes
+- **Stateless module patterns** — `FStatelessParticle` / `FStatelessParticleContext` structs
+- **GPU sim restrictions** — no raw texture calls, no `ddx`/`ddy`, use Texture Sample Data Interface
+- **GPU buffer access** — `Buffer<float>` stride reads, indexing strategies
+- **Attribute reference** — `Particles.X` namespace vs Stateless struct fields
+
+### Shaders (.usf / .ush)
+- **File structure** — include guards, virtual shader paths, `#pragma once`
+- **Compute shader patterns** — `[numthreads]`, `SV_DispatchThreadID`, resource types
+- **TGSM** — `groupshared`, halo loading, `GroupMemoryBarrierWithGroupSync`
+- **Feature level matrix** — ES3.1 / SM5 / SM6 capability comparison
+- **Platform guards** — `FEATURE_LEVEL`, `COMPILER_HLSL`, Vulkan/Metal conditionals
 
 ---
 
 ## Usage
-
-This is a **single-file static site** — just `index.html`. No build step, no dependencies, no framework.
 
 ### Run locally
 
@@ -29,7 +51,40 @@ git clone https://github.com/stylerm/UE5-HLSL-Cheatsheet.git
 cd UE5-HLSL-Cheatsheet
 # Open index.html in your browser, or use any static server:
 npx serve .
+# or:
+python -m http.server 3000
 ```
+
+### Editing content
+
+The three sub-pages (`materials.html`, `niagara.html`, `shaders.html`) are **generated** — don't edit them directly. Edit the YAML source files instead, then rebuild:
+
+```bash
+# One-time setup
+pip install pyyaml
+
+# After editing any data/*.yaml file:
+python build.py
+```
+
+| File | Edits |
+|------|-------|
+| `data/materials.yaml` | Custom node rules, GLSL→HLSL table, Shadertoy guide, WPO, prompt templates |
+| `data/niagara.yaml`   | Scratch Pad patterns, attribute table, Stateless patterns, tips |
+| `data/shaders.yaml`   | File rules, compute patterns, TGSM, feature matrix, sampling |
+| `templates/page.html` | Shared HTML layout (sidenav, topbar, JS — affects all pages) |
+| `index.html`          | Hand-written hub page — edit directly |
+| `styles.css`          | Shared stylesheet — edit directly |
+
+### Adding a new table row (example)
+
+Open `data/materials.yaml`, find the `syntax` section, add a row to the `rows` list:
+
+```yaml
+- ["myGLSLFunc(x)", "myHLSLFunc(x)", "Brief note about the difference"]
+```
+
+Then run `python build.py`. Done.
 
 ---
 
@@ -40,7 +95,7 @@ Contributions are very welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guide
 **Good candidates for PRs:**
 - Missing GLSL → HLSL intrinsic mappings
 - Platform-specific gotchas (mobile, console, Vulkan)
-- Niagara-specific HLSL rules
+- Niagara Scratch Pad / Stateless patterns
 - Better or more complete prompt templates
 - Version-specific UE5 changes (5.1 / 5.2 / 5.3 / 5.4+)
 
@@ -52,13 +107,24 @@ Contributions are very welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guide
 
 ```
 UE5-HLSL-Cheatsheet/
-├── index.html        ← entire site (self-contained)
+├── build.py              ← Build script (python build.py)
+├── data/
+│   ├── materials.yaml    ← Materials page content (source of truth)
+│   ├── niagara.yaml      ← Niagara page content (source of truth)
+│   └── shaders.yaml      ← Shaders page content (source of truth)
+├── templates/
+│   └── page.html         ← Shared HTML layout template
+├── index.html            ← Hand-written hub page
+├── materials.html        ← GENERATED — do not edit directly
+├── niagara.html          ← GENERATED — do not edit directly
+├── shaders.html          ← GENERATED — do not edit directly
+├── styles.css            ← Shared stylesheet (all pages)
 ├── README.md
 ├── CONTRIBUTING.md
 └── LICENSE
 ```
 
-Because the site is a single HTML file with embedded CSS, all edits happen in `index.html`. This makes it easy to propose changes without needing any toolchain.
+`index.html` and `styles.css` are edited directly. Everything else is generated from `data/*.yaml` + `templates/page.html` by running `python build.py`.
 
 ---
 

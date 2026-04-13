@@ -25,7 +25,7 @@ body {
   font-family: 'Inter', sans-serif;
   font-size: 18px;
   line-height: 1.6;
-  padding: 32px 24px 60px;
+  padding: 32px 24px 60px 160px;
   min-height: 100vh;
   background-image:
     radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,229,255,0.06) 0%, transparent 70%),
@@ -34,6 +34,70 @@ body {
 }
 
 .page { max-width: 1100px; margin: 0 auto; }
+
+/* ── SIDENAV ── */
+.sidenav {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 130px;
+  background: rgba(8,10,14,0.98);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  overflow-y: auto;
+}
+.sidenav-brand {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  padding: 22px 16px 18px;
+  letter-spacing: 0.12em;
+  line-height: 1.7;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  display: block;
+}
+.sidenav-brand:hover { opacity: 0.8; }
+.sidenav-links {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0;
+}
+.sidenav-links a {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 11px 16px;
+  letter-spacing: 0.08em;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-left: 2px solid transparent;
+  display: block;
+}
+.sidenav-links a:hover {
+  color: var(--accent);
+  background: rgba(0,229,255,0.05);
+  border-left-color: rgba(0,229,255,0.3);
+}
+.sidenav-links a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(0,229,255,0.08);
+}
+.sidenav-section {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 16px 16px 6px;
+}
+.sidenav-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 16px;
+}
 
 /* ── NAV ── */
 .topbar {
@@ -50,6 +114,7 @@ body {
   gap: 6px;
   flex-wrap: wrap;
 }
+.topbar-spacer { flex: 1; }
 .topbar a {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
@@ -63,15 +128,7 @@ body {
 .topbar a:hover { color: var(--accent); background: rgba(0,229,255,0.06); }
 .topbar a.active { color: var(--accent); background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); }
 .topbar .sep { color: var(--border); font-size: 14px; }
-.topbar-brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  color: var(--accent);
-  margin-right: auto;
-  letter-spacing: 0.12em;
-  text-decoration: none;
-}
-.topbar-brand:hover { opacity: 0.8; }
+/* brand now lives in .sidenav-brand */
 .gh-link {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -83,31 +140,7 @@ body {
 }
 .gh-link:hover { color: var(--accent) !important; border-color: var(--accent) !important; }
 
-/* ── PAGE NAV TABS ── */
-.page-tabs {
-  display: flex;
-  gap: 4px;
-  margin-right: 12px;
-  border-right: 1px solid var(--border);
-  padding-right: 12px;
-}
-.page-tabs a {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  color: var(--text-dim);
-  text-decoration: none;
-  padding: 5px 12px;
-  border-radius: 3px;
-  letter-spacing: 0.08em;
-  transition: color 0.15s, background 0.15s;
-  border: 1px solid transparent;
-}
-.page-tabs a:hover { color: var(--accent); background: rgba(0,229,255,0.06); }
-.page-tabs a.active {
-  color: var(--accent);
-  background: rgba(0,229,255,0.1);
-  border-color: rgba(0,229,255,0.25);
-}
+/* page tabs removed — now in .sidenav-links */
 
 /* ── HEADER ── */
 .header {
@@ -534,11 +567,25 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
 }
 
 /* ── RESPONSIVE ── */
-@media (max-width: 800px) {
+@media (max-width: 900px) {
+  body { padding-left: 24px; }
+  .sidenav {
+    position: relative;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    height: auto;
+  }
+  .sidenav-brand { border-bottom: none; border-right: 1px solid var(--border); padding: 12px 16px; }
+  .sidenav-links { flex-direction: row; padding: 8px; flex-wrap: wrap; }
+  .sidenav-links a { padding: 6px 12px; border-left: none; border-bottom: 2px solid transparent; }
+  .sidenav-links a.active { border-left: none; border-bottom-color: var(--accent); }
+  .sidenav-section, .sidenav-divider { display: none; }
   .grid, .hub-grid { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
   .span-2 { grid-column: span 1; }
   h1 { font-size: 32px; }
   .topbar { gap: 4px; }
-  .page-tabs { border-right: none; padding-right: 0; margin-right: 0; }
 }

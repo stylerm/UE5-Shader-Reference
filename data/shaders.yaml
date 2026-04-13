@@ -1,0 +1,337 @@
+meta:
+  title: "Shaders — UE5 Shader Cheatsheet"
+  description: "UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards."
+  active: shaders
+  favicon: "⚙️"
+  header_tag: "● Shader Files · Compute · TGSM · Platform Guards"
+  header_h1: '.usf / .ush <span>Shader</span> Reference'
+  header_right: |
+    Engine: <strong>UE 5.x</strong>
+    Context: <strong>.usf · .ush · Compute Shaders</strong>
+    Target: <strong>SM5 / SM6 / ES3.1</strong>
+  anchors:
+    - {id: usf-rules, label: USF / USH}
+    - {id: compute,   label: Compute}
+    - {id: tgsm,      label: TGSM}
+    - {id: reference, label: Reference}
+    - {id: sampling,  label: Sampling}
+
+sections:
+
+  # ── SECTION 1: USF / USH RULES ───────────────────────────────────────────
+  - id: usf-rules
+    label: ".usf / .ush File Rules"
+    cards:
+
+      - color: blue
+        title: "File Structure Basics"
+        content:
+          - type: checklist
+            items:
+              - {icon: ok, html: "Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards"}
+              - {icon: ok, html: "Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header"}
+              - {icon: ok, html: "Declare module macro: <strong><code>YOURMODULE_API</code></strong>"}
+              - {icon: ok, html: "Use <strong>virtual shader path</strong> mapping for plugin custom paths"}
+              - {icon: ok, html: "<code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)"}
+
+      - color: orange
+        title: "Include Guard Pattern"
+        content:
+          - type: code
+            src: |
+              // Option A: pragma once
+              #pragma once
+
+              // Option B: traditional guards
+              #ifndef MY_SHADER_COMMON_USH
+              #define MY_SHADER_COMMON_USH
+
+              #include "/Engine/Public/Platform.ush"
+              #include "/MyPlugin/Private/MyCommon.ush"
+
+              // Shared types and helpers here
+              struct FMyData {
+                float3 Position;
+                float  Radius;
+                float  Intensity;
+                uint   Flags;
+              };
+
+              #endif // MY_SHADER_COMMON_USH
+
+      - color: yellow
+        title: "Platform &amp; Feature Guards"
+        content:
+          - type: code
+            src: |
+              // Feature level guard
+              #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+                // SM5+ only code (compute, UAV, etc.)
+              #endif
+
+              // SM6-only features
+              #if FEATURE_LEVEL >= FEATURE_LEVEL_SM6
+                // WaveOps, RayQuery, etc.
+              #endif
+
+              // Platform-specific
+              #if COMPILER_HLSL
+                // HLSL-specific path
+              #elif COMPILER_GLSL || COMPILER_GLSL_ES3_1
+                // Mobile / OpenGL path
+              #endif
+
+              // Vulkan-specific
+              #if VULKAN_PROFILE
+                // Vulkan workarounds
+              #endif
+
+  # ── SECTION 2: COMPUTE ───────────────────────────────────────────────────
+  - id: compute
+    label: "Compute Shader Patterns"
+    cards:
+
+      - color: green
+        title: "Compute Shader Entry Point"
+        content:
+          - type: code
+            src: |
+              #include "/Engine/Public/Platform.ush"
+              #include "/MyPlugin/Private/MyCommon.ush"
+
+              // Thread group sizing
+              #define NUM_THREADS_X 8
+              #define NUM_THREADS_Y 8
+
+              // Resource bindings
+              Texture2D<float4>   InputTexture;
+              RWTexture2D<float4> OutputTexture;
+              uint Resolution;
+
+              [numthreads(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+              void MainCS(
+                  uint3 DispatchThreadID : SV_DispatchThreadID,
+                  uint3 GroupThreadID   : SV_GroupThreadID,
+                  uint3 GroupID         : SV_GroupID)
+              {
+                uint x = DispatchThreadID.x;
+                uint y = DispatchThreadID.y;
+                if (x >= Resolution || y >= Resolution)
+                  return;
+
+                // Read, process, write
+                float4 Val = InputTexture.Load(int3(x, y, 0));
+                OutputTexture[uint2(x, y)] = Val;
+              }
+
+      - color: red
+        title: "Compute · Common Mistakes"
+        content:
+          - type: checklist
+            items:
+              - {icon: no,   html: "<strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code>"}
+              - {icon: no,   html: "<strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)"}
+              - {icon: no,   html: "<strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates"}
+              - {icon: no,   html: "<strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes"}
+              - {icon: no,   html: "<strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only"}
+              - {icon: warn, html: "<strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits"}
+
+      - color: blue
+        title: "Resource Types"
+        content:
+          - type: rowlist
+            rows:
+              - {label: "Texture2D<T>",           text: "Read-only texture (SRV)"}
+              - {label: "RWTexture2D<T>",          text: "Read-write texture (UAV)"}
+              - {label: "Buffer<T>",               text: "Read-only typed buffer (SRV)"}
+              - {label: "RWBuffer<T>",             text: "Read-write typed buffer (UAV)"}
+              - {label: "StructuredBuffer<T>",     text: "Read-only structured buffer"}
+              - {label: "RWStructuredBuffer<T>",   text: "Read-write structured buffer"}
+              - {label: "SamplerState",            text: "Texture sampler (bilinear, point, etc.)"}
+
+  # ── SECTION 3: TGSM ──────────────────────────────────────────────────────
+  - id: tgsm
+    label: "Thread Group Shared Memory (TGSM)"
+    cards:
+
+      - color: orange
+        title: "TGSM Pattern"
+        content:
+          - type: prose
+            text: "Use <code>groupshared</code> memory to share data between threads in a group, reducing global memory reads:"
+          - type: code
+            src: |
+              // Declare tile cache
+              #define TILE_DIM 10  // 8 + 1-pixel halo each side
+              groupshared float TileCache[TILE_DIM][TILE_DIM];
+
+              // 1. Load tile from global memory
+              int2 LoadPos = GroupID.xy * 8
+                + GroupThreadID.xy - 1;  // halo offset
+              LoadPos = clamp(LoadPos,
+                int2(0,0), int2(Res-1,Res-1));
+              TileCache[GroupThreadID.y][GroupThreadID.x]
+                = SourceGrid.Load(int3(LoadPos, 0)).r;
+
+              // 2. Sync all threads
+              GroupMemoryBarrierWithGroupSync();
+
+              // 3. Read from cache (fast)
+              float Center = TileCache[ly][lx];
+              float Left   = TileCache[ly][lx-1];
+              float Right  = TileCache[ly][lx+1];
+
+      - color: yellow
+        title: "TGSM Rules"
+        content:
+          - type: checklist
+            items:
+              - {icon: ok,   html: "<strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group"}
+              - {icon: ok,   html: "<strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read"}
+              - {icon: ok,   html: "<strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations"}
+              - {icon: ok,   html: "<strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes"}
+              - {icon: warn, html: "<strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed"}
+              - {icon: warn, html: "<strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads"}
+
+      - color: green
+        title: "TGSM Macro Pattern"
+        content:
+          - type: prose
+            text: "Use macros to make TGSM reusable across passes:"
+          - type: code
+            src: |
+              // Declare macro for float tiles
+              #define DECLARE_TILE_CACHE_FLOAT(Name) \
+                groupshared float Name[TILE_DIM][TILE_DIM]
+
+              // Load macro with scroll compensation
+              #define LOAD_TILE_SCROLLED(Cache, Tex, ...) \
+                { /* load with offset + clamp */ \
+                  GroupMemoryBarrierWithGroupSync(); }
+
+              // Usage in compute shader
+              DECLARE_TILE_CACHE_FLOAT(SDFCache);
+              LOAD_TILE_SCROLLED(SDFCache, SDFTex, ...);
+
+  # ── SECTION 4: REFERENCE ─────────────────────────────────────────────────
+  - id: reference
+    label: "Quick Reference"
+    cards:
+
+      - color: blue
+        title: "Feature Level Capabilities"
+        content:
+          - type: table
+            style: feature_matrix
+            cols: ["Feature", "ES3.1", "SM5", "SM6"]
+            rows:
+              - ["Wave Intrinsics",   "✗", "✗", "✓"]
+              - ["RayQuery / DXR",    "✗", "✗", "✓"]
+              - ["ddx / ddy",         "✗", "✓", "✓"]
+              - ["Bindless Resources","✗", "✗", "✓"]
+              - ["half precision",    "✓", "✓", "✓"]
+              - ["Compute / UAV",     "✗", "✓", "✓"]
+              - ["Geometry Shaders",  "✗", "✓", "✓"]
+              - ["TGSM (groupshared)","✗", "✓", "✓"]
+              - ["Typed SRV Buffers", "✗", "✓", "✓"]
+
+      - color: orange
+        title: "UE Type Keywords &amp; Hints"
+        content:
+          - type: rowlist
+            rows:
+              - {label: "MaterialFloat", text: "Adapts precision per platform automatically"}
+              - {label: "half / half3",  text: "16-bit — use on mobile for performance"}
+              - {label: "float / float3",text: "32-bit — default for PC / console"}
+              - {label: "BRANCH",        text: "<code>[branch]</code> hint — forces dynamic branching"}
+              - {label: "FLATTEN",       text: "<code>[flatten]</code> hint — forces both paths evaluated"}
+              - {label: "UNROLL",        text: "<code>[unroll]</code> — unroll loop at compile time"}
+              - {label: "LOOP",          text: "<code>[loop]</code> — force dynamic loop (required for dynamic bounds)"}
+
+      - color: red
+        title: "Common Shader Errors"
+        content:
+          - type: checklist
+            items:
+              - {icon: no,   html: "Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major"}
+              - {icon: no,   html: "<strong>Missing include guard</strong> — double-include causes redefinition errors"}
+              - {icon: no,   html: "<strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code>"}
+              - {icon: no,   html: "<strong>Uninitialized groupshared</strong> — TGSM is undefined until written"}
+              - {icon: no,   html: "<strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code>"}
+              - {icon: warn, html: "<strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn"}
+
+  # ── SECTION 5: SAMPLING ──────────────────────────────────────────────────
+  - id: sampling
+    label: "Texture Sampling &amp; SDF Patterns"
+    cards:
+
+      - color: blue
+        title: "Sampling Methods"
+        content:
+          - type: code
+            src: |
+              // Load (integer coords, no filtering)
+              float4 Val = Tex.Load(int3(x, y, 0));
+
+              // SampleLevel (UV coords, explicit mip)
+              float4 Val = Tex.SampleLevel(Sampler, UV, 0);
+
+              // In Material Custom Node:
+              // Texture2DSample(Tex, TexSampler, UV)
+              // Texture2DSampleLevel(Tex, TexSampler, UV, Lod)
+
+              // External texture (registered via GUID)
+              int32 TexCode = Compiler->ExternalTexture(GUID);
+              int32 Sample  = Compiler->TextureSample(
+                TexCode, UVCode, SAMPLERTYPE_External);
+
+      - color: orange
+        title: "Central-Difference Gradient"
+        content:
+          - type: prose
+            text: "Compute gradient from a scalar field (e.g. SDF distance):"
+          - type: code
+            src: |
+              // Read neighbors
+              float Left  = Grid.Load(int3(max(x-1, 0),      y, 0)).r;
+              float Right = Grid.Load(int3(min(x+1, Res-1),  y, 0)).r;
+              float Up    = Grid.Load(int3(x, max(y-1, 0),      0)).r;
+              float Down  = Grid.Load(int3(x, min(y+1, Res-1),  0)).r;
+
+              // Central difference
+              float2 Gradient = float2(Right - Left, Down - Up);
+              float  Len = length(Gradient);
+              if (Len > 0.001)
+                Gradient /= Len;  // Normalize
+
+              // Output: R=dist, GB=direction, A=mag
+              OutputRT[Pixel] = float4(
+                NormDist, Gradient.x, Gradient.y, Len);
+
+      - color: green
+        title: "SDF Math Helpers"
+        content:
+          - type: code
+            src: |
+              // Smooth minimum (polynomial blend)
+              float SmoothMin(float a, float b, float k)
+              {
+                if (k <= 0.0) return min(a, b);
+                float h = saturate(0.5 + 0.5 * (b - a) / k);
+                return lerp(b, a, h) - k * h * (1.0 - h);
+              }
+
+              // Distance to point
+              float PointDist(float2 P, float2 C, float R)
+              {
+                return length(P - C) - R;
+              }
+
+              // Distance to line segment
+              float SegmentDist(float2 P,
+                  float2 A, float2 B, float R)
+              {
+                float2 AB = B - A;
+                float  t  = saturate(dot(P - A, AB) / dot(AB, AB));
+                return length(P - A - AB * t) - R;
+              }

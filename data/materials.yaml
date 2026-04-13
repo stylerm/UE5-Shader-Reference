@@ -1,0 +1,319 @@
+meta:
+  title: "Materials — UE5 Shader Cheatsheet"
+  description: "UE5 Material Custom Node reference — GLSL to HLSL conversion, Shadertoy porting, WPO patterns."
+  active: materials
+  favicon: "🎨"
+  header_tag: "● Materials · Custom Nodes · Shadertoy Porting"
+  header_h1: 'Material <span>Custom Node</span> Reference'
+  header_right: |
+    Engine: <strong>UE 5.x</strong>
+    Context: <strong>Material Custom Node (body only)</strong>
+    Target: <strong>SM5 / SM6 / ES3.1</strong>
+  anchors:
+    - {id: context,     label: Context}
+    - {id: syntax,      label: Syntax}
+    - {id: custom-node, label: Custom Node}
+    - {id: shadertoy,   label: Shadertoy}
+    - {id: wpo,         label: WPO}
+    - {id: errors,      label: Errors}
+    - {id: templates,   label: Templates}
+
+sections:
+
+  # ── SECTION 1: CONTEXT ───────────────────────────────────────────────────
+  - id: context
+    label: "Context &amp; Setup"
+    cards:
+
+      - color: blue
+        title: "Always Declare Context First"
+        content:
+          - type: rowlist
+            code_labels: false
+            rows:
+              - {label: "WHERE",       text: "Custom node / .usf file / Niagara / Plugin shader"}
+              - {label: "UE VERSION",  text: "5.1 / 5.2 / 5.3 / 5.4+"}
+              - {label: "SHADER MDL",  text: "SM5 / SM6 / ES3.1"}
+              - {label: "RETURN TYPE", text: "float / float3 / float4 / etc."}
+              - {label: "PLATFORM",    text: "PC / Mobile / Console / Vulkan"}
+
+      - color: orange
+        title: "Declare Input Pins Explicitly"
+        content:
+          - type: prose
+            text: "Custom node pins become variable names. Always list them:"
+          - type: code
+            src: |
+              // Tell Claude exactly:
+              Inputs:
+                float3  WorldNormal
+                float2  UV
+                float   Time
+                float   Roughness
+
+              Return type: float3
+
+      - color: green
+        title: "Specify UE Globals Needed"
+        content:
+          - type: checklist
+            items:
+              - {icon: arrow, html: "<strong>View.GameTime</strong> — elapsed time"}
+              - {icon: arrow, html: "<strong>ResolvedView.WorldCameraOrigin</strong>"}
+              - {icon: arrow, html: "<strong>Primitive.LocalToWorld</strong>"}
+              - {icon: arrow, html: "<strong>View.ScreenPositionScaleBias</strong>"}
+              - {icon: warn,  html: "If not needed, ask for <strong>self-contained</strong> code with no injected globals"}
+
+  # ── SECTION 2: SYNTAX ────────────────────────────────────────────────────
+  - id: syntax
+    label: "GLSL → HLSL Intrinsic Mapping"
+    cards:
+
+      - color: blue
+        span: grid-full
+        title: "Always Use HLSL Intrinsics · Full Conversion Table"
+        content:
+          - type: table
+            style: conversion
+            cols: ["GLSL (source)", "HLSL / UE Equivalent", "Notes"]
+            rows:
+              - ["mix(a, b, t)",           "lerp(a, b, t)",                         "Most common mistake from Shadertoy ports"]
+              - ["fract(x)",               "frac(x)",                               "Identical behavior, different name"]
+              - ["mod(x, y)",              "fmod(x, y)",                            "Sign behavior differs for negatives — use <code>glsl_mod(x,y) = x - y*floor(x/y)</code> for exact GLSL match"]
+              - ["atan(y, x)",             "atan2(y, x)",                           "Argument order is the same"]
+              - ["dFdx / dFdy",            "ddx / ddy",                             "Pixel shader only — not available in vertex or compute"]
+              - ["inversesqrt(x)",         "rsqrt(x)",                              "Fast reciprocal square root"]
+              - ["vec2 / vec3 / vec4",     "float2 / float3 / float4",              "UE also accepts <code>half2/3/4</code> for mobile perf"]
+              - ["mat3 / mat4",            "float3x3 / float4x4",                   "Row-major in HLSL vs column-major in GLSL — may need transpose"]
+              - ["texture(sampler, uv)",   "Texture2DSample(...)",                  "Use UE material texture input pins instead"]
+              - ["layout(location=0) out", "[Implicit in Custom node]",             "No output declarations needed in body-only mode"]
+              - ["gl_FragCoord",           "SvPosition",                            "In full shaders; in Custom node use a ScreenPosition pin"]
+              - ["step(edge, x)",          "step(edge, x)",                         "Same name — but GLSL arg order is reversed from some docs"]
+              - ["smoothstep(e0, e1, x)",  "smoothstep(e0, e1, x)",                 "Same name and arg order — hermite interpolation"]
+              - ["clamp(x, 0.0, 1.0)",     "saturate(x)",                           "Preferred UE shorthand for 0–1 clamping; <code>clamp()</code> also works"]
+              - ["pow(base, exp)",         "pow(abs(base), exp)",                   "HLSL <code>pow</code> is <strong>undefined for negative base</strong> — always wrap with <code>abs()</code>"]
+              - ["abs(x)",                 "abs(x)",                                "Same — but integer <code>abs()</code> may behave differently on some platforms"]
+              - ["sign(x)",                "sign(x)",                               "Same name — returns -1, 0, or 1"]
+              - ["noise()",                "[USE UE NOISE NODE]",                   "Not available in HLSL — use hash functions: <code>frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453)</code>"]
+              - ["textureLod(s, uv, lod)", "Texture2DSampleLevel(Tex, TexSampler, uv, lod)", "Requires Tex + TexSampler pair from input pins"]
+              - ["textureSize(sampler, 0)","[Use a float2 TexelSize input pin]",    "No direct equivalent — pass dimensions as a parameter"]
+
+  # ── SECTION 3: CUSTOM NODE ───────────────────────────────────────────────
+  - id: custom-node
+    label: "Custom Node Rules"
+    cards:
+
+      - color: red
+        title: "Custom Node · Never Do This"
+        content:
+          - type: checklist
+            items:
+              - {icon: no, html: "<strong>No <code>#include</code></strong> — body is injected mid-shader, includes break compilation"}
+              - {icon: no, html: "<strong>No top-level function declarations</strong> — inline all logic or use the struct workaround"}
+              - {icon: no, html: "<strong>No sampler declarations</strong> — pass textures as input pins instead"}
+              - {icon: no, html: "<strong>No global-scope mutable state</strong> — all vars are local to the body"}
+              - {icon: no, html: "<strong>No GLSL precision qualifiers</strong> (<code>mediump</code>, <code>highp</code>, <code>lowp</code>)"}
+              - {icon: no, html: "<strong>No <code>void main()</code></strong> — body only, return value is the output"}
+              - {icon: no, html: "<strong>No undeclared variable references</strong> — only use explicitly listed input pins"}
+
+      - color: green
+        title: "Custom Node · Best Practices"
+        content:
+          - type: checklist
+            items:
+              - {icon: ok, html: "<strong>Inline-only logic</strong> — no separate function blocks"}
+              - {icon: ok, html: "<strong><code>static const</code></strong> for all constants"}
+              - {icon: ok, html: "<strong>Explicit return value</strong> matching declared return type"}
+              - {icon: ok, html: "<strong>Swizzle count validation</strong> — float3 output ≠ float4 return"}
+              - {icon: ok, html: "<strong>Step-by-step comments</strong> on each major operation"}
+              - {icon: ok, html: "<strong>Feature level guard hints</strong> if targeting ES3.1 / mobile"}
+              - {icon: ok, html: "<strong>Flag texture samples</strong> as <code>[NEEDS TEXTURE PIN]</code> rather than inline"}
+
+      - color: yellow
+        title: "Struct Workaround for Helper Functions"
+        content:
+          - type: prose
+            text: "Custom nodes inject code inside a function body — top-level function defs cause C2059. Wrap helpers in a struct:"
+          - type: code
+            src: |
+              // Struct trick — works inside Custom node body
+              struct Helpers {
+                float hash21(float2 p) {
+                  p = frac(p * float2(123.34, 456.21));
+                  p += dot(p, p + 45.32);
+                  return frac(p.x * p.y);
+                }
+                float glsl_mod(float x, float y) {
+                  return x - y * floor(x / y);
+                }
+              };
+              Helpers H;
+              return H.hash21(UV);
+
+  # ── SECTION 4: SHADERTOY ─────────────────────────────────────────────────
+  - id: shadertoy
+    label: "Shadertoy / GLSL Port Guide"
+    cards:
+
+      - color: orange
+        title: "Shadertoy Uniform Mapping"
+        content:
+          - type: table
+            style: conversion
+            cols: ["Shadertoy", "UE5 Equivalent", "Notes"]
+            rows:
+              - ["iTime",         "float Time input pin",        "Connect a <strong>Time</strong> node to the pin"]
+              - ["iResolution.xy","float2 Resolution input pin", "Use <strong>SceneTexture:SceneColor</strong> → Size or pass manually"]
+              - ["iMouse",        "[No direct equivalent]",      "Pass via Material Parameter Collection or Blueprint"]
+              - ["iFrame",        "[No direct equivalent]",      "Approximate with <code>floor(Time * FrameRate)</code>"]
+              - ["iChannel0–3",   "Texture Object input pins",   "One pin per channel; use <code>Texture2DSample()</code>"]
+              - ["fragCoord",     "float2 ScreenPos input pin",  "Connect ScreenPosition node (viewport UV)"]
+              - ["fragColor",     "return float4(...);",         "The Custom node return value <em>is</em> the output"]
+
+      - color: red
+        title: "Coordinate System Pitfalls"
+        content:
+          - type: checklist
+            items:
+              - {icon: no,   html: "<strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code>"}
+              - {icon: no,   html: "<strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized"}
+              - {icon: no,   html: "<strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same"}
+              - {icon: no,   html: "<strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts"}
+              - {icon: warn, html: "<strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin"}
+
+      - color: yellow
+        title: "Multi-Pass &amp; Buffer Limitations"
+        content:
+          - type: checklist
+            items:
+              - {icon: no,   html: "<strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass"}
+              - {icon: warn, html: "<strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic"}
+              - {icon: warn, html: "<strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong"}
+              - {icon: ok,   html: "<strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node"}
+              - {icon: ok,   html: "<strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint"}
+
+  # ── SECTION 5: WPO ───────────────────────────────────────────────────────
+  - id: wpo
+    label: "World Position Offset / Vertex Shader"
+    cards:
+
+      - color: blue
+        title: "WPO Basics"
+        content:
+          - type: checklist
+            items:
+              - {icon: ok,   html: "WPO return type is always <strong><code>float3</code></strong> — a <strong>world-space</strong> offset added to each vertex position"}
+              - {icon: ok,   html: "Connect Custom node output to the <strong>World Position Offset</strong> pin on the material"}
+              - {icon: ok,   html: "Use <strong><code>absolute world position</code></strong> input pin for world-space vertex position"}
+              - {icon: ok,   html: "Return <code>float3(0,0,0)</code> for no displacement — the value is <em>additive</em>"}
+              - {icon: ok,   html: "Great for: wind, waves, procedural animation, terrain deformation"}
+
+      - color: orange
+        title: "Available Vertex Data"
+        content:
+          - type: rowlist
+            rows:
+              - {label: "AbsoluteWorldPosition", text: "Vertex position in world space"}
+              - {label: "VertexNormalWS",        text: "World-space vertex normal"}
+              - {label: "VertexTangentWS",       text: "World-space vertex tangent"}
+              - {label: "TexCoord[0-7]",         text: "UV channels available via input pins"}
+              - {label: "VertexColor",           text: "Per-vertex RGBA (baked in mesh)"}
+              - {label: "ActorPosition",         text: "Object pivot in world space"}
+              - {label: "ObjectBounds",          text: "Bounding box extent — useful for normalizing offsets"}
+
+      - color: yellow
+        title: "WPO Limitations"
+        content:
+          - type: checklist
+            items:
+              - {icon: no,   html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> in vertex stage — these are pixel shader derivatives"}
+              - {icon: no,   html: "<strong>No texture sampling</strong> by default in VS — enable <code>Allow Custom Node Vertex Interpolators</code>"}
+              - {icon: warn, html: "<strong>Shadow &amp; bounds mismatch</strong> — large WPO can push verts outside the bounding box, causing culling. Increase <strong>Bounds Scale</strong>"}
+              - {icon: warn, html: "<strong>VS → PS data</strong> — to pass custom data from vertex to pixel, use <strong>Vertex Interpolator</strong> node in the material graph"}
+              - {icon: warn, html: "<strong>Performance</strong> — WPO runs per vertex every frame; keep math simple on high-poly meshes"}
+
+  # ── SECTION 6: ERRORS ────────────────────────────────────────────────────
+  - id: errors
+    label: "Common Errors to Prevent"
+    cards:
+
+      - color: red
+        span: grid-full
+        title: "Gotchas That Break Compilation or Produce Wrong Results"
+        content:
+          - type: nested_grid
+            cols: 2
+            groups:
+              - items:
+                  - {icon: no, html: "Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major"}
+                  - {icon: no, html: "<strong>UV origin</strong> — UE flips V; ask Claude to account for <code>1.0 - UV.y</code> if porting"}
+                  - {icon: no, html: "<strong>Swizzle mismatch</strong> — always verify component counts explicitly"}
+                  - {icon: no, html: "<strong>Shadertoy time</strong> is <code>iTime</code> — must be mapped to a <code>float Time</code> input pin"}
+              - items:
+                  - {icon: no,   html: "<strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code>"}
+                  - {icon: warn, html: "<strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn"}
+                  - {icon: no,   html: "<strong>HLSL <code>fmod</code> sign differs</strong> from GLSL <code>mod</code> — use <code>x - y*floor(x/y)</code> for exact match"}
+                  - {icon: no,   html: "<strong><code>pow()</code> with negative base</strong> is undefined in HLSL — always use <code>pow(abs(x), n)</code>"}
+
+  # ── SECTION 7: TEMPLATES ─────────────────────────────────────────────────
+  - id: templates
+    label: "Prompt Templates"
+    grid: "grid grid-2"
+    cards:
+
+      - color: blue
+        title: "Template A · Material Custom Node"
+        content:
+          - type: prompt
+            src: |
+              {{kw:Context:}}    {{ph:UE5 Material Custom Node (body only, no signature)}}
+              {{kw:UE Version:}} {{ph:5.4}}
+              {{kw:Shader Model:}}{{ph: SM5}}
+              {{kw:Platform:}}   {{ph:PC / Vulkan}}
+
+              {{kw:Return type:}} {{ph:float3}}
+
+              {{kw:Input pins:}}
+                {{ph:float3  WorldNormal
+                float2  UV
+                float   Time
+                float   Roughness}}
+
+              {{kw:Goal:}} {{ph:[describe effect in plain language]}}
+
+              {{kw:Rules:}}
+                - No #include, no function declarations
+                - static const for all constants
+                - HLSL intrinsics only (no GLSL)
+                - Validate all swizzle component counts
+                - Comment each major step
+                - Return type must match: {{ph:float3}}
+
+      - color: orange
+        title: "Template B · Shadertoy / GLSL Port"
+        content:
+          - type: prompt
+            src: |
+              {{kw:Task:}} Port the following GLSL to a UE5 Custom node
+
+              {{kw:Source:}}
+              {{ph:[paste GLSL shader here]}}
+
+              {{kw:Apply ALL conversions:}}
+                mix      → lerp
+                fract    → frac
+                mod      → x - y*floor(x/y)  {{cm:// NOT fmod (sign differs)}}
+                atan     → atan2
+                dFdx/y   → ddx/ddy
+                vec2/3/4 → float2/3/4
+                mat3/4   → float3x3/float4x4
+                iTime    → {{ph:Time}} (float input pin)
+                iResolution → {{ph:ScreenSize}} (float2 input pin)
+                gl_FragCoord → use a {{ph:ScreenPos}} input pin
+
+              {{kw:Output rules:}}
+                - Body-only, no function signature
+                - No sampler declarations
+                - Flag texture samples as [NEEDS TEXTURE PIN]
+                - Use struct workaround if helper functions needed
+                - Add a comment for each conversion made

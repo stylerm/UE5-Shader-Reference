@@ -277,7 +277,7 @@ h1 span { color: var(--accent); }
   border-bottom: 1px solid;
   margin-bottom: 6px;
 }
-.area-heading + .section-label { margin-top: 18px; }
+.area-heading + .section-label { margin-top: 22px; }
 
 /* ── SECTION LABELS ── */
 .section-label {
@@ -285,7 +285,7 @@ h1 span { color: var(--accent); }
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 24px 0 10px;
+  margin: 56px 0 14px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -295,6 +295,36 @@ h1 span { color: var(--accent); }
   flex: 1;
   height: 1px;
   background: var(--border);
+}
+
+/* ── PRIORITY SECTION HIGHLIGHT ── */
+.section-label[data-priority="high"] {
+  color: var(--accent);
+}
+.section-label[data-priority="high"]::after {
+  background: rgba(0,229,255,0.25);
+}
+.section-label[data-priority="high"] + .grid,
+.section-label[data-priority="high"] + .grid-2 {
+  border-left: 2px solid rgba(0,229,255,0.25);
+  padding-left: 14px;
+  margin-left: -16px;
+  background: rgba(0,229,255,0.015);
+  border-radius: 0 4px 4px 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+/* Warm variant inside optim areas */
+.area-optim .section-label[data-priority="high"] {
+  color: var(--accent2);
+}
+.area-optim .section-label[data-priority="high"]::after {
+  background: rgba(255,107,53,0.3);
+}
+.area-optim .section-label[data-priority="high"] + .grid,
+.area-optim .section-label[data-priority="high"] + .grid-2 {
+  border-left-color: rgba(255,107,53,0.25);
+  background: rgba(255,107,53,0.015);
 }
 
 /* ── GRID ── */
@@ -445,7 +475,14 @@ td {
 tr:last-child td { border-bottom: none; }
 td.bad  { color: var(--bad); }
 td.good { color: var(--good); }
-td.note { color: var(--text-dim); font-size: 13.5px; }
+td.note { color: var(--text-dim); font-size: 13.5px; max-width: 42ch; word-wrap: break-word; }
+/* Conversion tables — constrain code columns, let notes wrap */
+table.table-conversion td:nth-child(1),
+table.table-conversion td:nth-child(2) { white-space: nowrap; width: 1%; }
+table.table-conversion td:nth-child(3) { max-width: 42ch; }
+/* Feature matrix / multi-col reference tables */
+table.table-multi td:first-child { white-space: nowrap; font-weight: 600; }
+table.table-multi td { max-width: 48ch; word-wrap: break-word; }
 
 /* ── CHECKLIST ── */
 .checklist { display: flex; flex-direction: column; gap: 8px; }
@@ -465,21 +502,34 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
 .check-icon.warn { color: var(--warn); }
 .check-item strong { color: #fff; font-weight: 700; }
 
-/* ── PROMPT BOX ── */
+/* ── PROMPT / TEMPLATE CARD ── */
 .prompt-box {
   position: relative;
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 3px;
-  padding: 14px 16px;
+  background: rgba(0,229,255,0.03);
+  border: 1px solid rgba(0,229,255,0.18);
+  border-radius: 5px;
+  padding: 32px 18px 16px;
   font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.85;
-  color: #b8cfd8;
+  color: var(--text);
   white-space: pre;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+.prompt-box::before {
+  content: 'TEMPLATE';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  background: rgba(0,229,255,0.06);
+  border-bottom: 1px solid rgba(0,229,255,0.12);
+  border-radius: 5px 5px 0 0;
 }
 .prompt-box .ph { color: var(--accent2); }
 .prompt-box .kw { color: var(--accent); }
@@ -710,6 +760,81 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   body { padding-left: 130px; }
 }
 
+/* ── Small screens — stacked tables for 3+ col ── */
+@media (max-width: 640px) {
+  table.table-conversion,
+  table.table-conversion thead,
+  table.table-conversion tbody,
+  table.table-conversion tr,
+  table.table-conversion th,
+  table.table-conversion td {
+    display: block;
+    width: 100%;
+  }
+  table.table-conversion { min-width: 0; }
+  table.table-conversion thead { display: none; }
+  table.table-conversion tr {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  table.table-conversion td {
+    border-bottom: none;
+    padding: 2px 0;
+    white-space: normal;
+    width: auto;
+  }
+  table.table-conversion td::before {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 1px;
+  }
+  table.table-conversion td:nth-child(1)::before { content: attr(data-label); }
+  table.table-conversion td:nth-child(2)::before { content: attr(data-label); }
+  table.table-conversion td:nth-child(3)::before { content: attr(data-label); }
+  table.table-conversion td:nth-child(3) { max-width: none; }
+  table.table-conversion td.note { font-size: 12px; margin-top: 4px; }
+
+  table.table-multi,
+  table.table-multi thead,
+  table.table-multi tbody,
+  table.table-multi tr,
+  table.table-multi th,
+  table.table-multi td {
+    display: block;
+    width: 100%;
+  }
+  table.table-multi { min-width: 0; }
+  table.table-multi thead { display: none; }
+  table.table-multi tr {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  table.table-multi td {
+    border-bottom: none;
+    padding: 2px 0;
+    white-space: normal;
+    max-width: none;
+  }
+  table.table-multi td::before {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 1px;
+    content: attr(data-label);
+  }
+}
+
 /* ── Mobile ── */
 @media (max-width: 600px) {
 
@@ -764,20 +889,30 @@ td.note { color: var(--text-dim); font-size: 13.5px; }
   /* Cards — slightly less padding */
   .card { padding: 14px; }
 
+  /* Section spacing — reduce on mobile */
+  .section-label { margin: 40px 0 12px; }
+
   /* Tables — horizontal scroll wrapper on mobile */
   table { min-width: 480px; }
+  table.table-conversion,
+  table.table-multi { min-width: 0; }  /* stacked layout handled by 640px breakpoint */
   .card > table, .card > .checklist ~ table {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Inject scroll wrapper for all tables in cards via CSS */
-  /* (tables themselves get min-width so they don't collapse) */
-
   /* Code / prompt boxes — ensure horizontal scroll */
   pre { font-size: 12px; }
-  .prompt-box { font-size: 12px; }
+  .prompt-box { font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  .prompt-box::before { font-size: 8px; }
+
+  /* Priority section highlight — reduce indent on mobile */
+  .section-label[data-priority="high"] + .grid,
+  .section-label[data-priority="high"] + .grid-2 {
+    margin-left: -8px;
+    padding-left: 10px;
+  }
 
   /* Row list */
   .row { font-size: 15px; flex-wrap: wrap; }

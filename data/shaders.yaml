@@ -15,6 +15,7 @@ meta:
     - {id: tgsm,          label: TGSM}
     - {id: reference,     label: Reference}
     - {id: sampling,      label: Sampling}
+    - {divider: "OPTIMIZATION", area: optim}
     - {id: compute-perf,  label: Perf Rules}
     - {id: dispatch-rules,label: Dispatch}
     - {id: platform-perf, label: Platform}
@@ -32,6 +33,7 @@ section_groups:
       # ── SECTION 1: USF / USH RULES ─────────────────────────────────────────
       - id: usf-rules
         label: ".usf / .ush File Rules"
+        priority: high
         cards:
 
           - color: blue
@@ -100,6 +102,7 @@ section_groups:
       # ── SECTION 2: COMPUTE ─────────────────────────────────────────────────
       - id: compute
         label: "Compute Shader Patterns"
+        priority: high
         cards:
 
           - color: green

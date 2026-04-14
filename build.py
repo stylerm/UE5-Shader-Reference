@@ -178,6 +178,14 @@ def render_table(data: dict) -> str:
     cols  = data.get("cols", [])
     rows  = data.get("rows", [])
 
+    # Table class for CSS targeting
+    if style == "conversion":
+        table_cls = ' class="table-conversion"'
+    elif len(cols) >= 3:
+        table_cls = ' class="table-multi"'
+    else:
+        table_cls = ""
+
     thead = "".join(f"<th>{c}</th>" for c in cols)
     tbody_rows = []
 
@@ -187,37 +195,39 @@ def render_table(data: dict) -> str:
                 row.get("bad", ""), row.get("good", ""), row.get("note", "")
             ]
             bad, good, note = cells[0], cells[1], cells[2] if len(cells) > 2 else ""
-            bad_html  = f'<td class="bad"><code>{bad}</code></td>'
+            bad_html  = f'<td class="bad" data-label="{cols[0]}"><code>{bad}</code></td>'
             # Italicise "good" cell if it's a placeholder like [USE UE NOISE NODE]
             g = good.strip()
             if g.startswith("[") or g.startswith("("):
-                good_html = f'<td class="good"><em>{good}</em></td>'
+                good_html = f'<td class="good" data-label="{cols[1]}"><em>{good}</em></td>'
             else:
-                good_html = f'<td class="good"><code>{good}</code></td>'
+                good_html = f'<td class="good" data-label="{cols[1]}"><code>{good}</code></td>'
             tbody_rows.append(
                 f"<tr>{bad_html}{good_html}"
-                f'<td class="note">{note}</td></tr>'
+                f'<td class="note" data-label="{cols[2] if len(cols) > 2 else "Notes"}">{note}</td></tr>'
             )
 
         elif style == "feature_matrix":
             cells = list(row)
             label = cells[0]
-            tds = f"<td><strong>{label}</strong></td>"
-            for cell in cells[1:]:
+            tds = f'<td data-label="{cols[0]}"><strong>{label}</strong></td>'
+            for ci, cell in enumerate(cells[1:], 1):
                 cls = "good" if "✓" in _s(cell) else "bad"
-                tds += f'<td class="{cls}">{cell}</td>'
+                col_label = cols[ci] if ci < len(cols) else ""
+                tds += f'<td class="{cls}" data-label="{col_label}">{cell}</td>'
             tbody_rows.append(f"<tr>{tds}</tr>")
 
         else:
             # Default: backtick-wrapped → <code>
             tds = ""
-            for cell in row:
+            for ci, cell in enumerate(row):
                 cell_text = re.sub(r"`([^`]+)`", r"<code>\1</code>", _s(cell))
-                tds += f"<td>{cell_text}</td>"
+                col_label = cols[ci] if ci < len(cols) else ""
+                tds += f'<td data-label="{col_label}">{cell_text}</td>'
             tbody_rows.append(f"<tr>{tds}</tr>")
 
     return (
-        f"<table>"
+        f"<table{table_cls}>"
         f"<thead><tr>{thead}</tr></thead>"
         f"<tbody>{''.join(tbody_rows)}</tbody>"
         f"</table>"
@@ -303,9 +313,11 @@ def render_section(section: dict) -> str:
     sid        = section.get("id", "")
     label      = section.get("label", "")
     grid_class = section.get("grid", "grid")
+    priority   = section.get("priority", "")
     cards      = "".join(render_card(c) for c in section.get("cards", []))
+    priority_attr = f' data-priority="{priority}"' if priority else ""
     return (
-        f'<div id="{sid}" class="section-label">{label}</div>\n'
+        f'<div id="{sid}" class="section-label"{priority_attr}>{label}</div>\n'
         f'<div class="{grid_class}">\n'
         f"{cards}"
         f"</div>\n\n"
@@ -340,11 +352,20 @@ def build_page(data_file: Path, template: str) -> None:
         active = ' class="active"' if pid == page_id else ""
         page_links += f'<a href="{href}"{active}>{label}</a>\n'
 
-    # Side nav — on-this-page anchors
-    section_links = "\n".join(
-        f'<a href="#{a["id"]}">{a["label"]}</a>'
-        for a in meta.get("anchors", [])
-    )
+    # Side nav — on-this-page anchors (supports {divider: "label"} separators)
+    in_optim = False
+    link_parts = []
+    for a in meta.get("anchors", []):
+        if "divider" in a:
+            link_parts.append(
+                f'<div class="sidenav-divider"></div>\n'
+                f'<span class="sidenav-section">{a["divider"]}</span>'
+            )
+            in_optim = a.get("area", "optim") == "optim"
+            continue
+        area_attr = ' data-area="optim"' if in_optim else ""
+        link_parts.append(f'<a href="#{a["id"]}"{area_attr}>{a["label"]}</a>')
+    section_links = "\n".join(link_parts)
 
     # Main content — supports both flat `sections` and grouped `section_groups`
     groups = data.get("section_groups", [])

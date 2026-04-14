@@ -17,6 +17,7 @@ meta:
     - {id: wpo,         label: WPO}
     - {id: errors,      label: Errors}
     - {id: templates,   label: Templates}
+    - {divider: "OPTIMIZATION", area: optim}
     - {id: mat-cost,    label: Complexity}
     - {id: mat-rules,   label: Optim Rules}
     - {id: mat-blend,   label: Blend Modes}
@@ -78,6 +79,7 @@ section_groups:
       # ── SECTION 2: SYNTAX ──────────────────────────────────────────────────
       - id: syntax
         label: "GLSL → HLSL Intrinsic Mapping"
+        priority: high
         cards:
 
           - color: blue
@@ -246,6 +248,7 @@ section_groups:
       # ── SECTION 6: ERRORS ──────────────────────────────────────────────────
       - id: errors
         label: "Common Errors to Prevent"
+        priority: high
         cards:
 
           - color: red
@@ -269,6 +272,7 @@ section_groups:
       # ── SECTION 7: TEMPLATES ───────────────────────────────────────────────
       - id: templates
         label: "Prompt Templates"
+        priority: high
         grid: "grid grid-2"
         cards:
 

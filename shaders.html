@@ -38,9 +38,11 @@
 <a href="#tgsm">TGSM</a>
 <a href="#reference">Reference</a>
 <a href="#sampling">Sampling</a>
-<a href="#compute-perf">Perf Rules</a>
-<a href="#dispatch-rules">Dispatch</a>
-<a href="#platform-perf">Platform</a>
+<div class="sidenav-divider"></div>
+<span class="sidenav-section">OPTIMIZATION</span>
+<a href="#compute-perf" data-area="optim">Perf Rules</a>
+<a href="#dispatch-rules" data-area="optim">Dispatch</a>
+<a href="#platform-perf" data-area="optim">Platform</a>
   </div>
 </nav>
 
@@ -73,7 +75,7 @@
 
 <div class="area area-ref">
 <div class="area-heading">⚗ HLSL Reference</div>
-<div id="usf-rules" class="section-label">.usf / .ush File Rules</div>
+<div id="usf-rules" class="section-label" data-priority="high">.usf / .ush File Rules</div>
 <div class="grid">
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> File Structure Basics</div>
@@ -124,7 +126,7 @@
 <span class="kw">#endif</span></pre></div>
 </div>
 
-<div id="compute" class="section-label">Compute Shader Patterns</div>
+<div id="compute" class="section-label" data-priority="high">Compute Shader Patterns</div>
 <div class="grid">
 <div class="card green">
 <div class="card-title"><span class="dot"></span> Compute Shader Entry Point</div>
@@ -209,7 +211,7 @@ TileCache[GroupThreadID.y][GroupThreadID.x]
 <div class="grid">
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> Feature Level Capabilities</div>
-<table><thead><tr><th>Feature</th><th>ES3.1</th><th>SM5</th><th>SM6</th></tr></thead><tbody><tr><td><strong>Wave Intrinsics</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>RayQuery / DXR</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>ddx / ddy</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Bindless Resources</strong></td><td class="bad">✗</td><td class="bad">✗</td><td class="good">✓</td></tr><tr><td><strong>half precision</strong></td><td class="good">✓</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Compute / UAV</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Geometry Shaders</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>TGSM (groupshared)</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr><tr><td><strong>Typed SRV Buffers</strong></td><td class="bad">✗</td><td class="good">✓</td><td class="good">✓</td></tr></tbody></table></div>
+<table class="table-multi"><thead><tr><th>Feature</th><th>ES3.1</th><th>SM5</th><th>SM6</th></tr></thead><tbody><tr><td data-label="Feature"><strong>Wave Intrinsics</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="bad" data-label="SM5">✗</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>RayQuery / DXR</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="bad" data-label="SM5">✗</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>ddx / ddy</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Bindless Resources</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="bad" data-label="SM5">✗</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>half precision</strong></td><td class="good" data-label="ES3.1">✓</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Compute / UAV</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Geometry Shaders</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>TGSM (groupshared)</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Typed SRV Buffers</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr></tbody></table></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> UE Type Keywords &amp; Hints</div>
 <div class="row-list"><div class="row"><span class="row-label"><code>MaterialFloat</code></span><span class="row-text">Adapts precision per platform automatically</span></div><div class="row"><span class="row-label"><code>half / half3</code></span><span class="row-text">16-bit — use on mobile for performance</span></div><div class="row"><span class="row-label"><code>float / float3</code></span><span class="row-text">32-bit — default for PC / console</span></div><div class="row"><span class="row-label"><code>BRANCH</code></span><span class="row-text"><code>[branch]</code> hint — forces dynamic branching</span></div><div class="row"><span class="row-label"><code>FLATTEN</code></span><span class="row-text"><code>[flatten]</code> hint — forces both paths evaluated</span></div><div class="row"><span class="row-label"><code>UNROLL</code></span><span class="row-text"><code>[unroll]</code> — unroll loop at compile time</span></div><div class="row"><span class="row-label"><code>LOOP</code></span><span class="row-text"><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</span></div></div></div>
@@ -292,7 +294,7 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
 <div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>TGSM is the primary bandwidth tool</strong> — load a tile of data once into groupshared, read it many times within the group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Coalesce global reads/writes</strong> — adjacent threads should access adjacent memory addresses (stride-1 access patterns)</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Scattered UAV writes are slow</strong> — random-address writes break GPU memory coalescing; prefer sorted or sequential indices</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Never read/write the same UAV in one dispatch</strong> — use ping-pong buffers (read A, write B; next frame swap)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Minimize RW texture round-trips</strong> — avoid dispatches that write a texture and immediately read it in the same pass</span></div></div></div>
 <div class="card blue grid-full">
 <div class="card-title"><span class="dot"></span> Thread Group Size Cheat Sheet</div>
-<table><thead><tr><th>Size</th><th>Threads</th><th>TGSM Budget</th><th>Recommended For</th></tr></thead><tbody><tr><td><code>8×8×1</code></td><td>64</td><td>~1.6KB float</td><td>Safe on all targets — textures, SDF, general 2D</td></tr><tr><td><code>8×8×1</code></td><td>64</td><td>~3.2KB float2</td><td>Gradient / neighbor reads with halo</td></tr><tr><td><code>16×16×1</code></td><td>256</td><td>~6.4KB float</td><td>PC/SM5+ only — larger tiles, reduce dispatch overhead</td></tr><tr><td><code>64×1×1</code></td><td>64</td><td>—</td><td>1D passes: histograms, prefix sums, buffer ops</td></tr><tr><td><code>32×1×1</code></td><td>32</td><td>—</td><td>Mobile-safe 1D — matches warp/wavefront size</td></tr></tbody></table></div>
+<table class="table-multi"><thead><tr><th>Size</th><th>Threads</th><th>TGSM Budget</th><th>Recommended For</th></tr></thead><tbody><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~1.6KB float</td><td data-label="Recommended For">Safe on all targets — textures, SDF, general 2D</td></tr><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~3.2KB float2</td><td data-label="Recommended For">Gradient / neighbor reads with halo</td></tr><tr><td data-label="Size"><code>16×16×1</code></td><td data-label="Threads">256</td><td data-label="TGSM Budget">~6.4KB float</td><td data-label="Recommended For">PC/SM5+ only — larger tiles, reduce dispatch overhead</td></tr><tr><td data-label="Size"><code>64×1×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">1D passes: histograms, prefix sums, buffer ops</td></tr><tr><td data-label="Size"><code>32×1×1</code></td><td data-label="Threads">32</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">Mobile-safe 1D — matches warp/wavefront size</td></tr></tbody></table></div>
 </div>
 
 <div id="dispatch-rules" class="section-label">Dispatch &amp; Resource Rules</div>

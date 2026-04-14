@@ -15,6 +15,7 @@ meta:
     - {id: stateless,    label: Stateless}
     - {id: attributes,   label: Attributes}
     - {id: patterns,     label: Patterns}
+    - {divider: "OPTIMIZATION", area: optim}
     - {id: perf-tiers,   label: Perf Tiers}
     - {id: gpu-vs-cpu,   label: GPU vs CPU}
     - {id: perf-rules,   label: Optim Rules}
@@ -33,6 +34,7 @@ section_groups:
       # ── SECTION 1: SCRATCH PAD ─────────────────────────────────────────────
       - id: scratch-pad
         label: "Scratch Pad Module HLSL"
+        priority: high
         cards:
 
           - color: blue
@@ -81,6 +83,7 @@ section_groups:
       # ── SECTION 2: RESTRICTIONS ────────────────────────────────────────────
       - id: restrictions
         label: "Restrictions &amp; Things to Avoid"
+        priority: high
         cards:
 
           - color: red
@@ -297,7 +300,7 @@ section_groups:
             content:
               - type: checklist
                 items:
-                  - {icon: ok, html: "<strong>Combine emitters</strong> — 1 emitter × 1000 particles beats 10 emitters × 100 (fewer VM invokes / GPU dispatches)"}
+                  - {icon: ok, html: "<strong>Combine emitters</strong> — each emitter adds its own tick, compute dispatch, and draw call setup; merging 5→1 can cut game-thread tick time 30–50%"}
                   - {icon: ok, html: "<strong>Fixed Bounds</strong> — enable in System settings to prevent dynamic bounding box recomputation every frame"}
                   - {icon: ok, html: "<strong>Always stop unused systems</strong> — looping systems that are invisible still consume GPU dispatch and CPU overhead"}
                   - {icon: ok, html: "<strong>Effect Type asset</strong> — attach one to every system; enables budget-based culling with zero per-frame cost"}
@@ -317,7 +320,7 @@ section_groups:
             content:
               - type: checklist
                 items:
-                  - {icon: warn, html: "<strong>Per-particle collision</strong> — each particle traces a scene query; keep counts low or use Scene Depth approximation"}
+                  - {icon: warn, html: "<strong>CPU per-particle collision</strong> — runs a blocking physics line trace per particle per frame; scales linearly with count. GPU alternatives (depth buffer, distance field) are far cheaper — depth collision is ~3 texture reads per particle in parallel, distance field is a single SDF lookup"}
                   - {icon: warn, html: "<strong>Light emission</strong> — only available on CPU sims; each particle light adds a shadow-casting draw call overhead"}
                   - {icon: warn, html: "<strong>Many dynamic material params</strong> — per-emitter material parameter updates flush batching"}
                   - {icon: warn, html: "<strong>Full-screen translucent sprites</strong> — overdraw × material cost multiplies; minimize screen coverage"}
@@ -329,7 +332,7 @@ section_groups:
                 items:
                   - {icon: no, html: "<strong>Unbounded GPU sims &gt;1M particles</strong> — without fixed bounds, culling is unreliable and memory grows unbounded"}
                   - {icon: no, html: "<strong>Translucent overdraw &gt;5× deep</strong> — the same pixel drawn 5–10 times = 5–10× material cost; use cutout masks instead"}
-                  - {icon: no, html: "<strong>&gt;10 active emitters per actor</strong> — each emitter is a separate compute dispatch; batch aggressively"}
+                  - {icon: no, html: "<strong>&gt;10 active emitters per actor</strong> — each emitter allocates its own dataset, tick entry, and GPU dispatch; the overhead compounds per frame"}
                   - {icon: no, html: "<strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target device early"}
 
       # ── SECTION 7: GPU VS CPU ──────────────────────────────────────────────
@@ -346,7 +349,8 @@ section_groups:
                 cols: ["Decision Factor", "CPU Simulation", "GPU Simulation"]
                 rows:
                   - ["Particle count sweet spot", "1 – 100", "100+ (thousands to millions)"]
-                  - ["Collision &amp; gameplay events", "Yes — full scene query support", "No — compute only, no callbacks"]
+                  - ["Collision", "Sync/async physics traces — blocking, scales linearly", "Depth buffer (~3 tex reads) or Distance Field (SDF lookup) — parallel, far cheaper"]
+                  - ["Gameplay events &amp; callbacks", "Yes — full scene query support", "No — compute only, no callbacks"]
                   - ["Light emission", "Yes", "No"]
                   - ["Module feature set", "Full — all Niagara modules", "Limited — compute-compatible only"]
                   - ["Texture sampling", "Via Data Interface", "Via Texture Sample DI only"]
@@ -381,6 +385,17 @@ section_groups:
                   - {icon: warn, html: "<strong>Translucency &gt;3ms total</strong> — monitor with <code>stat gpu</code> or GPU Insights (UE 5.4+); translucency is additive across all effects"}
                   - {icon: warn, html: "<strong>No Significance Handler without Effect Type</strong> — budget overruns go unmanaged; add Effect Type first"}
 
+          - color: orange
+            title: "Spawning &amp; Renderer Costs"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>GPU spawn cap</strong> — engine limits spawning to 2M particles per frame across all systems; burst spawning beyond this is silently clamped"}
+                  - {icon: warn, html: "<strong>Mesh renderer</strong> is significantly more expensive than <strong>Sprite</strong> — mesh renderers compute per-particle vertex data on the game thread; use the <code>CalcMeshUsedParticleCount</code> optimization (on by default for &gt;64 particles) to skip hidden mesh indices"}
+                  - {icon: warn, html: "<strong>Skeletal Mesh DI</strong> is one of the heaviest data interfaces — it binds multiple large SRVs per emitter (index, vertex, skin weights, current + prev bone transforms)"}
+                  - {icon: ok,   html: "<strong>Sprite renderer</strong> is cheapest — simple billboard quads with minimal per-particle overhead"}
+                  - {icon: ok,   html: "<strong>GPU buffer allocation</strong> rounds up to 4KB chunks and only shrinks when usage drops below 50%; pre-allocate with <code>MaxAllocationCount</code> in emitter properties to avoid runtime resizing"}
+
           - color: blue
             title: "Overdraw Reduction"
             content:
@@ -413,7 +428,7 @@ section_groups:
                   - {label: "Scalability levels", text: "Low / Medium / High / Epic / Cinematic — configure per-level behaviour in <strong>Project Settings → Niagara</strong>"}
 
           - color: yellow
-            title: "Significance Handler"
+            title: "Significance Handler &amp; Cull Reactions"
             content:
               - type: checklist
                 items:
@@ -421,6 +436,17 @@ section_groups:
                   - {icon: ok,   html: "Assign a <strong>Significance Handler asset</strong> in the Effect Type — default handler sorts by distance"}
                   - {icon: ok,   html: "Custom handlers can weight by screen size, gameplay importance, or camera proximity"}
                   - {icon: warn, html: "Without an Effect Type, the Significance Handler has no budget thresholds to react to — both must be configured"}
+              - type: prose
+                text: "<strong>Cull Reactions</strong> (what happens when a system fails its budget check):"
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "Deactivate", text: "Kill particles gradually, no auto-reactivation — use for one-shot FX", code_label: true}
+                  - {label: "DeactivateImmediate", text: "Clear all particles instantly, no reactivation — use when popping is acceptable", code_label: true}
+                  - {label: "DeactivateResume", text: "Sleep mode — reactivate when passing cull tests again; best for ambient/looping FX", code_label: true}
+                  - {label: "PauseResume", text: "Cheapest option — maintains state but stops ticking entirely; no per-frame cost while paused", code_label: true}
+              - type: prose
+                text: "<strong>Scalability update frequency</strong>: set to <code>Low</code> (1s) or <code>Medium</code> (0.5s) — <code>Continuous</code> (every frame) adds overhead. The manager parallelises above 50 active instances."
 
           - color: blue
             title: "Profiling Tools"

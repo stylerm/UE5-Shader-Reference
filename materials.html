@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="subpage-ref">
 
 <!-- ── MOBILE NAV OVERLAY ── -->
 <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
@@ -31,20 +31,21 @@
 <a href="niagara.html">NIAGARA</a>
 <a href="shaders.html">SHADERS</a>
 
-    <div class="sidenav-divider"></div>
-    <span class="sidenav-section">ON THIS PAGE</span>
-<a href="#context">Context</a>
-<a href="#syntax">Syntax</a>
-<a href="#custom-node">Custom Node</a>
-<a href="#shadertoy">Shadertoy</a>
-<a href="#wpo">WPO</a>
-<a href="#errors">Errors</a>
-<a href="#templates">Templates</a>
-<div class="sidenav-divider"></div>
-<span class="sidenav-section">OPTIMIZATION</span>
+<div class="sidenav-divider area-ref"></div>
+<span class="sidenav-section area-ref">ON THIS PAGE</span>
+<a href="#context" data-area="ref">Context</a>
+<a href="#syntax" data-area="ref">Syntax</a>
+<a href="#custom-node" data-area="ref">Custom Node</a>
+<a href="#shadertoy" data-area="ref">Shadertoy</a>
+<a href="#wpo" data-area="ref">WPO</a>
+<a href="#errors" data-area="ref">Errors</a>
+<a href="#templates" data-area="ref">Templates</a>
+<div class="sidenav-divider area-optim"></div>
+<span class="sidenav-section area-optim">OPTIMIZATION</span>
 <a href="#mat-cost" data-area="optim">Complexity</a>
 <a href="#mat-rules" data-area="optim">Optim Rules</a>
 <a href="#mat-blend" data-area="optim">Blend Modes</a>
+<a href="#mat-gotchas" data-area="optim">Engine Gotchas</a>
   </div>
 </nav>
 
@@ -75,6 +76,11 @@
     </div>
   </div>
 
+<div class="subpage-tabs" role="tablist" aria-label="Page view">
+  <button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true"><span class="subpage-tab-icon">⚗</span> HLSL Reference</button>
+  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false"><span class="subpage-tab-icon">⚡</span> Best Practices</button>
+</div>
+<section class="subpage" data-subpage="ref" role="tabpanel">
 <div class="area area-ref">
 <div class="area-heading">⚗ HLSL Reference</div>
 <div id="context" class="section-label">Context &amp; Setup</div>
@@ -216,6 +222,8 @@ Helpers H;
 </div>
 
 </div>
+</section>
+<section class="subpage" data-subpage="optim" role="tabpanel">
 <div class="area area-optim">
 <div class="area-heading">⚡ In-Engine Optimization</div>
 <div id="mat-cost" class="section-label">Material Complexity &amp; Cost Tiers</div>
@@ -251,7 +259,24 @@ Helpers H;
 <table class="table-multi"><thead><tr><th>Blend Mode</th><th>Depth Write</th><th>Depth Test</th><th>Overdraw Cost</th><th>Use Case</th></tr></thead><tbody><tr><td data-label="Blend Mode"><code>Opaque</code></td><td data-label="Depth Write">Yes</td><td data-label="Depth Test">Yes</td><td data-label="Overdraw Cost">None — cheapest</td><td data-label="Use Case">Default for solid surfaces</td></tr><tr><td data-label="Blend Mode"><code>Masked</code></td><td data-label="Depth Write">Yes</td><td data-label="Depth Test">Yes</td><td data-label="Overdraw Cost">Low — early-out possible</td><td data-label="Use Case">Foliage, fences, hair cards</td></tr><tr><td data-label="Blend Mode"><code>Translucent</code></td><td data-label="Depth Write">No</td><td data-label="Depth Test">Yes</td><td data-label="Overdraw Cost">High — full overdraw</td><td data-label="Use Case">Glass, particles, water surface</td></tr><tr><td data-label="Blend Mode"><code>Additive</code></td><td data-label="Depth Write">No</td><td data-label="Depth Test">Yes</td><td data-label="Overdraw Cost">Medium — adds to scene</td><td data-label="Use Case">Fire, sparks, holograms</td></tr><tr><td data-label="Blend Mode"><code>Modulate</code></td><td data-label="Depth Write">No</td><td data-label="Depth Test">Yes</td><td data-label="Overdraw Cost">Medium — multiplies</td><td data-label="Use Case">Shadows, overlays, lens effects</td></tr><tr><td data-label="Blend Mode"><code>AlphaComposite</code></td><td data-label="Depth Write">No</td><td data-label="Depth Test">Yes</td><td data-label="Overdraw Cost">High — pre-mult alpha</td><td data-label="Use Case">UI, compositing, cinematic FX</td></tr></tbody></table></div>
 </div>
 
+<div id="mat-gotchas" class="section-label" data-priority="high">Engine Gotchas · Source-Verified</div>
+<div class="grid">
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Custom HLSL Dedup · The Real Rule</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">The translator caches custom nodes on <strong>(Expression pointer, ScopeID, input hash)</strong> — not on the code text. The old <em>“identical code dedupes”</em> myth is wrong: two copy-pasted Custom nodes with byte-identical bodies do <strong>not</strong> share generated code because their pointers differ.</p><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span>Copy-pasting a Custom node to reuse it — <strong>no dedup</strong>; each pointer is a separate entry</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Wrap reused HLSL in a Material Function</strong> — graph-level sharing, derivative-correct, preshader-aware</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Custom nodes <em>do</em> dedupe when the same node instance is evaluated with the same inputs in the same scope</span></div><div class="check-item"><span class="check-icon warn">!</span><span>Source: <code>HLSLMaterialTranslator.cpp:15486-15507</code></span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Substrate Budget · 128 Compile / 24 Output</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Substrate has two operator caps. Materials that exceed <strong>24 operators</strong> in the final tree are <strong>silently simplified</strong>. There is no artist-facing warning — only a flag in cooked data.</p><div class="row-list stacked"><div class="row"><span class="row-label"><code>128 operator compile scratch</code></span><span class="row-text"><code>SUBSTRATE_MAX_COMPILER_REGISTERED_OPERATOR_COUNT</code> — reserved up-front so operator pointers stay stable during tree parse (<code>HLSLMaterialTranslator.cpp:633</code>)</span></div><div class="row"><span class="row-label"><code>24 operator output cap</code></span><span class="row-text"><code>SUBSTRATE_COMPILATION_OUTPUT_MAX_OPERATOR</code> — the real ceiling (<code>SubstrateMaterialShared.h:161</code>)</span></div><div class="row"><span class="row-label"><code>bMaterialOutOfBudgetHasBeenSimplified</code></span><span class="row-text">Set when the cap is blown (<code>SubstrateMaterialShared.h:227</code>). Auto-simplification retraverses with simplified operators; original tree info is lost.</span></div></div><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>LWC precision is truncated at every Substrate BSDF input</strong> — <code>CastToNonLWCType</code> is unconditional (<code>MaterialExpressionSubstrate.cpp:68-80</code>). Anisotropy/cavity math in raw world coords wobbles far from origin.</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>SSS merge is monotonic</strong> — any amount of <code>DiffusionProfile</code> blended with a cheap <code>Wrap</code> layer upgrades the whole blend to DiffusionProfile (<code>MaterialExpressionSubstrate.cpp:28-33</code>)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Audit Substrate trees against the 24-operator ceiling; check cooked data or enable log spew for the flag</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Parameter Collection · Cascade Invalidation</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;"><code>FMaterialCachedExpressionData</code> stores the <strong><code>StateId</code> GUID</strong> of every referenced MPC. <strong>Any edit</strong> to a widely-referenced MPC regenerates its GUID and invalidates <em>every</em> dependent material's DDC entry. No batching, no selective invalidation.</p><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Do not treat MPCs as lightweight global tweakables</strong> — a 500-material project referencing one global <code>MPC_Lighting</code> pays a full shader recompile on every parameter tweak</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Split shared state into narrower MPCs</strong> — group parameters that change together; don't put wind direction and global fog tint in the same collection</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Missing MPC at load</strong> triggers silent DDC invalidation and <code>RetryWithoutDDC</code> — keep MPCs in main content, never in a streaming-only level</span></div><div class="check-item"><span class="check-icon warn">!</span><span>Source: <code>MaterialCachedData.cpp:116-123</code></span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Mobile ES3.1 · Silent Shading Model Break</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">The editor previews Eye / Hair / Anisotropy / SpecularProfile shading fine at SM5, then <strong>hard-errors on cook</strong> at ES3.1. <code>ValidateShadingModelsForFeatureLevel</code> rejects them at translation time (<code>HLSLMaterialTranslator.cpp:2703-2722</code>).</p><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Set Mobile Preview as the editor feature level</strong> while authoring anything that ships to mobile — catches the error before cook</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Do not rely on SM5 preview</strong> to validate mobile materials — the shading model guard is translation-time, not preview-time</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong><code>r.Material.PreshaderGapInterval</code></strong> defaults to 32 — a platform-specific shader-compiler workaround, not a safety margin. Preshader bloat from this CVar has no diagnostic; tune per-platform if suspicious</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong><code>MaterialExternalCodeRegistry</code> is <code>FName</code>-keyed with last-wins semantics</strong> — two plugins registering external HLSL under the same identifier silently overwrite each other (<code>MaterialExternalCodeRegistry.h:198-220</code>). Namespace your identifiers.</span></div></div></div>
 </div>
+
+</div>
+</section>
 
 
   <!-- Footer -->
@@ -264,6 +289,73 @@ Helpers H;
 </div>
 
 <script>
+// ── SUBPAGE TAB TOGGLE ──
+// Pages that ship both an HLSL reference area and an in-engine best-practices
+// area are rendered as two sibling <section class="subpage"> panels. A tab bar
+// at the top of the main content toggles <body class="subpage-ref|optim">; CSS
+// hides the inactive panel and filters the sidenav to matching anchors only.
+// State persists in localStorage, and deep-links (#section-id) auto-switch to
+// whichever subpage contains the target section.
+(function() {
+  var tabs = document.querySelectorAll('.subpage-tab');
+  if (!tabs.length) return;
+  var STORAGE_KEY = 'ue5-subpage';
+  var current = null;
+
+  function setSubpage(name, scroll) {
+    if (name !== 'ref' && name !== 'optim') name = 'ref';
+    if (name === current) return;
+    current = name;
+    document.body.classList.remove('subpage-ref', 'subpage-optim');
+    document.body.classList.add('subpage-' + name);
+    tabs.forEach(function(t) {
+      var active = t.getAttribute('data-subpage') === name;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    try { localStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  // Tab clicks
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() {
+      setSubpage(t.getAttribute('data-subpage'), true);
+    });
+  });
+
+  // Anchor clicks — auto-switch subpage if target lives in the other panel
+  document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      var id = link.getAttribute('href').slice(1);
+      if (!id) return;
+      var target = document.getElementById(id);
+      if (!target) return;
+      var sub = target.closest('.subpage');
+      if (sub) {
+        var name = sub.getAttribute('data-subpage');
+        if (name !== current) setSubpage(name, false);
+      }
+    });
+  });
+
+  // Initial state: URL hash wins > localStorage > ref (default)
+  var initial = 'ref';
+  try {
+    var stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'ref' || stored === 'optim') initial = stored;
+  } catch (e) {}
+  var hash = window.location.hash;
+  if (hash && hash.length > 1) {
+    var target = document.getElementById(hash.slice(1));
+    if (target) {
+      var sub = target.closest('.subpage');
+      if (sub) initial = sub.getAttribute('data-subpage');
+    }
+  }
+  setSubpage(initial, false);
+})();
+
 // ── SEARCH / FILTER ──
 (function() {
   var input = document.getElementById('search-input');

@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="subpage-ref">
 
 <!-- ── MOBILE NAV OVERLAY ── -->
 <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
@@ -31,15 +31,15 @@
 <a href="niagara.html">NIAGARA</a>
 <a href="shaders.html" class="active">SHADERS</a>
 
-    <div class="sidenav-divider"></div>
-    <span class="sidenav-section">ON THIS PAGE</span>
-<a href="#usf-rules">USF / USH</a>
-<a href="#compute">Compute</a>
-<a href="#tgsm">TGSM</a>
-<a href="#reference">Reference</a>
-<a href="#sampling">Sampling</a>
-<div class="sidenav-divider"></div>
-<span class="sidenav-section">OPTIMIZATION</span>
+<div class="sidenav-divider area-ref"></div>
+<span class="sidenav-section area-ref">ON THIS PAGE</span>
+<a href="#usf-rules" data-area="ref">USF / USH</a>
+<a href="#compute" data-area="ref">Compute</a>
+<a href="#tgsm" data-area="ref">TGSM</a>
+<a href="#reference" data-area="ref">Reference</a>
+<a href="#sampling" data-area="ref">Sampling</a>
+<div class="sidenav-divider area-optim"></div>
+<span class="sidenav-section area-optim">OPTIMIZATION</span>
 <a href="#compute-perf" data-area="optim">Perf Rules</a>
 <a href="#dispatch-rules" data-area="optim">Dispatch</a>
 <a href="#platform-perf" data-area="optim">Platform</a>
@@ -73,6 +73,11 @@
     </div>
   </div>
 
+<div class="subpage-tabs" role="tablist" aria-label="Page view">
+  <button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true"><span class="subpage-tab-icon">⚗</span> HLSL Reference</button>
+  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false"><span class="subpage-tab-icon">⚡</span> Best Practices</button>
+</div>
+<section class="subpage" data-subpage="ref" role="tabpanel">
 <div class="area area-ref">
 <div class="area-heading">⚗ HLSL Reference</div>
 <div id="usf-rules" class="section-label" data-priority="high">.usf / .ush File Rules</div>
@@ -282,6 +287,8 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
 </div>
 
 </div>
+</section>
+<section class="subpage" data-subpage="optim" role="tabpanel">
 <div class="area area-optim">
 <div class="area-heading">⚡ In-Engine Optimization</div>
 <div id="compute-perf" class="section-label">Compute Shader Performance Rules</div>
@@ -347,6 +354,7 @@ GraphBuilder.<span class="fn">AddPass</span>(
 </div>
 
 </div>
+</section>
 
 
   <!-- Footer -->
@@ -359,6 +367,73 @@ GraphBuilder.<span class="fn">AddPass</span>(
 </div>
 
 <script>
+// ── SUBPAGE TAB TOGGLE ──
+// Pages that ship both an HLSL reference area and an in-engine best-practices
+// area are rendered as two sibling <section class="subpage"> panels. A tab bar
+// at the top of the main content toggles <body class="subpage-ref|optim">; CSS
+// hides the inactive panel and filters the sidenav to matching anchors only.
+// State persists in localStorage, and deep-links (#section-id) auto-switch to
+// whichever subpage contains the target section.
+(function() {
+  var tabs = document.querySelectorAll('.subpage-tab');
+  if (!tabs.length) return;
+  var STORAGE_KEY = 'ue5-subpage';
+  var current = null;
+
+  function setSubpage(name, scroll) {
+    if (name !== 'ref' && name !== 'optim') name = 'ref';
+    if (name === current) return;
+    current = name;
+    document.body.classList.remove('subpage-ref', 'subpage-optim');
+    document.body.classList.add('subpage-' + name);
+    tabs.forEach(function(t) {
+      var active = t.getAttribute('data-subpage') === name;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    try { localStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  // Tab clicks
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() {
+      setSubpage(t.getAttribute('data-subpage'), true);
+    });
+  });
+
+  // Anchor clicks — auto-switch subpage if target lives in the other panel
+  document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      var id = link.getAttribute('href').slice(1);
+      if (!id) return;
+      var target = document.getElementById(id);
+      if (!target) return;
+      var sub = target.closest('.subpage');
+      if (sub) {
+        var name = sub.getAttribute('data-subpage');
+        if (name !== current) setSubpage(name, false);
+      }
+    });
+  });
+
+  // Initial state: URL hash wins > localStorage > ref (default)
+  var initial = 'ref';
+  try {
+    var stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'ref' || stored === 'optim') initial = stored;
+  } catch (e) {}
+  var hash = window.location.hash;
+  if (hash && hash.length > 1) {
+    var target = document.getElementById(hash.slice(1));
+    if (target) {
+      var sub = target.closest('.subpage');
+      if (sub) initial = sub.getAttribute('data-subpage');
+    }
+  }
+  setSubpage(initial, false);
+})();
+
 // ── SEARCH / FILTER ──
 (function() {
   var input = document.getElementById('search-input');

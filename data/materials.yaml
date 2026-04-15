@@ -18,9 +18,10 @@ meta:
     - {id: errors,      label: Errors}
     - {id: templates,   label: Templates}
     - {divider: "OPTIMIZATION", area: optim}
-    - {id: mat-cost,    label: Complexity}
-    - {id: mat-rules,   label: Optim Rules}
-    - {id: mat-blend,   label: Blend Modes}
+    - {id: mat-cost,     label: Complexity}
+    - {id: mat-rules,    label: Optim Rules}
+    - {id: mat-blend,    label: Blend Modes}
+    - {id: mat-gotchas,  label: Engine Gotchas}
 
 section_groups:
 
@@ -437,3 +438,62 @@ section_groups:
                   - ["`Additive`",       "No",  "Yes", "Medium — adds to scene","Fire, sparks, holograms"]
                   - ["`Modulate`",       "No",  "Yes", "Medium — multiplies",   "Shadows, overlays, lens effects"]
                   - ["`AlphaComposite`", "No",  "Yes", "High — pre-mult alpha", "UI, compositing, cinematic FX"]
+
+      # ── SECTION 11: ENGINE GOTCHAS (SOURCE-VERIFIED) ───────────────────────
+      - id: mat-gotchas
+        label: "Engine Gotchas · Source-Verified"
+        priority: high
+        cards:
+
+          - color: red
+            title: "Custom HLSL Dedup · The Real Rule"
+            content:
+              - type: prose
+                text: "The translator caches custom nodes on <strong>(Expression pointer, ScopeID, input hash)</strong> — not on the code text. The old <em>“identical code dedupes”</em> myth is wrong: two copy-pasted Custom nodes with byte-identical bodies do <strong>not</strong> share generated code because their pointers differ."
+              - type: checklist
+                items:
+                  - {icon: no,   html: "Copy-pasting a Custom node to reuse it — <strong>no dedup</strong>; each pointer is a separate entry"}
+                  - {icon: ok,   html: "<strong>Wrap reused HLSL in a Material Function</strong> — graph-level sharing, derivative-correct, preshader-aware"}
+                  - {icon: ok,   html: "Custom nodes <em>do</em> dedupe when the same node instance is evaluated with the same inputs in the same scope"}
+                  - {icon: warn, html: "Source: <code>HLSLMaterialTranslator.cpp:15486-15507</code>"}
+
+          - color: orange
+            title: "Substrate Budget · 128 Compile / 24 Output"
+            content:
+              - type: prose
+                text: "Substrate has two operator caps. Materials that exceed <strong>24 operators</strong> in the final tree are <strong>silently simplified</strong>. There is no artist-facing warning — only a flag in cooked data."
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "128 operator compile scratch", text: "<code>SUBSTRATE_MAX_COMPILER_REGISTERED_OPERATOR_COUNT</code> — reserved up-front so operator pointers stay stable during tree parse (<code>HLSLMaterialTranslator.cpp:633</code>)"}
+                  - {label: "24 operator output cap",        text: "<code>SUBSTRATE_COMPILATION_OUTPUT_MAX_OPERATOR</code> — the real ceiling (<code>SubstrateMaterialShared.h:161</code>)"}
+                  - {label: "bMaterialOutOfBudgetHasBeenSimplified", text: "Set when the cap is blown (<code>SubstrateMaterialShared.h:227</code>). Auto-simplification retraverses with simplified operators; original tree info is lost."}
+              - type: checklist
+                items:
+                  - {icon: no,   html: "<strong>LWC precision is truncated at every Substrate BSDF input</strong> — <code>CastToNonLWCType</code> is unconditional (<code>MaterialExpressionSubstrate.cpp:68-80</code>). Anisotropy/cavity math in raw world coords wobbles far from origin."}
+                  - {icon: no,   html: "<strong>SSS merge is monotonic</strong> — any amount of <code>DiffusionProfile</code> blended with a cheap <code>Wrap</code> layer upgrades the whole blend to DiffusionProfile (<code>MaterialExpressionSubstrate.cpp:28-33</code>)"}
+                  - {icon: ok,   html: "Audit Substrate trees against the 24-operator ceiling; check cooked data or enable log spew for the flag"}
+
+          - color: yellow
+            title: "Parameter Collection · Cascade Invalidation"
+            content:
+              - type: prose
+                text: "<code>FMaterialCachedExpressionData</code> stores the <strong><code>StateId</code> GUID</strong> of every referenced MPC. <strong>Any edit</strong> to a widely-referenced MPC regenerates its GUID and invalidates <em>every</em> dependent material's DDC entry. No batching, no selective invalidation."
+              - type: checklist
+                items:
+                  - {icon: no,   html: "<strong>Do not treat MPCs as lightweight global tweakables</strong> — a 500-material project referencing one global <code>MPC_Lighting</code> pays a full shader recompile on every parameter tweak"}
+                  - {icon: ok,   html: "<strong>Split shared state into narrower MPCs</strong> — group parameters that change together; don't put wind direction and global fog tint in the same collection"}
+                  - {icon: ok,   html: "<strong>Missing MPC at load</strong> triggers silent DDC invalidation and <code>RetryWithoutDDC</code> — keep MPCs in main content, never in a streaming-only level"}
+                  - {icon: warn, html: "Source: <code>MaterialCachedData.cpp:116-123</code>"}
+
+          - color: blue
+            title: "Mobile ES3.1 · Silent Shading Model Break"
+            content:
+              - type: prose
+                text: "The editor previews Eye / Hair / Anisotropy / SpecularProfile shading fine at SM5, then <strong>hard-errors on cook</strong> at ES3.1. <code>ValidateShadingModelsForFeatureLevel</code> rejects them at translation time (<code>HLSLMaterialTranslator.cpp:2703-2722</code>)."
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "<strong>Set Mobile Preview as the editor feature level</strong> while authoring anything that ships to mobile — catches the error before cook"}
+                  - {icon: no,   html: "<strong>Do not rely on SM5 preview</strong> to validate mobile materials — the shading model guard is translation-time, not preview-time"}
+                  - {icon: warn, html: "<strong><code>r.Material.PreshaderGapInterval</code></strong> defaults to 32 — a platform-specific shader-compiler workaround, not a safety margin. Preshader bloat from this CVar has no diagnostic; tune per-platform if suspicious"}
+                  - {icon: warn, html: "<strong><code>MaterialExternalCodeRegistry</code> is <code>FName</code>-keyed with last-wins semantics</strong> — two plugins registering external HLSL under the same identifier silently overwrite each other (<code>MaterialExternalCodeRegistry.h:198-220</code>). Namespace your identifiers."}

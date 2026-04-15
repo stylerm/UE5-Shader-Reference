@@ -352,30 +352,59 @@ def build_page(data_file: Path, template: str) -> None:
         active = ' class="active"' if pid == page_id else ""
         page_links += f'<a href="{href}"{active}>{label}</a>\n'
 
-    # Side nav — on-this-page anchors (supports {divider: "label"} separators)
+    # Side nav — on-this-page anchors (supports {divider: "label"} separators).
+    # Each link is tagged with data-area="ref" | "optim" so the subpage toggle
+    # can filter which anchors are visible.
     in_optim = False
     link_parts = []
+    # Initial "ON THIS PAGE" divider — tagged as ref so it hides on the optim subpage
+    link_parts.append(
+        '<div class="sidenav-divider area-ref"></div>\n'
+        '<span class="sidenav-section area-ref">ON THIS PAGE</span>'
+    )
     for a in meta.get("anchors", []):
         if "divider" in a:
+            area = a.get("area", "optim")
             link_parts.append(
-                f'<div class="sidenav-divider"></div>\n'
-                f'<span class="sidenav-section">{a["divider"]}</span>'
+                f'<div class="sidenav-divider area-{area}"></div>\n'
+                f'<span class="sidenav-section area-{area}">{a["divider"]}</span>'
             )
-            in_optim = a.get("area", "optim") == "optim"
+            in_optim = area == "optim"
             continue
-        area_attr = ' data-area="optim"' if in_optim else ""
+        area_attr = ' data-area="optim"' if in_optim else ' data-area="ref"'
         link_parts.append(f'<a href="#{a["id"]}"{area_attr}>{a["label"]}</a>')
     section_links = "\n".join(link_parts)
 
-    # Main content — supports both flat `sections` and grouped `section_groups`
+    # Main content — supports both flat `sections` and grouped `section_groups`.
+    # When a page has BOTH a ref-themed and an optim-themed group, we wrap each
+    # group in a <section class="subpage"> and emit a tab switcher so visitors
+    # can toggle between the HLSL reference and the best-practices subpage.
     groups = data.get("section_groups", [])
     if groups:
+        has_ref   = any(g.get("theme") == "ref"   for g in groups)
+        has_optim = any(g.get("theme") == "optim" for g in groups)
+        multi     = has_ref and has_optim
+
         parts = []
+        if multi:
+            parts.append(
+                '<div class="subpage-tabs" role="tablist" aria-label="Page view">\n'
+                '  <button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true">'
+                '<span class="subpage-tab-icon">⚗</span> HLSL Reference</button>\n'
+                '  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false">'
+                '<span class="subpage-tab-icon">⚡</span> Best Practices</button>\n'
+                '</div>\n'
+            )
         for g in groups:
+            theme = g.get("theme", "ref")
+            if multi:
+                parts.append(f'<section class="subpage" data-subpage="{theme}" role="tabpanel">\n')
             parts.append(render_area_wrapper_open(g))
             parts.append(render_area_heading(g))
             parts.extend(render_section(s) for s in g.get("sections", []))
             parts.append(render_area_wrapper_close())
+            if multi:
+                parts.append('</section>\n')
         content = "".join(parts)
     else:
         content = "".join(render_section(s) for s in data.get("sections", []))

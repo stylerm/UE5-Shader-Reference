@@ -222,13 +222,15 @@ h1 span { color: var(--accent); }
 .area { position: relative; }
 
 /* Reference area — no extra changes, inherits root variables */
-.area-ref .area-heading {
+.area.area-ref .area-heading {
   color: var(--accent);
   border-bottom-color: rgba(0,229,255,0.25);
 }
 
-/* Optimization area — warm surface overrides */
-.area-optim {
+/* Optimization area — warm surface overrides.
+   Selectors are scoped with `.area.area-optim` so they don't leak onto the
+   sidenav divider / section label, which also carry the `area-optim` class. */
+.area.area-optim {
   --surface:  #120e0a;          /* warm dark surface for cards */
   --border:   #2c1d0f;          /* warm amber border */
   --code-bg:  #0c0906;          /* deeper warm bg for code */
@@ -240,7 +242,7 @@ h1 span { color: var(--accent); }
   position: relative;
 }
 /* Vertical accent stripe on the left edge */
-.area-optim::before {
+.area.area-optim::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
@@ -248,23 +250,99 @@ h1 span { color: var(--accent); }
   border-radius: 6px 0 0 6px;
   background: linear-gradient(to bottom, var(--accent2), rgba(255,107,53,0.2));
 }
-.area-optim .area-heading {
+.area.area-optim .area-heading {
   color: var(--accent2);
   border-bottom-color: rgba(255,107,53,0.3);
 }
 /* Section labels inside optim area get warm muted color */
-.area-optim .section-label {
+.area.area-optim .section-label {
   color: rgba(255, 150, 80, 0.55);
 }
-.area-optim .section-label::after {
+.area.area-optim .section-label::after {
   background: rgba(255,107,53,0.18);
 }
-/* Sidenav anchor links for optim sections get warm color */
-.area-optim .card.blue::before   { background: var(--accent); }
-.area-optim .card.orange::before { background: var(--accent2); }
-.area-optim .card.green::before  { background: var(--accent3); }
-.area-optim .card.red::before    { background: var(--bad); }
-.area-optim .card.yellow::before { background: var(--warn); }
+/* Warm accent bars on cards inside the optim area */
+.area.area-optim .card.blue::before   { background: var(--accent); }
+.area.area-optim .card.orange::before { background: var(--accent2); }
+.area.area-optim .card.green::before  { background: var(--accent3); }
+.area.area-optim .card.red::before    { background: var(--bad); }
+.area.area-optim .card.yellow::before { background: var(--warn); }
+
+/* ══ SUBPAGE TABS ═════════════════════════════════════════════════════════════
+   Toggle between the HLSL Reference subpage and the Best Practices subpage.
+   The active tab is driven by body.subpage-ref / body.subpage-optim; CSS below
+   hides the inactive panel and filters the sidenav anchors to match.
+   ══════════════════════════════════════════════════════════════════════════ */
+.subpage-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 26px;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+.subpage-tab {
+  position: relative;
+  padding: 12px 20px 11px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;             /* overlap parent border */
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.subpage-tab-icon { font-size: 14px; opacity: 0.8; }
+.subpage-tab:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.02);
+}
+.subpage-tab.active[data-subpage="ref"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: rgba(0,229,255,0.04);
+}
+.subpage-tab.active[data-subpage="ref"] .subpage-tab-icon { opacity: 1; }
+.subpage-tab.active[data-subpage="optim"] {
+  color: var(--accent2);
+  border-bottom-color: var(--accent2);
+  background: rgba(255,107,53,0.05);
+}
+.subpage-tab.active[data-subpage="optim"] .subpage-tab-icon { opacity: 1; }
+
+/* Panel visibility — hide the non-active subpage entirely */
+.subpage { display: none; }
+body.subpage-ref  .subpage[data-subpage="ref"],
+body.subpage-optim .subpage[data-subpage="optim"] { display: block; }
+
+/* Collapse the area padding/border when the panel is the only visible child —
+   the area-optim wrapper already looks like a "card," so keep its styling. */
+.subpage > .area { margin-top: 0; }
+
+/* The area-heading repeats what the active tab already says, so hide it
+   once the content lives inside a subpage panel. */
+.subpage > .area > .area-heading { display: none; }
+.subpage > .area > .area-heading + .section-label { margin-top: 8px; }
+
+/* Sidenav filtering — hide anchors and dividers that belong to the inactive
+   subpage. Uses the data-area / class attributes emitted by build.py. */
+body.subpage-ref .sidenav-links a[data-area="optim"],
+body.subpage-ref .sidenav-links .sidenav-divider.area-optim,
+body.subpage-ref .sidenav-links .sidenav-section.area-optim {
+  display: none;
+}
+body.subpage-optim .sidenav-links a[data-area="ref"],
+body.subpage-optim .sidenav-links .sidenav-divider.area-ref,
+body.subpage-optim .sidenav-links .sidenav-section.area-ref {
+  display: none;
+}
 
 /* ── AREA HEADING (shared base) ── */
 .area-heading {
@@ -315,14 +393,14 @@ h1 span { color: var(--accent); }
   padding-bottom: 8px;
 }
 /* Warm variant inside optim areas */
-.area-optim .section-label[data-priority="high"] {
+.area.area-optim .section-label[data-priority="high"] {
   color: var(--accent2);
 }
-.area-optim .section-label[data-priority="high"]::after {
+.area.area-optim .section-label[data-priority="high"]::after {
   background: rgba(255,107,53,0.3);
 }
-.area-optim .section-label[data-priority="high"] + .grid,
-.area-optim .section-label[data-priority="high"] + .grid-2 {
+.area.area-optim .section-label[data-priority="high"] + .grid,
+.area.area-optim .section-label[data-priority="high"] + .grid-2 {
   border-left-color: rgba(255,107,53,0.25);
   background: rgba(255,107,53,0.015);
 }
@@ -713,8 +791,11 @@ table.table-multi td { max-width: 48ch; word-wrap: break-word; }
   .page { max-width: 100%; padding: 12px; }
   .grid, .grid-2, .hub-grid { grid-template-columns: 1fr !important; gap: 8px; }
   .grid-full, .span-2 { grid-column: span 1; }
-  .area-optim { border: 1px solid #ccc !important; background: #fdf8f5 !important; }
-  .area-optim::before { display: none; }
+  .area.area-optim { border: 1px solid #ccc !important; background: #fdf8f5 !important; }
+  .area.area-optim::before { display: none; }
+  /* Print: show both subpages so the PDF contains everything */
+  .subpage { display: block !important; }
+  .subpage-tabs { display: none !important; }
   .card, .hub-card {
     background: #fff !important;
     border: 1px solid #ccc !important;
@@ -884,7 +965,11 @@ table.table-multi td { max-width: 48ch; word-wrap: break-word; }
   .grid-full, .span-2 { grid-column: span 1; }
 
   /* Area optim — reduce padding on mobile */
-  .area-optim { padding: 16px 12px 4px; margin-top: 6px; }
+  .area.area-optim { padding: 16px 12px 4px; margin-top: 6px; }
+
+  /* Subpage tabs — compact on mobile */
+  .subpage-tab { padding: 10px 12px; font-size: 11px; letter-spacing: 0.1em; }
+  .subpage-tab-icon { font-size: 12px; }
 
   /* Cards — slightly less padding */
   .card { padding: 14px; }

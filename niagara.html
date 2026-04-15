@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="subpage-ref">
 
 <!-- ── MOBILE NAV OVERLAY ── -->
 <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
@@ -31,19 +31,21 @@
 <a href="niagara.html" class="active">NIAGARA</a>
 <a href="shaders.html">SHADERS</a>
 
-    <div class="sidenav-divider"></div>
-    <span class="sidenav-section">ON THIS PAGE</span>
-<a href="#scratch-pad">Scratch Pad</a>
-<a href="#restrictions">Restrictions</a>
-<a href="#stateless">Stateless</a>
-<a href="#attributes">Attributes</a>
-<a href="#patterns">Patterns</a>
-<div class="sidenav-divider"></div>
-<span class="sidenav-section">OPTIMIZATION</span>
+<div class="sidenav-divider area-ref"></div>
+<span class="sidenav-section area-ref">ON THIS PAGE</span>
+<a href="#scratch-pad" data-area="ref">Scratch Pad</a>
+<a href="#restrictions" data-area="ref">Restrictions</a>
+<a href="#stateless" data-area="ref">Stateless</a>
+<a href="#attributes" data-area="ref">Attributes</a>
+<a href="#patterns" data-area="ref">Patterns</a>
+<div class="sidenav-divider area-optim"></div>
+<span class="sidenav-section area-optim">OPTIMIZATION</span>
 <a href="#perf-tiers" data-area="optim">Perf Tiers</a>
 <a href="#gpu-vs-cpu" data-area="optim">GPU vs CPU</a>
 <a href="#perf-rules" data-area="optim">Optim Rules</a>
 <a href="#scalability" data-area="optim">Scalability</a>
+<a href="#ni-data-interfaces" data-area="optim">Data Interfaces</a>
+<a href="#ni-gotchas" data-area="optim">Engine Gotchas</a>
   </div>
 </nav>
 
@@ -74,6 +76,11 @@
     </div>
   </div>
 
+<div class="subpage-tabs" role="tablist" aria-label="Page view">
+  <button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true"><span class="subpage-tab-icon">⚗</span> HLSL Reference</button>
+  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false"><span class="subpage-tab-icon">⚡</span> Best Practices</button>
+</div>
+<section class="subpage" data-subpage="ref" role="tabpanel">
 <div class="area area-ref">
 <div class="area-heading">⚗ HLSL Reference</div>
 <div id="scratch-pad" class="section-label" data-priority="high">Scratch Pad Module HLSL</div>
@@ -208,10 +215,12 @@ Particle.MeshOrientation =
   <span class="fn">QuatMultiply</span>(BaseRot, DeltaRot);</pre></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> Debugging Tips</div>
-<div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span><strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Stateless emitters are GPU-only</strong> — <code>NiagaraStatelessEmitterInstance.cpp:86-93</code> hard-codes <code>SimTarget = GPUComputeSim</code>; there is <em>no CPU fallback path</em>, so platforms without compute support can't use them</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads</span></div></div></div>
 </div>
 
 </div>
+</section>
+<section class="subpage" data-subpage="optim" role="tabpanel">
 <div class="area area-optim">
 <div class="area-heading">⚡ In-Engine Optimization</div>
 <div id="perf-tiers" class="section-label">Performance Tiers at a Glance</div>
@@ -267,6 +276,7 @@ Particle.MeshOrientation =
 </div>
 
 </div>
+</section>
 
 
   <!-- Footer -->
@@ -279,6 +289,73 @@ Particle.MeshOrientation =
 </div>
 
 <script>
+// ── SUBPAGE TAB TOGGLE ──
+// Pages that ship both an HLSL reference area and an in-engine best-practices
+// area are rendered as two sibling <section class="subpage"> panels. A tab bar
+// at the top of the main content toggles <body class="subpage-ref|optim">; CSS
+// hides the inactive panel and filters the sidenav to matching anchors only.
+// State persists in localStorage, and deep-links (#section-id) auto-switch to
+// whichever subpage contains the target section.
+(function() {
+  var tabs = document.querySelectorAll('.subpage-tab');
+  if (!tabs.length) return;
+  var STORAGE_KEY = 'ue5-subpage';
+  var current = null;
+
+  function setSubpage(name, scroll) {
+    if (name !== 'ref' && name !== 'optim') name = 'ref';
+    if (name === current) return;
+    current = name;
+    document.body.classList.remove('subpage-ref', 'subpage-optim');
+    document.body.classList.add('subpage-' + name);
+    tabs.forEach(function(t) {
+      var active = t.getAttribute('data-subpage') === name;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    try { localStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  // Tab clicks
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() {
+      setSubpage(t.getAttribute('data-subpage'), true);
+    });
+  });
+
+  // Anchor clicks — auto-switch subpage if target lives in the other panel
+  document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      var id = link.getAttribute('href').slice(1);
+      if (!id) return;
+      var target = document.getElementById(id);
+      if (!target) return;
+      var sub = target.closest('.subpage');
+      if (sub) {
+        var name = sub.getAttribute('data-subpage');
+        if (name !== current) setSubpage(name, false);
+      }
+    });
+  });
+
+  // Initial state: URL hash wins > localStorage > ref (default)
+  var initial = 'ref';
+  try {
+    var stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'ref' || stored === 'optim') initial = stored;
+  } catch (e) {}
+  var hash = window.location.hash;
+  if (hash && hash.length > 1) {
+    var target = document.getElementById(hash.slice(1));
+    if (target) {
+      var sub = target.closest('.subpage');
+      if (sub) initial = sub.getAttribute('data-subpage');
+    }
+  }
+  setSubpage(initial, false);
+})();
+
 // ── SEARCH / FILTER ──
 (function() {
   var input = document.getElementById('search-input');

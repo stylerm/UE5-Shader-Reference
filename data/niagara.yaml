@@ -16,10 +16,12 @@ meta:
     - {id: attributes,   label: Attributes}
     - {id: patterns,     label: Patterns}
     - {divider: "OPTIMIZATION", area: optim}
-    - {id: perf-tiers,   label: Perf Tiers}
-    - {id: gpu-vs-cpu,   label: GPU vs CPU}
-    - {id: perf-rules,   label: Optim Rules}
-    - {id: scalability,  label: Scalability}
+    - {id: perf-tiers,    label: Perf Tiers}
+    - {id: gpu-vs-cpu,    label: GPU vs CPU}
+    - {id: perf-rules,    label: Optim Rules}
+    - {id: scalability,   label: Scalability}
+    - {id: ni-data-interfaces, label: Data Interfaces}
+    - {id: ni-gotchas,    label: Engine Gotchas}
 
 section_groups:
 
@@ -278,7 +280,7 @@ section_groups:
                   - {icon: warn, html: "<strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize"}
                   - {icon: warn, html: "<strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges"}
                   - {icon: warn, html: "<strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code>"}
-                  - {icon: ok,   html: "<strong>CPU fallback</strong> — stateless modules have dual CPU/GPU paths for offline rendering"}
+                  - {icon: warn, html: "<strong>Stateless emitters are GPU-only</strong> — <code>NiagaraStatelessEmitterInstance.cpp:86-93</code> hard-codes <code>SimTarget = GPUComputeSim</code>; there is <em>no CPU fallback path</em>, so platforms without compute support can't use them"}
                   - {icon: ok,   html: "<strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads"}
 
 

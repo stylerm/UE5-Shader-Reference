@@ -41,8 +41,10 @@
 <div class="sidenav-divider area-optim"></div>
 <span class="sidenav-section area-optim">OPTIMIZATION</span>
 <a href="#compute-perf" data-area="optim">Perf Rules</a>
-<a href="#dispatch-rules" data-area="optim">Dispatch</a>
-<a href="#platform-perf" data-area="optim">Platform</a>
+<div class="sidenav-divider area-engine"></div>
+<span class="sidenav-section area-engine">ENGINE INTERNALS</span>
+<a href="#dispatch-rules" data-area="ref">Dispatch</a>
+<a href="#platform-perf" data-area="ref">Platform</a>
   </div>
 </nav>
 
@@ -75,7 +77,8 @@
 
 <div class="subpage-tabs" role="tablist" aria-label="Page view">
   <button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true"><span class="subpage-tab-icon">⚗</span> HLSL Reference</button>
-  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false"><span class="subpage-tab-icon">⚡</span> Best Practices</button>
+  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false"><span class="subpage-tab-icon">⚡</span> In-Engine Optimization</button>
+  <button class="subpage-tab" role="tab" data-subpage="engine" aria-selected="false"><span class="subpage-tab-icon">🔬</span> Engine Internals</button>
 </div>
 <section class="subpage" data-subpage="ref" role="tabpanel">
 <div class="area area-ref">
@@ -84,7 +87,7 @@
 <div class="grid">
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> File Structure Basics</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header</span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Declare module macro: <strong><code>YOURMODULE_API</code></strong></span></div><div class="check-item"><span class="check-icon ok">✓</span><span>Use <strong>virtual shader path</strong> mapping for plugin custom paths</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Declare module macro: <strong><code>YOURMODULE_API</code></strong></span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Use <strong>virtual shader path</strong> mapping for plugin custom paths</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)</span></div></div></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> Include Guard Pattern</div>
 <pre><span class="c">// Option A: pragma once</span>
@@ -164,7 +167,7 @@
 }</pre></div>
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Compute · Common Mistakes</div>
-<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div></div></div>
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> Resource Types</div>
 <div class="row-list"><div class="row"><span class="row-label"><code>Texture2D<T></code></span><span class="row-text">Read-only texture (SRV)</span></div><div class="row"><span class="row-label"><code>RWTexture2D<T></code></span><span class="row-text">Read-write texture (UAV)</span></div><div class="row"><span class="row-label"><code>Buffer<T></code></span><span class="row-text">Read-only typed buffer (SRV)</span></div><div class="row"><span class="row-label"><code>RWBuffer<T></code></span><span class="row-text">Read-write typed buffer (UAV)</span></div><div class="row"><span class="row-label"><code>StructuredBuffer<T></code></span><span class="row-text">Read-only structured buffer</span></div><div class="row"><span class="row-label"><code>RWStructuredBuffer<T></code></span><span class="row-text">Read-write structured buffer</span></div><div class="row"><span class="row-label"><code>SamplerState</code></span><span class="row-text">Texture sampler (bilinear, point, etc.)</span></div></div></div>
@@ -195,7 +198,7 @@ TileCache[GroupThreadID.y][GroupThreadID.x]
 <span class="kw">float</span> Right  = TileCache[ly][lx+1];</pre></div>
 <div class="card yellow">
 <div class="card-title"><span class="dot"></span> TGSM Rules</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads</span></div></div></div>
 <div class="card green">
 <div class="card-title"><span class="dot"></span> TGSM Macro Pattern</div>
 <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use macros to make TGSM reusable across passes:</p><pre><span class="c">// Declare macro for float tiles</span>
@@ -222,7 +225,7 @@ TileCache[GroupThreadID.y][GroupThreadID.x]
 <div class="row-list"><div class="row"><span class="row-label"><code>MaterialFloat</code></span><span class="row-text">Adapts precision per platform automatically</span></div><div class="row"><span class="row-label"><code>half / half3</code></span><span class="row-text">16-bit — use on mobile for performance</span></div><div class="row"><span class="row-label"><code>float / float3</code></span><span class="row-text">32-bit — default for PC / console</span></div><div class="row"><span class="row-label"><code>BRANCH</code></span><span class="row-text"><code>[branch]</code> hint — forces dynamic branching</span></div><div class="row"><span class="row-label"><code>FLATTEN</code></span><span class="row-text"><code>[flatten]</code> hint — forces both paths evaluated</span></div><div class="row"><span class="row-label"><code>UNROLL</code></span><span class="row-text"><code>[unroll]</code> — unroll loop at compile time</span></div><div class="row"><span class="row-label"><code>LOOP</code></span><span class="row-text"><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</span></div></div></div>
 <div class="card red">
 <div class="card-title"><span class="dot"></span> Common Shader Errors</div>
-<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span>Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body">Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div></div></div>
 </div>
 
 <div id="sampling" class="section-label">Texture Sampling &amp; SDF Patterns</div>
@@ -295,15 +298,20 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
 <div class="grid">
 <div class="card green">
 <div class="card-title"><span class="dot"></span> Occupancy &amp; ALU</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Target 75%+ GPU occupancy</strong> — reduce register pressure by reusing temporaries and simplifying arithmetic chains</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Thread group size 8×8 (64 threads)</strong> — safe on all targets including mobile ES3.1 and SM5 desktop</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>16×16 (256 threads)</strong> — risks exceeding 32KB shared memory limit on some mobile/integrated GPUs; test explicitly</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Minimize register use</strong> — declare variables inside loop bodies where possible; fewer live registers = higher occupancy</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Avoid branch divergence</strong> — if half the threads take each side of an <code>if</code>, you pay 2× the cost; restructure with <code>lerp</code> / <code>select</code></span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Target 75%+ GPU occupancy</strong> — reduce register pressure by reusing temporaries and simplifying arithmetic chains</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Thread group size 8×8 (64 threads)</strong> — safe on all targets including mobile ES3.1 and SM5 desktop</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>16×16 (256 threads)</strong> — risks exceeding 32KB shared memory limit on some mobile/integrated GPUs; test explicitly</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Minimize register use</strong> — declare variables inside loop bodies where possible; fewer live registers = higher occupancy</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Avoid branch divergence</strong> — if half the threads take each side of an <code>if</code>, you pay 2× the cost; restructure with <code>lerp</code> / <code>select</code></span></div></div></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> Memory Bandwidth</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>TGSM is the primary bandwidth tool</strong> — load a tile of data once into groupshared, read it many times within the group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Coalesce global reads/writes</strong> — adjacent threads should access adjacent memory addresses (stride-1 access patterns)</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Scattered UAV writes are slow</strong> — random-address writes break GPU memory coalescing; prefer sorted or sequential indices</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>Never read/write the same UAV in one dispatch</strong> — use ping-pong buffers (read A, write B; next frame swap)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Minimize RW texture round-trips</strong> — avoid dispatches that write a texture and immediately read it in the same pass</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>TGSM is the primary bandwidth tool</strong> — load a tile of data once into groupshared, read it many times within the group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Coalesce global reads/writes</strong> — adjacent threads should access adjacent memory addresses (stride-1 access patterns)</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Scattered UAV writes are slow</strong> — random-address writes break GPU memory coalescing; prefer sorted or sequential indices</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Never read/write the same UAV in one dispatch</strong> — use ping-pong buffers (read A, write B; next frame swap)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Minimize RW texture round-trips</strong> — avoid dispatches that write a texture and immediately read it in the same pass</span></div></div></div>
 <div class="card blue grid-full">
 <div class="card-title"><span class="dot"></span> Thread Group Size Cheat Sheet</div>
 <table class="table-multi"><thead><tr><th>Size</th><th>Threads</th><th>TGSM Budget</th><th>Recommended For</th></tr></thead><tbody><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~1.6KB float</td><td data-label="Recommended For">Safe on all targets — textures, SDF, general 2D</td></tr><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~3.2KB float2</td><td data-label="Recommended For">Gradient / neighbor reads with halo</td></tr><tr><td data-label="Size"><code>16×16×1</code></td><td data-label="Threads">256</td><td data-label="TGSM Budget">~6.4KB float</td><td data-label="Recommended For">PC/SM5+ only — larger tiles, reduce dispatch overhead</td></tr><tr><td data-label="Size"><code>64×1×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">1D passes: histograms, prefix sums, buffer ops</td></tr><tr><td data-label="Size"><code>32×1×1</code></td><td data-label="Threads">32</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">Mobile-safe 1D — matches warp/wavefront size</td></tr></tbody></table></div>
 </div>
 
+</div>
+</section>
+<section class="subpage" data-subpage="engine" role="tabpanel">
+<div class="area area-engine">
+<div class="area-heading">🔬 Engine Internals</div>
 <div id="dispatch-rules" class="section-label">Dispatch &amp; Resource Rules</div>
 <div class="grid grid-2">
 <div class="card orange grid-full">
@@ -341,16 +349,17 @@ GraphBuilder.<span class="fn">AddPass</span>(
 </div>
 
 <div id="platform-perf" class="section-label">Platform-Specific Performance Notes</div>
+<div class="filter-strip" role="group" aria-label="Filter by tag"><span class="filter-strip-label">Filter:</span><button type="button" class="filter-tag filter-all active" data-tag="" aria-pressed="true">All</button><button type="button" class="filter-tag" data-tag="SM6" aria-pressed="false">SM6</button><button type="button" class="filter-tag" data-tag="Desktop" aria-pressed="false">Desktop</button><button type="button" class="filter-tag" data-tag="Mobile" aria-pressed="false">Mobile</button><button type="button" class="filter-tag" data-tag="ES3.1" aria-pressed="false">ES3.1</button><button type="button" class="filter-tag" data-tag="Vulkan" aria-pressed="false">Vulkan</button><button type="button" class="filter-tag" data-tag="Metal" aria-pressed="false">Metal</button></div>
 <div class="grid">
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> SM5 / SM6 Desktop</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>16×16 thread groups safe</strong> — desktop GPUs have ≥32KB shared memory and high register files</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6</span></div></div></div>
+<div class="checklist"><div class="check-item" data-tags="SM6"><span class="check-icon ok">✓</span><span class="check-body"><strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed</span></div><div class="check-item" data-tags="SM6"><span class="check-icon ok">✓</span><span class="check-body"><strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan</span></div><div class="check-item" data-tags="Desktop"><span class="check-icon ok">✓</span><span class="check-body"><strong><m>16×16</m> thread groups safe</strong> — desktop GPUs have ≥<m>32KB</m> shared memory and high register files</span></div><div class="check-item" data-tags="SM6"><span class="check-icon warn">!</span><span class="check-body"><strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6</span></div></div></div>
 <div class="card orange">
 <div class="card-title"><span class="dot"></span> Mobile (ES3.1)</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at 2× the throughput of 32-bit</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only</span></div><div class="check-item"><span class="check-icon no">✗</span><span><strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>16 sampler cap</strong> — total texture samples (all stages) must stay under 16 on most mobile GPUs</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device</span></div></div></div>
+<div class="checklist"><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon ok">✓</span><span class="check-body"><strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at <m>2×</m> the throughput of 32-bit</span></div><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon no">✗</span><span class="check-body"><strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only</span></div><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon no">✗</span><span class="check-body"><strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives</span></div><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon warn">!</span><span class="check-body"><strong><m>16</m> sampler cap</strong> — total texture samples (all stages) must stay under <m>16</m> on most mobile GPUs</span></div><div class="check-item" data-tags="Mobile"><span class="check-icon warn">!</span><span class="check-body"><strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device</span></div></div></div>
 <div class="card yellow">
 <div class="card-title"><span class="dot"></span> Vulkan / Metal Specifics</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span><strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions</span></div><div class="check-item"><span class="check-icon warn">!</span><span><strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction</span></div><div class="check-item"><span class="check-icon ok">✓</span><span><strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes</span></div></div></div>
+<div class="checklist"><div class="check-item" data-tags="Vulkan"><span class="check-icon ok">✓</span><span class="check-body"><strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)</span></div><div class="check-item" data-tags="Vulkan"><span class="check-icon warn">!</span><span class="check-body"><strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions</span></div><div class="check-item" data-tags="Metal"><span class="check-icon warn">!</span><span class="check-body"><strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction</span></div><div class="check-item" data-tags="Vulkan"><span class="check-icon ok">✓</span><span class="check-body"><strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes</span></div></div></div>
 </div>
 
 </div>
@@ -368,23 +377,33 @@ GraphBuilder.<span class="fn">AddPass</span>(
 
 <script>
 // ── SUBPAGE TAB TOGGLE ──
-// Pages that ship both an HLSL reference area and an in-engine best-practices
-// area are rendered as two sibling <section class="subpage"> panels. A tab bar
-// at the top of the main content toggles <body class="subpage-ref|optim">; CSS
-// hides the inactive panel and filters the sidenav to matching anchors only.
+// Pages that ship 2+ themed <section class="subpage"> panels are driven by the
+// tab bar at the top. Each tab has a data-subpage="<theme>" attribute; this
+// script toggles body.subpage-<theme>, which CSS uses to show the matching
+// panel and filter the sidenav to anchors belonging to that subpage.
 // State persists in localStorage, and deep-links (#section-id) auto-switch to
 // whichever subpage contains the target section.
 (function() {
   var tabs = document.querySelectorAll('.subpage-tab');
   if (!tabs.length) return;
   var STORAGE_KEY = 'ue5-subpage';
+
+  // Discover the set of valid subpage names from the rendered tabs — no
+  // hard-coded 'ref'/'optim' list, so new subpages (e.g. 'engine') just work.
+  var names = [];
+  tabs.forEach(function(t) {
+    var n = t.getAttribute('data-subpage');
+    if (n && names.indexOf(n) === -1) names.push(n);
+  });
+  var defaultName = names[0] || 'ref';
+  var bodyClasses = names.map(function(n) { return 'subpage-' + n; });
   var current = null;
 
   function setSubpage(name, scroll) {
-    if (name !== 'ref' && name !== 'optim') name = 'ref';
+    if (names.indexOf(name) === -1) name = defaultName;
     if (name === current) return;
     current = name;
-    document.body.classList.remove('subpage-ref', 'subpage-optim');
+    document.body.classList.remove.apply(document.body.classList, bodyClasses);
     document.body.classList.add('subpage-' + name);
     tabs.forEach(function(t) {
       var active = t.getAttribute('data-subpage') === name;
@@ -402,7 +421,7 @@ GraphBuilder.<span class="fn">AddPass</span>(
     });
   });
 
-  // Anchor clicks — auto-switch subpage if target lives in the other panel
+  // Anchor clicks — auto-switch subpage if target lives in a different panel
   document.querySelectorAll('a[href^="#"]').forEach(function(link) {
     link.addEventListener('click', function() {
       var id = link.getAttribute('href').slice(1);
@@ -417,11 +436,11 @@ GraphBuilder.<span class="fn">AddPass</span>(
     });
   });
 
-  // Initial state: URL hash wins > localStorage > ref (default)
-  var initial = 'ref';
+  // Initial state: URL hash wins > localStorage > first tab (default)
+  var initial = defaultName;
   try {
     var stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'ref' || stored === 'optim') initial = stored;
+    if (stored && names.indexOf(stored) !== -1) initial = stored;
   } catch (e) {}
   var hash = window.location.hash;
   if (hash && hash.length > 1) {
@@ -432,6 +451,45 @@ GraphBuilder.<span class="fn">AddPass</span>(
     }
   }
   setSubpage(initial, false);
+})();
+
+// ── SECTION TAG FILTER ──
+// Per-section filter strips (rendered by build.py when a section has any
+// tagged checklist items) toggle `.tag-dimmed` on items whose `data-tags`
+// attribute doesn't include the selected tag. "All" clears the filter.
+// Each strip has independent state; clicking a tag within one strip only
+// affects items inside that strip's section.
+(function() {
+  document.querySelectorAll('.filter-strip').forEach(function(strip) {
+    // The scope is everything between this filter-strip and the next section-label
+    var section = strip.nextElementSibling;
+    if (!section) return;
+    var buttons = strip.querySelectorAll('.filter-tag');
+
+    function applyTag(tag) {
+      // Dim items whose data-tags don't include the selected tag. Empty tag =
+      // show all.
+      section.querySelectorAll('.check-item').forEach(function(item) {
+        if (!tag) {
+          item.classList.remove('tag-dimmed');
+          return;
+        }
+        var tags = (item.getAttribute('data-tags') || '').split(/\s+/);
+        item.classList.toggle('tag-dimmed', tags.indexOf(tag) === -1);
+      });
+      buttons.forEach(function(b) {
+        var active = b.getAttribute('data-tag') === tag;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    buttons.forEach(function(b) {
+      b.addEventListener('click', function() {
+        applyTag(b.getAttribute('data-tag'));
+      });
+    });
+  });
 })();
 
 // ── SEARCH / FILTER ──

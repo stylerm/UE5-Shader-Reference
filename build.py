@@ -150,6 +150,80 @@ def render_rowlist(block: dict) -> str:
 
 _ICON = {"ok": "✓", "warn": "!", "no": "✗", "arrow": "→"}
 
+# Single-letter cost chip labels. `situational` uses `?` because that's the
+# whole point — the cost is context-dependent.
+_COST_LETTER = {
+    "free":        "F",
+    "cheap":       "C",
+    "moderate":    "M",
+    "expensive":   "E",
+    "situational": "?",
+}
+
+
+def _render_cost_chip(cost: str) -> str:
+    """Render a small cost chip — returns empty string if cost is unset/unknown."""
+    if not cost:
+        return ""
+    cost = str(cost).lower().strip()
+    letter = _COST_LETTER.get(cost)
+    if not letter:
+        return ""
+    title = {
+        "free":        "Free — effectively zero cost",
+        "cheap":       "Cheap — negligible cost",
+        "moderate":    "Moderate — budget carefully",
+        "expensive":   "Expensive — hero assets only",
+        "situational": "Situational — cost depends on context",
+    }[cost]
+    return (
+        f'<span class="cost-chip cost-{cost}" title="{title}" '
+        f'aria-label="{title}">{letter}</span>'
+    )
+
+
+# Setup-overhead / difficulty chip. Distinct signal from cost — "how cheap is
+# this at runtime?" vs "how hard is it to ship?". A Fixed Bounds checkbox and a
+# bespoke Scratch Pad module can have identical perf cost but wildly different
+# setup difficulty. Three filled / half-filled dots match the GUI idiom for
+# "tier of required knowledge" and stay distinct from the cost chip's circle+letter.
+_DIFFICULTY_FILLS = {
+    "beginner":     1,  # ●○○ — one checkbox / one setting / documented
+    "intermediate": 2,  # ●●○ — requires understanding a system, multi-step
+    "advanced":     3,  # ●●● — engine plumbing, per-platform, multi-system
+}
+
+
+def _render_difficulty_chip(difficulty: str) -> str:
+    """Render a small 3-dot difficulty chip — empty string if unset/unknown."""
+    if not difficulty:
+        return ""
+    key = str(difficulty).lower().strip()
+    n_filled = _DIFFICULTY_FILLS.get(key)
+    if n_filled is None:
+        return ""
+    title = {
+        "beginner":     "Beginner setup — one checkbox / one setting",
+        "intermediate": "Intermediate setup — multi-step, requires system understanding",
+        "advanced":     "Advanced setup — engine plumbing, per-platform, multi-system",
+    }[key]
+    dots = "".join(
+        f'<span class="dot{" fill" if i < n_filled else ""}"></span>'
+        for i in range(3)
+    )
+    return (
+        f'<span class="setup-chip setup-{key}" title="{title}" '
+        f'aria-label="{title}">{dots}</span>'
+    )
+
+
+def _collect_item_tags(item: dict) -> str:
+    """Normalise an item's `tags:` list into a space-separated data-tags value."""
+    tags = item.get("tags") or []
+    if isinstance(tags, str):
+        tags = [tags]
+    return " ".join(str(t).strip() for t in tags if str(t).strip())
+
 
 def render_checklist(items: list) -> str:
     out = []
@@ -164,13 +238,84 @@ def render_checklist(items: list) -> str:
             key = str(key)
         char = _ICON.get(key, key)
         text = item.get("html", html_mod.escape(item.get("text", "")))
-        out.append(
-            f'<div class="check-item">'
+        cost_html = _render_cost_chip(item.get("cost", ""))
+        diff_html = _render_difficulty_chip(item.get("difficulty", ""))
+        detail    = item.get("detail", "")
+        tags_str  = _collect_item_tags(item)
+        tags_attr = f' data-tags="{tags_str}"' if tags_str else ""
+
+        # Primary row — icon + optional cost chip + optional difficulty chip + text
+        primary = (
             f'<span class="check-icon {key}">{char}</span>'
-            f'<span>{text}</span>'
-            f'</div>'
+            f'<span class="check-body">{cost_html}{diff_html}{text}</span>'
         )
+
+        if detail:
+            # Progressive disclosure — <details><summary> hosts the primary row;
+            # clicking reveals the detail paragraph. Mobile-friendly (tap, not
+            # hover) and keyboard-native. Adds a marker class so CSS can flip
+            # the outer flex layout without relying on :has().
+            inner = (
+                f'<details class="check-detail">'
+                f'<summary>{primary}</summary>'
+                f'<div class="check-detail-body">{detail}</div>'
+                f'</details>'
+            )
+            wrapper_cls = "check-item check-item-expandable"
+        else:
+            inner = primary
+            wrapper_cls = "check-item"
+
+        out.append(f'<div class="{wrapper_cls}"{tags_attr}>{inner}</div>')
     return f'<div class="checklist">{"".join(out)}</div>'
+
+
+def render_gotcha(block: dict) -> str:
+    """Structured gotcha block — 4 labelled sub-rows: PROBLEM / WHY / FIX / DETECT.
+
+    Breaks up the dense prose+checklist gotcha cards by giving each concern a
+    dedicated, visually-distinct row. `why_ref` is a small code-cite appended
+    to the WHY row; `detect` answers *how a dev would notice this bug*.
+    """
+    problem = block.get("problem", "")
+    why     = block.get("why", "")
+    why_ref = block.get("why_ref", "")
+    fix     = block.get("fix", "")
+    detect  = block.get("detect", "")
+
+    rows = []
+    if problem:
+        rows.append(
+            '<div class="gotcha-row problem">'
+            '<span class="gotcha-label">Problem</span>'
+            f'<span class="gotcha-text">{problem}</span>'
+            '</div>'
+        )
+    if why:
+        ref_html = (
+            f' <code class="gotcha-ref">{why_ref}</code>' if why_ref else ""
+        )
+        rows.append(
+            '<div class="gotcha-row why">'
+            '<span class="gotcha-label">Why</span>'
+            f'<span class="gotcha-text">{why}{ref_html}</span>'
+            '</div>'
+        )
+    if fix:
+        rows.append(
+            '<div class="gotcha-row fix">'
+            '<span class="gotcha-label">Fix</span>'
+            f'<span class="gotcha-text">{fix}</span>'
+            '</div>'
+        )
+    if detect:
+        rows.append(
+            '<div class="gotcha-row detect">'
+            '<span class="gotcha-label">Detect</span>'
+            f'<span class="gotcha-text">{detect}</span>'
+            '</div>'
+        )
+    return f'<div class="gotcha-block">{"".join(rows)}</div>'
 
 
 def render_table(data: dict) -> str:
@@ -289,6 +434,7 @@ def render_block(block: dict) -> str:
         "prompt":      lambda: render_prompt(block),
         "prose":       lambda: render_prose(block),
         "nested_grid": lambda: render_nested_grid(block),
+        "gotcha":      lambda: render_gotcha(block),
         "raw":         lambda: block.get("html", ""),
     }
     fn = dispatch.get(t)
@@ -309,6 +455,44 @@ def render_card(card: dict) -> str:
     )
 
 
+def _section_filter_strip(section: dict) -> str:
+    """Emit a per-section tag filter strip IF any checklist item in the section
+    carries `tags:`. Click a tag → `.tag-dimmed` on items that don't match.
+    Zero output when the section has no tagged items — no visual bloat.
+    """
+    # Collect the unique tag set from every checklist item in every card
+    tagset = []
+    seen = set()
+    for card in section.get("cards", []):
+        for block in card.get("content", []):
+            if block.get("type") != "checklist":
+                continue
+            for item in block.get("items", []):
+                tags = item.get("tags") or []
+                if isinstance(tags, str):
+                    tags = [tags]
+                for t in tags:
+                    t = str(t).strip()
+                    if t and t not in seen:
+                        seen.add(t)
+                        tagset.append(t)
+    if not tagset:
+        return ""
+    buttons = "".join(
+        f'<button type="button" class="filter-tag" data-tag="{t}" '
+        f'aria-pressed="false">{t}</button>'
+        for t in tagset
+    )
+    return (
+        '<div class="filter-strip" role="group" aria-label="Filter by tag">'
+        '<span class="filter-strip-label">Filter:</span>'
+        '<button type="button" class="filter-tag filter-all active" '
+        'data-tag="" aria-pressed="true">All</button>'
+        f'{buttons}'
+        '</div>\n'
+    )
+
+
 def render_section(section: dict) -> str:
     sid        = section.get("id", "")
     label      = section.get("label", "")
@@ -316,8 +500,10 @@ def render_section(section: dict) -> str:
     priority   = section.get("priority", "")
     cards      = "".join(render_card(c) for c in section.get("cards", []))
     priority_attr = f' data-priority="{priority}"' if priority else ""
+    filter_strip = _section_filter_strip(section)
     return (
         f'<div id="{sid}" class="section-label"{priority_attr}>{label}</div>\n'
+        f'{filter_strip}'
         f'<div class="{grid_class}">\n'
         f"{cards}"
         f"</div>\n\n"
@@ -376,25 +562,31 @@ def build_page(data_file: Path, template: str) -> None:
     section_links = "\n".join(link_parts)
 
     # Main content — supports both flat `sections` and grouped `section_groups`.
-    # When a page has BOTH a ref-themed and an optim-themed group, we wrap each
-    # group in a <section class="subpage"> and emit a tab switcher so visitors
-    # can toggle between the HLSL reference and the best-practices subpage.
+    # When a page has 2+ themed groups, wrap each in a <section class="subpage">
+    # and emit a tab switcher. The tab bar is data-driven over the groups list,
+    # so a page can ship 2, 3, or more subpages (e.g. ref / optim / engine).
     groups = data.get("section_groups", [])
     if groups:
-        has_ref   = any(g.get("theme") == "ref"   for g in groups)
-        has_optim = any(g.get("theme") == "optim" for g in groups)
-        multi     = has_ref and has_optim
+        # Any group with a theme attribute participates in the tab switcher.
+        themed = [g for g in groups if g.get("theme")]
+        multi  = len(themed) >= 2
 
         parts = []
         if multi:
             parts.append(
                 '<div class="subpage-tabs" role="tablist" aria-label="Page view">\n'
-                '  <button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true">'
-                '<span class="subpage-tab-icon">⚗</span> HLSL Reference</button>\n'
-                '  <button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false">'
-                '<span class="subpage-tab-icon">⚡</span> Best Practices</button>\n'
-                '</div>\n'
             )
+            for i, g in enumerate(themed):
+                theme = g.get("theme", "ref")
+                icon  = g.get("icon", "")
+                title = g.get("title", "")
+                selected = "true" if i == 0 else "false"
+                parts.append(
+                    f'  <button class="subpage-tab" role="tab" '
+                    f'data-subpage="{theme}" aria-selected="{selected}">'
+                    f'<span class="subpage-tab-icon">{icon}</span> {title}</button>\n'
+                )
+            parts.append('</div>\n')
         for g in groups:
             theme = g.get("theme", "ref")
             if multi:

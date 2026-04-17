@@ -268,6 +268,39 @@ h1 span { color: var(--accent); }
 .area.area-optim .card.red::before    { background: var(--bad); }
 .area.area-optim .card.yellow::before { background: var(--warn); }
 
+/* Engine-internals area — cool slate-green palette, distinct from both
+   cool-cyan ref and warm-amber optim. Signals "source-verified / reference"
+   content without overloading the existing accents. */
+.area.area-engine {
+  --surface: #0a1210;
+  --border:  #1a2a22;
+  --code-bg: #05090a;
+  margin-top: 8px;
+  padding: 24px 20px 4px;
+  border: 1px solid rgba(184,255,87,0.15);
+  border-radius: 6px;
+  background: rgba(184,255,87,0.02);
+  position: relative;
+}
+.area.area-engine::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(to bottom, var(--accent3), rgba(184,255,87,0.2));
+}
+.area.area-engine .area-heading {
+  color: var(--accent3);
+  border-bottom-color: rgba(184,255,87,0.3);
+}
+.area.area-engine .section-label {
+  color: rgba(184,255,87,0.55);
+}
+.area.area-engine .section-label::after {
+  background: rgba(184,255,87,0.18);
+}
+
 /* ══ SUBPAGE TABS ═════════════════════════════════════════════════════════════
    Toggle between the HLSL Reference subpage and the Best Practices subpage.
    The active tab is driven by body.subpage-ref / body.subpage-optim; CSS below
@@ -316,11 +349,21 @@ h1 span { color: var(--accent); }
   background: rgba(255,107,53,0.05);
 }
 .subpage-tab.active[data-subpage="optim"] .subpage-tab-icon { opacity: 1; }
+/* Engine Internals — source-verified / how-the-engine-works reference.
+   Uses the green accent to read as "verified truth" and stay distinct
+   from both the cyan ref and warm optim tabs. */
+.subpage-tab.active[data-subpage="engine"] {
+  color: var(--accent3);
+  border-bottom-color: var(--accent3);
+  background: rgba(184,255,87,0.05);
+}
+.subpage-tab.active[data-subpage="engine"] .subpage-tab-icon { opacity: 1; }
 
 /* Panel visibility — hide the non-active subpage entirely */
 .subpage { display: none; }
-body.subpage-ref  .subpage[data-subpage="ref"],
-body.subpage-optim .subpage[data-subpage="optim"] { display: block; }
+body.subpage-ref    .subpage[data-subpage="ref"],
+body.subpage-optim  .subpage[data-subpage="optim"],
+body.subpage-engine .subpage[data-subpage="engine"] { display: block; }
 
 /* Collapse the area padding/border when the panel is the only visible child —
    the area-optim wrapper already looks like a "card," so keep its styling. */
@@ -340,7 +383,24 @@ body.subpage-ref .sidenav-links .sidenav-section.area-optim {
 }
 body.subpage-optim .sidenav-links a[data-area="ref"],
 body.subpage-optim .sidenav-links .sidenav-divider.area-ref,
-body.subpage-optim .sidenav-links .sidenav-section.area-ref {
+body.subpage-optim .sidenav-links .sidenav-section.area-ref,
+body.subpage-optim .sidenav-links a[data-area="engine"],
+body.subpage-optim .sidenav-links .sidenav-divider.area-engine,
+body.subpage-optim .sidenav-links .sidenav-section.area-engine {
+  display: none;
+}
+body.subpage-engine .sidenav-links a[data-area="ref"],
+body.subpage-engine .sidenav-links .sidenav-divider.area-ref,
+body.subpage-engine .sidenav-links .sidenav-section.area-ref,
+body.subpage-engine .sidenav-links a[data-area="optim"],
+body.subpage-engine .sidenav-links .sidenav-divider.area-optim,
+body.subpage-engine .sidenav-links .sidenav-section.area-optim {
+  display: none;
+}
+/* Update the ref→optim rule to also hide engine anchors when ref is active */
+body.subpage-ref .sidenav-links a[data-area="engine"],
+body.subpage-ref .sidenav-links .sidenav-divider.area-engine,
+body.subpage-ref .sidenav-links .sidenav-section.area-engine {
   display: none;
 }
 
@@ -762,6 +822,89 @@ table.table-multi td { max-width: 48ch; word-wrap: break-word; }
   letter-spacing: 0.1em;
 }
 
+/* ── DIAGNOSTIC HUB (task / symptom rows on index.html) ── */
+.diagnostic-row { margin: 22px 0 8px; }
+.diagnostic-row-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.task-grid,
+.symptom-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.task-card,
+.symptom-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 14px 16px;
+  text-decoration: none;
+  transition: border-color 0.2s, transform 0.15s, background 0.2s;
+  display: block;
+}
+.task-card:hover {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  transform: translateY(-1px);
+  background: rgba(0, 217, 255, 0.03);
+}
+.symptom-card {
+  border-left-color: var(--warn);
+}
+.symptom-card:hover {
+  border-color: var(--warn);
+  border-left-color: var(--warn);
+  transform: translateY(-1px);
+  background: rgba(255, 179, 71, 0.04);
+}
+.task-card-icon,
+.symptom-card-icon {
+  font-size: 18px;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+.task-card-title,
+.symptom-card-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  margin: 4px 0 6px;
+  display: inline;
+}
+.task-card-desc,
+.symptom-card-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin-top: 6px;
+}
+.task-card-desc code,
+.symptom-card-desc code {
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(0, 217, 255, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+@media (max-width: 900px) {
+  .task-grid, .symptom-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .task-grid, .symptom-grid { grid-template-columns: 1fr; gap: 8px; }
+}
+
 /* ── FOOTER ── */
 .footer {
   margin-top: 24px;
@@ -1020,4 +1163,249 @@ table.table-multi td { max-width: 48ch; word-wrap: break-word; }
 
   /* Topbar copy buttons overlap less on narrow screens */
   .copy-btn { font-size: 8px; padding: 2px 5px; }
+}
+
+/* ══ NEW COMPONENTS: COST CHIP / METRIC / GOTCHA / FILTER / DETAILS ══════════
+   Opt-in per YAML item. Items without these fields render as before — default
+   visual density does not grow. Colors all reuse existing palette tokens.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── COST CHIP — 14px inline circle with a single letter (F/C/M/E/?).
+   Opt-in via `cost: free|cheap|moderate|expensive|situational` on checklist
+   items. `situational` is its own tier — declares "this is context-dependent,
+   not a binary rule" instead of looking identical to an absolute claim. */
+.cost-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  margin-right: 7px;
+  vertical-align: 1px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  cursor: help;
+}
+.cost-chip.cost-free        { background: rgba(184,255,87,0.20); color: var(--accent3); border-color: rgba(184,255,87,0.35); }
+.cost-chip.cost-cheap       { background: rgba(184,255,87,0.10); color: var(--accent3); border-color: rgba(184,255,87,0.25); }
+.cost-chip.cost-moderate    { background: rgba(255,179,71,0.15); color: var(--warn);    border-color: rgba(255,179,71,0.35); }
+.cost-chip.cost-expensive   { background: rgba(255,87,87,0.15);  color: var(--bad);     border-color: rgba(255,87,87,0.4); }
+.cost-chip.cost-situational { background: rgba(0,229,255,0.08);  color: var(--accent);  border-color: rgba(0,229,255,0.4); }
+
+/* ── SETUP / DIFFICULTY CHIP — three dots signalling how hard a rule is to
+   ship (beginner = one checkbox, advanced = engine plumbing). Visually
+   distinct from cost chip (circle+letter) so the two can sit side-by-side
+   without confusion. Opt-in via `difficulty: beginner|intermediate|advanced`. */
+.setup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 7px;
+  vertical-align: 2px;
+  flex-shrink: 0;
+  cursor: help;
+  padding: 2px 3px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.setup-chip .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  display: inline-block;
+}
+.setup-chip .dot.fill { background: currentColor; }
+.setup-chip.setup-beginner     { color: var(--accent3); background: rgba(184,255,87,0.06); border-color: rgba(184,255,87,0.25); }
+.setup-chip.setup-intermediate { color: var(--warn);    background: rgba(255,179,71,0.08); border-color: rgba(255,179,71,0.30); }
+.setup-chip.setup-advanced     { color: var(--accent2); background: rgba(255,107,53,0.08); border-color: rgba(255,107,53,0.35); }
+
+/* ── METRIC — inline styling for quantified claims wrapped in <m>…</m>.
+   Visually adjacent to <code> but semantically "this is a measured number,
+   not an API symbol." Lets readers scan the page for perf-relevant numbers. */
+m {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-style: normal;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--accent3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── GOTCHA BLOCK — structured sub-rows with colored gutter stripes.
+   Replaces the dense prose+checklist+rowlist stack in Engine Gotchas cards
+   with one concern per block, split into PROBLEM / WHY / FIX / DETECT. */
+.gotcha-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0;
+}
+.gotcha-row {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 7px 10px 7px 12px;
+  border-left: 3px solid var(--border);
+  background: rgba(255,255,255,0.015);
+  border-radius: 0 3px 3px 0;
+  line-height: 1.55;
+}
+.gotcha-row.problem { border-left-color: var(--bad);      background: rgba(255,87,87,0.04); }
+.gotcha-row.why     { border-left-color: var(--text-dim); background: rgba(107,122,141,0.04); }
+.gotcha-row.fix     { border-left-color: var(--accent3);  background: rgba(184,255,87,0.04); }
+.gotcha-row.detect  { border-left-color: var(--accent);   background: rgba(0,229,255,0.04); }
+.gotcha-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.gotcha-row.problem .gotcha-label { color: var(--bad); }
+.gotcha-row.fix     .gotcha-label { color: var(--accent3); }
+.gotcha-row.detect  .gotcha-label { color: var(--accent); }
+.gotcha-text { font-size: 15px; color: var(--text); }
+.gotcha-ref {
+  font-size: 12px !important;
+  color: var(--text-dim) !important;
+  margin-left: 6px;
+  padding: 1px 5px !important;
+}
+/* Narrow cards can't afford the 68px label gutter — stack the label above the
+   content so PROBLEM/WHY/FIX/DETECT still scan but text gets full card width. */
+@container card (max-width: 340px) {
+  .gotcha-row { grid-template-columns: 1fr; gap: 4px; }
+}
+@media (max-width: 900px) {
+  .gotcha-row { grid-template-columns: 1fr; gap: 4px; }
+  .gotcha-label { font-size: 9px; }
+}
+
+/* ── FILTER STRIP — per-section tag filter, rendered by build.py only when the
+   section contains tagged items. Click a tag → `.tag-dimmed` on non-matching
+   items. Zero bloat: doesn't render at all on sections without tags. */
+.filter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 14px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.015);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.filter-strip-label {
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.filter-tag {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 9px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  letter-spacing: 0.06em;
+}
+.filter-tag:hover { color: var(--text); border-color: var(--text-dim); }
+.filter-tag.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0,229,255,0.08);
+}
+.area.area-optim .filter-tag.active {
+  color: var(--accent2);
+  border-color: var(--accent2);
+  background: rgba(255,107,53,0.08);
+}
+.area.area-engine .filter-tag.active {
+  color: var(--accent3);
+  border-color: var(--accent3);
+  background: rgba(184,255,87,0.08);
+}
+.check-item.tag-dimmed {
+  opacity: 0.25;
+  transition: opacity 0.15s;
+}
+
+/* ── DETAILS / PROGRESSIVE DISCLOSURE — `detail:` on a checklist item moves
+   the long explanatory prose under a native <details>. Mobile-friendly (tap,
+   not hover), keyboard-native, and doesn't force every item to show its
+   full depth inline. Items without `detail:` render unchanged. */
+details.check-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+details.check-detail > summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  padding: 2px 0;
+  position: relative;
+  min-height: 22px;
+}
+details.check-detail > summary::-webkit-details-marker { display: none; }
+details.check-detail > summary::after {
+  content: '▸';
+  color: var(--text-dim);
+  font-size: 10px;
+  margin-left: auto;
+  padding-left: 8px;
+  flex-shrink: 0;
+  transition: transform 0.15s, color 0.15s;
+  align-self: center;
+}
+details.check-detail[open] > summary::after {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+details.check-detail > summary:hover::after { color: var(--text); }
+details.check-detail > .check-detail-body {
+  margin: 6px 0 4px 28px;
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.02);
+  border-left: 2px solid var(--border);
+  border-radius: 0 3px 3px 0;
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* When a check-item wraps a <details>, neutralise the default flex layout —
+   the <summary> takes over handling the icon+text row. `.check-item-expandable`
+   is added by build.py specifically for this case, avoiding `:has()` compat
+   issues. */
+.check-item-expandable { display: block; }
+.check-item-expandable > details.check-detail {
+  width: 100%;
+  min-width: 0;
+}
+.check-item .check-body {
+  display: inline;
+  min-width: 0;
 }

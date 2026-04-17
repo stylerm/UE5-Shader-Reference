@@ -17,6 +17,7 @@ meta:
     - {id: sampling,      label: Sampling}
     - {divider: "OPTIMIZATION", area: optim}
     - {id: compute-perf,  label: Perf Rules}
+    - {divider: "ENGINE INTERNALS", area: engine}
     - {id: dispatch-rules,label: Dispatch}
     - {id: platform-perf, label: Platform}
 
@@ -400,6 +401,14 @@ section_groups:
                   - ["`64×1×1`",  "64",  "—",             "1D passes: histograms, prefix sums, buffer ops"]
                   - ["`32×1×1`",  "32",  "—",             "Mobile-safe 1D — matches warp/wavefront size"]
 
+  # ════════════════════════════════════════════════════════════════════════════
+  #  AREA 3 — ENGINE INTERNALS (Dispatch / Resource / Platform Reference)
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "Engine Internals"
+    icon: "🔬"
+    theme: engine
+    sections:
+
       # ── SECTION 7: DISPATCH & RESOURCE RULES ──────────────────────────────
       - id: dispatch-rules
         label: "Dispatch &amp; Resource Rules"
@@ -473,28 +482,28 @@ section_groups:
             content:
               - type: checklist
                 items:
-                  - {icon: ok,   html: "<strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed"}
-                  - {icon: ok,   html: "<strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan"}
-                  - {icon: ok,   html: "<strong>16×16 thread groups safe</strong> — desktop GPUs have ≥32KB shared memory and high register files"}
-                  - {icon: warn, html: "<strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6"}
+                  - {icon: ok,   tags: [SM6], html: "<strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed"}
+                  - {icon: ok,   tags: [SM6], html: "<strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan"}
+                  - {icon: ok,   tags: [Desktop], html: "<strong><m>16×16</m> thread groups safe</strong> — desktop GPUs have ≥<m>32KB</m> shared memory and high register files"}
+                  - {icon: warn, tags: [SM6], html: "<strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6"}
 
           - color: orange
             title: "Mobile (ES3.1)"
             content:
               - type: checklist
                 items:
-                  - {icon: ok,   html: "<strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at 2× the throughput of 32-bit"}
-                  - {icon: no,   html: "<strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only"}
-                  - {icon: no,   html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives"}
-                  - {icon: warn, html: "<strong>16 sampler cap</strong> — total texture samples (all stages) must stay under 16 on most mobile GPUs"}
-                  - {icon: warn, html: "<strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device"}
+                  - {icon: ok,   tags: [Mobile, ES3.1], html: "<strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at <m>2×</m> the throughput of 32-bit"}
+                  - {icon: no,   tags: [Mobile, ES3.1], html: "<strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only"}
+                  - {icon: no,   tags: [Mobile, ES3.1], html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives"}
+                  - {icon: warn, tags: [Mobile, ES3.1], html: "<strong><m>16</m> sampler cap</strong> — total texture samples (all stages) must stay under <m>16</m> on most mobile GPUs"}
+                  - {icon: warn, tags: [Mobile], html: "<strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device"}
 
           - color: yellow
             title: "Vulkan / Metal Specifics"
             content:
               - type: checklist
                 items:
-                  - {icon: ok,   html: "<strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)"}
-                  - {icon: warn, html: "<strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions"}
-                  - {icon: warn, html: "<strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction"}
-                  - {icon: ok,   html: "<strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes"}
+                  - {icon: ok,   tags: [Vulkan], html: "<strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)"}
+                  - {icon: warn, tags: [Vulkan], html: "<strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions"}
+                  - {icon: warn, tags: [Metal], html: "<strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction"}
+                  - {icon: ok,   tags: [Vulkan], html: "<strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes"}

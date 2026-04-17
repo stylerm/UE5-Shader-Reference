@@ -67,23 +67,33 @@
 
 <script>
 // ── SUBPAGE TAB TOGGLE ──
-// Pages that ship both an HLSL reference area and an in-engine best-practices
-// area are rendered as two sibling <section class="subpage"> panels. A tab bar
-// at the top of the main content toggles <body class="subpage-ref|optim">; CSS
-// hides the inactive panel and filters the sidenav to matching anchors only.
+// Pages that ship 2+ themed <section class="subpage"> panels are driven by the
+// tab bar at the top. Each tab has a data-subpage="<theme>" attribute; this
+// script toggles body.subpage-<theme>, which CSS uses to show the matching
+// panel and filter the sidenav to anchors belonging to that subpage.
 // State persists in localStorage, and deep-links (#section-id) auto-switch to
 // whichever subpage contains the target section.
 (function() {
   var tabs = document.querySelectorAll('.subpage-tab');
   if (!tabs.length) return;
   var STORAGE_KEY = 'ue5-subpage';
+
+  // Discover the set of valid subpage names from the rendered tabs — no
+  // hard-coded 'ref'/'optim' list, so new subpages (e.g. 'engine') just work.
+  var names = [];
+  tabs.forEach(function(t) {
+    var n = t.getAttribute('data-subpage');
+    if (n && names.indexOf(n) === -1) names.push(n);
+  });
+  var defaultName = names[0] || 'ref';
+  var bodyClasses = names.map(function(n) { return 'subpage-' + n; });
   var current = null;
 
   function setSubpage(name, scroll) {
-    if (name !== 'ref' && name !== 'optim') name = 'ref';
+    if (names.indexOf(name) === -1) name = defaultName;
     if (name === current) return;
     current = name;
-    document.body.classList.remove('subpage-ref', 'subpage-optim');
+    document.body.classList.remove.apply(document.body.classList, bodyClasses);
     document.body.classList.add('subpage-' + name);
     tabs.forEach(function(t) {
       var active = t.getAttribute('data-subpage') === name;
@@ -101,7 +111,7 @@
     });
   });
 
-  // Anchor clicks — auto-switch subpage if target lives in the other panel
+  // Anchor clicks — auto-switch subpage if target lives in a different panel
   document.querySelectorAll('a[href^="#"]').forEach(function(link) {
     link.addEventListener('click', function() {
       var id = link.getAttribute('href').slice(1);
@@ -116,11 +126,11 @@
     });
   });
 
-  // Initial state: URL hash wins > localStorage > ref (default)
-  var initial = 'ref';
+  // Initial state: URL hash wins > localStorage > first tab (default)
+  var initial = defaultName;
   try {
     var stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'ref' || stored === 'optim') initial = stored;
+    if (stored && names.indexOf(stored) !== -1) initial = stored;
   } catch (e) {}
   var hash = window.location.hash;
   if (hash && hash.length > 1) {
@@ -131,6 +141,45 @@
     }
   }
   setSubpage(initial, false);
+})();
+
+// ── SECTION TAG FILTER ──
+// Per-section filter strips (rendered by build.py when a section has any
+// tagged checklist items) toggle `.tag-dimmed` on items whose `data-tags`
+// attribute doesn't include the selected tag. "All" clears the filter.
+// Each strip has independent state; clicking a tag within one strip only
+// affects items inside that strip's section.
+(function() {
+  document.querySelectorAll('.filter-strip').forEach(function(strip) {
+    // The scope is everything between this filter-strip and the next section-label
+    var section = strip.nextElementSibling;
+    if (!section) return;
+    var buttons = strip.querySelectorAll('.filter-tag');
+
+    function applyTag(tag) {
+      // Dim items whose data-tags don't include the selected tag. Empty tag =
+      // show all.
+      section.querySelectorAll('.check-item').forEach(function(item) {
+        if (!tag) {
+          item.classList.remove('tag-dimmed');
+          return;
+        }
+        var tags = (item.getAttribute('data-tags') || '').split(/\s+/);
+        item.classList.toggle('tag-dimmed', tags.indexOf(tag) === -1);
+      });
+      buttons.forEach(function(b) {
+        var active = b.getAttribute('data-tag') === tag;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    buttons.forEach(function(b) {
+      b.addEventListener('click', function() {
+        applyTag(b.getAttribute('data-tag'));
+      });
+    });
+  });
 })();
 
 // ── SEARCH / FILTER ──

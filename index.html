@@ -33,6 +33,8 @@
   <nav class="topbar" aria-label="Page controls">
     <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidenav">&#9776;</button>
     <span class="topbar-spacer"></span>
+    <a href="#start">Start</a>
+    <span class="sep">·</span>
     <a href="#overview">Overview</a>
     <span class="sep">·</span>
     <a href="#contribute">Contribute</a>
@@ -55,7 +57,76 @@
     </div>
   </div>
 
+  <!-- ── DIAGNOSTIC HUB ── -->
+  <div id="start" class="diagnostic-row">
+    <div class="diagnostic-row-label">What are you trying to do?</div>
+    <div class="task-grid">
+      <a href="materials.html#custom-node" class="task-card">
+        <span class="task-card-icon">🎨</span>
+        <div class="task-card-title">Write a Material Custom node</div>
+        <div class="task-card-desc">HLSL rules, input pins, return types, and the dedup trap.</div>
+      </a>
+      <a href="materials.html#shadertoy" class="task-card">
+        <span class="task-card-icon">🌀</span>
+        <div class="task-card-title">Port a Shadertoy</div>
+        <div class="task-card-desc">GLSL → HLSL intrinsics, <code>iTime</code>/<code>iResolution</code> mapping, UV conventions.</div>
+      </a>
+      <a href="niagara.html#perf-tiers" class="task-card">
+        <span class="task-card-icon">⚡</span>
+        <div class="task-card-title">Optimize a slow Niagara system</div>
+        <div class="task-card-desc">Tiered wins — combine emitters, fixed bounds, cutouts, GPU cap.</div>
+      </a>
+      <a href="shaders.html#compute" class="task-card">
+        <span class="task-card-icon">⚙</span>
+        <div class="task-card-title">Write a compute shader</div>
+        <div class="task-card-desc"><code>.usf</code> layout, dispatch rules, TGSM, numthreads sizing.</div>
+      </a>
+      <a href="niagara.html#ni-data-interfaces" class="task-card">
+        <span class="task-card-icon">🖼</span>
+        <div class="task-card-title">Sample a texture in Niagara</div>
+        <div class="task-card-desc">Texture Sample DI, not <code>Texture2DSample()</code>. Bind in UI, read in HLSL.</div>
+      </a>
+      <a href="materials.html#mat-gotchas" class="task-card">
+        <span class="task-card-icon">📱</span>
+        <div class="task-card-title">Fix a mobile cook error</div>
+        <div class="task-card-desc">Feature-level guards, ES3.1 gotchas, platform-conditional intrinsics.</div>
+      </a>
+    </div>
+  </div>
+
+  <div class="diagnostic-row">
+    <div class="diagnostic-row-label">What's your bottleneck?</div>
+    <div class="symptom-grid">
+      <a href="niagara.html#perf-rules" class="symptom-card">
+        <span class="symptom-card-icon">🔥</span>
+        <div class="symptom-card-title">Translucency / overdraw</div>
+        <div class="symptom-card-desc">Keep translucent under <strong>3ms</strong>. Cutouts, unlit, smaller sprites.</div>
+      </a>
+      <a href="materials.html#mat-gotchas" class="symptom-card">
+        <span class="symptom-card-icon">🧨</span>
+        <div class="symptom-card-title">Shader recompile cascade</div>
+        <div class="symptom-card-desc">MPC changes invalidate every material that samples them. Fix the graph, not the param.</div>
+      </a>
+      <a href="niagara.html#ni-gotchas" class="symptom-card">
+        <span class="symptom-card-icon">🌫</span>
+        <div class="symptom-card-title">Scalability pop-in / LOD lag</div>
+        <div class="symptom-card-desc">Effect Type + Significance Handler must both be set. Update freq = Low or Medium.</div>
+      </a>
+      <a href="niagara.html#ni-gotchas" class="symptom-card">
+        <span class="symptom-card-icon">🧵</span>
+        <div class="symptom-card-title">Dispatch &gt; 65,535 threads</div>
+        <div class="symptom-card-desc">GPU sim silently remaps. Plan thread count around the D3D limit.</div>
+      </a>
+      <a href="materials.html#mat-gotchas" class="symptom-card">
+        <span class="symptom-card-icon">🧬</span>
+        <div class="symptom-card-title">Custom Node dedup fails</div>
+        <div class="symptom-card-desc">Identical HLSL with different input wiring compiles twice. Normalize inputs.</div>
+      </a>
+    </div>
+  </div>
+
   <!-- ── HUB NAVIGATION ── -->
+  <div class="diagnostic-row-label">Browse by topic</div>
   <div class="hub-grid">
 
     <a href="materials.html" class="hub-card blue">

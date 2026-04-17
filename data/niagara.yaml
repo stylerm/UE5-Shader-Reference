@@ -10,6 +10,7 @@ meta:
     Context: <strong>Scratch Pad · Stateless Modules</strong>
     Stage: <strong>Spawn · Update · Render</strong>
   anchors:
+    - {id: ni-mental-model, label: Mental Model}
     - {id: scratch-pad,  label: Scratch Pad}
     - {id: restrictions, label: Restrictions}
     - {id: stateless,    label: Stateless}
@@ -20,6 +21,7 @@ meta:
     - {id: gpu-vs-cpu,    label: GPU vs CPU}
     - {id: perf-rules,    label: Optim Rules}
     - {id: scalability,   label: Scalability}
+    - {divider: "ENGINE INTERNALS", area: engine}
     - {id: ni-data-interfaces, label: Data Interfaces}
     - {id: ni-gotchas,    label: Engine Gotchas}
 
@@ -32,6 +34,51 @@ section_groups:
     icon: "⚗"
     theme: ref
     sections:
+
+      # ── SECTION 0: MENTAL MODEL ────────────────────────────────────────────
+      - id: ni-mental-model
+        label: "Mental Model — Where · When · What Costs"
+        priority: high
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Orient in 30 seconds"
+            content:
+              - type: prose
+                text: "Niagara runs <strong>per-particle scripts</strong> on either the <strong>CPU</strong> or the <strong>GPU</strong>. Each emitter has a <strong>Spawn</strong> script (runs once per new particle) and an <strong>Update</strong> script (runs every frame, per particle). <strong>Data Interfaces</strong> are the only bridge from your script to engine data — textures, skeletal meshes, distance fields, other systems. Everything else is compute-isolated: no scene queries, no callbacks, no game-thread access from GPU sims."
+
+          - color: orange
+            title: "Where code runs"
+            content:
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "CPU sim",        text: "Full module set, gameplay callbacks, light emission. Scales with particle count on the game thread — keep under <m>100</m> particles per emitter."}
+                  - {label: "GPU sim",        text: "Compute dispatch, near-zero CPU cost. No callbacks, no per-particle lights, no sync physics. Right for <m>100+</m> particles."}
+                  - {label: "Module scripts", text: "Stateless HLSL in Scratch Pad — inputs via pins, outputs via pin writes. No <code>return</code>, no globals."}
+                  - {label: "Hybrid via DI",  text: "Data Interface calls (Texture Sample, Skeletal Mesh, Distance Field, Niagara DI) are the <em>only</em> way a script reads engine state."}
+
+          - color: green
+            title: "When it runs"
+            content:
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "PrePhysics",       text: "Default tick group. Spawn + Update run before scene physics — safe for most work."}
+                  - {label: "DuringPhysics",    text: "Runs parallel with physics. Avoid unless you specifically need async overlap."}
+                  - {label: "PostPhysics",      text: "Runs after collisions resolve. Needed when reading post-physics transforms (e.g. ragdolls)."}
+                  - {label: "PostOpaqueRender", text: "GPU-only stage. Lets sim sample the scene depth buffer for collision or soft-depth. <m>1-frame</m> lag vs CPU."}
+
+          - color: yellow
+            title: "4 things that control cost"
+            content:
+              - type: checklist
+                items:
+                  - {icon: arrow, cost: situational, html: "<strong>Particle count</strong> — the multiplier on everything else. Tier CPU at <m>&lt;100</m>, GPU at <m>100-1M</m>."}
+                  - {icon: arrow, cost: situational, html: "<strong>Script complexity</strong> — ops per particle per frame. Expensive intrinsics (<code>pow</code>, texture reads) hurt more on GPU when fanned across millions of threads."}
+                  - {icon: arrow, cost: expensive,   html: "<strong>Data Interface fan-out</strong> — Skeletal Mesh DI binds <m>5+</m> SRVs per emitter; Texture Sample DI is cheap; Render Target DI burns VRAM."}
+                  - {icon: arrow, cost: expensive,   html: "<strong>Render cost</strong> — overdraw × material cost. Often larger than sim cost on translucent FX; see the Optimization tab."}
 
       # ── SECTION 1: SCRATCH PAD ─────────────────────────────────────────────
       - id: scratch-pad
@@ -302,40 +349,39 @@ section_groups:
             content:
               - type: checklist
                 items:
-                  - {icon: ok, html: "<strong>Combine emitters</strong> — each emitter adds its own tick, compute dispatch, and draw call setup; merging 5→1 can cut game-thread tick time 30–50%"}
-                  - {icon: ok, html: "<strong>Fixed Bounds</strong> — enable in System settings to prevent dynamic bounding box recomputation every frame"}
-                  - {icon: ok, html: "<strong>Always stop unused systems</strong> — looping systems that are invisible still consume GPU dispatch and CPU overhead"}
-                  - {icon: ok, html: "<strong>Effect Type asset</strong> — attach one to every system; enables budget-based culling with zero per-frame cost"}
+                  - {icon: ok, cost: cheap, difficulty: intermediate, html: "<strong>Combine emitters</strong> — merging 5→1 cuts tick time <m>30-50%</m> (each adds tick + dispatch + draw setup)"}
+                  - {icon: ok, cost: free,  difficulty: beginner,     html: "<strong>Fixed Bounds</strong> — enable in System settings; GPU trusts the bounds, skips per-frame recompute"}
+                  - {icon: ok, cost: free,  difficulty: beginner,     html: "<strong>Stop unused loops</strong> — invisible systems still eat GPU dispatch + CPU"}
+                  - {icon: ok, cost: free,  difficulty: intermediate, html: "<strong>Effect Type asset</strong> — attach one per system; enables budget-based culling at zero per-frame cost"}
 
           - color: yellow
             title: "Tier 2 — Cheap Wins"
             content:
               - type: checklist
                 items:
-                  - {icon: ok,   html: "<strong>LOD via Scalability</strong> — configure Low / Medium / High / Epic / Cinematic quality levels in Effect Type"}
-                  - {icon: ok,   html: "<strong>Distance culling</strong> — particles 2× farther away cost ~4× less fill rate; set aggressive cull distances"}
-                  - {icon: ok,   html: "<strong>Texture atlasing</strong> — pack 4×4 SubUV frames into one atlas; drive with SubUV Animation module to cut draw calls"}
-                  - {icon: warn, html: "<strong>Translucency budget &lt;3ms</strong> — monitor with <code>stat gpu</code>; translucency is the first budget to watch"}
+                  - {icon: ok,   cost: cheap,    difficulty: intermediate, html: "<strong>LOD via Scalability</strong> — configure Low / Medium / High / Epic / Cinematic in Effect Type"}
+                  - {icon: ok,   cost: cheap,    difficulty: beginner,     html: "<strong>Distance culling</strong> — particles at <m>2×</m> distance cost ~<m>4×</m> less fill"}
+                  - {icon: ok,   cost: cheap,    difficulty: intermediate, html: "<strong>Texture atlasing</strong> — <m>4×4</m> SubUV atlas driven by SubUV Animation module cuts draw calls"}
 
           - color: orange
             title: "Tier 3 — Expensive"
             content:
               - type: checklist
                 items:
-                  - {icon: warn, html: "<strong>CPU per-particle collision</strong> — runs a blocking physics line trace per particle per frame; scales linearly with count. GPU alternatives (depth buffer, distance field) are far cheaper — depth collision is ~3 texture reads per particle in parallel, distance field is a single SDF lookup"}
-                  - {icon: warn, html: "<strong>Light emission</strong> — only available on CPU sims; each particle light adds a shadow-casting draw call overhead"}
-                  - {icon: warn, html: "<strong>Many dynamic material params</strong> — per-emitter material parameter updates flush batching"}
-                  - {icon: warn, html: "<strong>Full-screen translucent sprites</strong> — overdraw × material cost multiplies; minimize screen coverage"}
+                  - {icon: warn, cost: expensive,   difficulty: intermediate, html: "<strong>Avoid CPU per-particle collision</strong> — blocking line trace scales linearly; use GPU depth (~<m>3</m> tex reads) or DF (<m>1</m> SDF lookup)"}
+                  - {icon: warn, cost: expensive,   html: "<strong>Light emission</strong> — CPU sims only; each particle light = one shadow-casting draw call"}
+                  - {icon: warn, cost: moderate,    html: "<strong>Many dynamic material params</strong> — per-emitter updates flush batching"}
+                  - {icon: warn, cost: expensive,   html: "<strong>Full-screen translucent sprites</strong> — overdraw × material cost multiplies; minimize screen coverage"}
 
           - color: red
             title: "Tier 4 — Very Expensive"
             content:
               - type: checklist
                 items:
-                  - {icon: no, html: "<strong>Unbounded GPU sims &gt;1M particles</strong> — without fixed bounds, culling is unreliable and memory grows unbounded"}
-                  - {icon: no, html: "<strong>Translucent overdraw &gt;5× deep</strong> — the same pixel drawn 5–10 times = 5–10× material cost; use cutout masks instead"}
-                  - {icon: no, html: "<strong>&gt;10 active emitters per actor</strong> — each emitter allocates its own dataset, tick entry, and GPU dispatch; the overhead compounds per frame"}
-                  - {icon: no, html: "<strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target device early"}
+                  - {icon: no, cost: expensive, html: "<strong>Unbounded GPU sims &gt;<m>1M</m> particles</strong> — no fixed bounds = unreliable culling, unbounded memory"}
+                  - {icon: no, cost: expensive, html: "<strong>Use cutout masks for translucency</strong> — <m>5-10×</m> overdraw = <m>5-10×</m> material cost"}
+                  - {icon: no, cost: expensive, html: "<strong>&gt;<m>10</m> active emitters per actor</strong> — each allocates its own dataset + tick entry + dispatch"}
+                  - {icon: no, cost: expensive, difficulty: advanced, html: "<strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target early"}
 
       # ── SECTION 7: GPU VS CPU ──────────────────────────────────────────────
       - id: gpu-vs-cpu
@@ -384,7 +430,7 @@ section_groups:
                   - {icon: no,   html: "<strong>Never-ending loops without culling</strong> — idle GPU dispatches drain budget even when nothing is visible"}
                   - {icon: no,   html: "<strong>Full-screen translucent quads</strong> — overdraw × material cost is your largest GPU risk"}
                   - {icon: no,   html: "<strong>Dynamic bounding boxes</strong> — force GPU to re-derive bounds every frame; switch to Fixed Bounds for stable sims"}
-                  - {icon: warn, html: "<strong>Translucency &gt;3ms total</strong> — monitor with <code>stat gpu</code> or GPU Insights (UE 5.4+); translucency is additive across all effects"}
+                  - {icon: warn, html: "<strong>Keep translucency under <m>3ms</m></strong> — additive across all FX; check <code>stat gpu</code>"}
                   - {icon: warn, html: "<strong>No Significance Handler without Effect Type</strong> — budget overruns go unmanaged; add Effect Type first"}
 
           - color: orange
@@ -393,7 +439,7 @@ section_groups:
               - type: checklist
                 items:
                   - {icon: warn, html: "<strong>GPU spawn cap</strong> — engine limits spawning to 2M particles per frame across all systems; burst spawning beyond this is silently clamped"}
-                  - {icon: warn, html: "<strong>Mesh renderer</strong> is significantly more expensive than <strong>Sprite</strong> — mesh renderers compute per-particle vertex data on the game thread; use the <code>CalcMeshUsedParticleCount</code> optimization (on by default for &gt;64 particles) to skip hidden mesh indices"}
+                  - {icon: warn, html: "<strong>Prefer Sprite over Mesh renderer</strong> — mesh computes per-particle vertex data on game thread; <code>CalcMeshUsedParticleCount</code> (default &gt;64) skips hidden indices"}
                   - {icon: warn, html: "<strong>Skeletal Mesh DI</strong> is one of the heaviest data interfaces — it binds multiple large SRVs per emitter (index, vertex, skin weights, current + prev bone transforms)"}
                   - {icon: ok,   html: "<strong>Sprite renderer</strong> is cheapest — simple billboard quads with minimal per-particle overhead"}
                   - {icon: ok,   html: "<strong>GPU buffer allocation</strong> rounds up to 4KB chunks and only shrinks when usage drops below 50%; pre-allocate with <code>MaxAllocationCount</code> in emitter properties to avoid runtime resizing"}
@@ -403,10 +449,10 @@ section_groups:
             content:
               - type: checklist
                 items:
-                  - {icon: ok,   html: "<strong>Cutout / alpha erosion masks</strong> — replaces full rectangular sprite with shaped cutout, drastically reducing covered pixels"}
+                  - {icon: ok,   html: "<strong>Cutout / alpha erosion masks</strong> — shaped cutout replaces rect sprite, cuts covered pixels <m>5-10×</m>"}
                   - {icon: ok,   html: "<strong>Reduce particle size</strong> — smaller screen footprint = less fill; pair with higher emitter count if needed"}
                   - {icon: ok,   html: "<strong>Distance-based transparency fade</strong> — fade particles out before they're too small to be meaningful"}
-                  - {icon: warn, html: "<strong>Avoid Lit translucency on small particles</strong> — Unlit is significantly cheaper; reserve Lit for hero VFX only"}
+                  - {icon: warn, html: "<strong>Use Unlit for small particles</strong> — Lit translucency is far more expensive; reserve for hero VFX"}
 
       # ── SECTION 9: SCALABILITY ─────────────────────────────────────────────
       - id: scalability
@@ -461,3 +507,188 @@ section_groups:
                   - {label: "Niagara Debugger", text: "Window → Niagara Debugger — live particle counts, active systems, budget usage per system while in PIE"}
                   - {label: "viewmode shadercomplexity", text: "Viewport display mode — visualizes per-pixel instruction cost; target green on all particle materials"}
                   - {label: "r.Niagara.GPUCmdBufSafety 1", text: "Enables extra GPU safety checks in development builds — disable for shipping builds"}
+
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  AREA 3 — ENGINE INTERNALS (Data Interfaces · Source-Verified Gotchas)
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "Engine Internals"
+    icon: "🔬"
+    theme: engine
+    sections:
+
+      # ── SECTION 10: DATA INTERFACES ────────────────────────────────────────
+      - id: ni-data-interfaces
+        label: "Data Interfaces · Tips &amp; Gotchas"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "DI Cost Cheatsheet — Pick by Budget"
+            content:
+              - type: prose
+                text: "Data Interfaces are the <em>only</em> way a Niagara script reaches engine data. Costs range from near-free (pre-baked LUTs) to entire GPU passes (async traces, skeletal reads). Bucket them <em>before</em> you add one to an emitter."
+              - type: table
+                style: default
+                cols: ["Tier", "Data Interfaces", "Notes"]
+                rows:
+                  - ["<strong>Cheap</strong> — use freely", "<code>Curve</code>, <code>Spline</code>, <code>Vector Field</code>, <code>Simple Counter</code>, <code>Parameter Collection</code>", "Read pre-baked LUTs or CPU-side static data. One fetch per particle; near-zero runtime cost."]
+                  - ["<strong>Medium</strong> — budget carefully", "<code>Array</code>, <code>Texture 2D</code>, <code>Render Target</code>, <code>Grid2D</code>, <code>Grid3D</code>, <code>Neighbor Grid</code>, <code>Camera</code>", "Allocate GPU buffers proportional to size; double-buffered grids require a swap per tick. One per emitter is fine, ten is not."]
+                  - ["<strong>Expensive</strong> — hero assets only", "<code>Skeletal Mesh</code>, <code>Static Mesh</code>, <code>Async GPU Trace</code>, <code>Collision Query</code>, <code>Export</code>, <code>Data Channel</code>", "Bind multi-MB SRVs, run compute passes, or force readback/publish paths. Each carries enough hidden state to dominate a frame on its own."]
+
+          - color: orange
+            title: "Grid2D / Grid3D · Read-After-Write Hazard"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "Grid DIs are <strong>double-buffered</strong> — a sim-stage <em>write</em> updates the back buffer while <em>reads</em> still hit the front. You never see your own writes inside the same stage"}
+                  - {icon: warn, html: "The buffer swap happens when <strong>Execute Stage</strong> completes — put reads in the <em>next</em> sim stage, not the writer stage"}
+                  - {icon: no,   html: "<strong>Resizing mid-run corrupts the iteration</strong> — sim-stage dispatch args come from <code>GetDispatchArgs()</code> (<code>NiagaraGpuComputeDispatch.cpp:936-945, 1705-1730</code>); resize without rebinding the stage silently desyncs iteration vs. buffer size"}
+                  - {icon: warn, html: "<code>X * Y * Z</code> of a Grid3D must fit in <code>int32</code> — large grids on mobile hit this before they hit VRAM"}
+
+          - color: yellow
+            title: "Array DI · Sync Mode &amp; Type Restrictions"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<code>GpuSyncMode</code> defaults to <strong>None</strong> — CPU writes do NOT reach the GPU sim. Flip to <code>CpuToGpu</code> explicitly or the GPU sees a stale array forever"}
+                  - {icon: warn, html: "<strong><code>MaxElements</code> is a hard cap</strong> — overruns clamp silently, no warning in the log"}
+                  - {icon: no,   html: "<strong>Atomic ops</strong> (<code>AtomicAdd</code>, <code>AtomicMin</code>, etc.) only work on <code>int</code> and <code>uint</code> array types; float arrays compile but the ops are no-ops"}
+                  - {icon: ok,   html: "Prefer Array DIs over raw <code>StructuredBuffer</code> — the DI handles proxy lifetime, GPU mirror, and safe resize; raw buffers leak across reloads"}
+
+          - color: red
+            title: "Collision Query · Silent Stage Dependencies"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>CPU path</strong> runs sync physics line traces — blocks the game thread and scales linearly with particle count"}
+                  - {icon: warn, html: "<strong>GPU Depth collision</strong> needs the depth buffer populated <em>before</em> the tick — works in PostOpaque tick groups, silently returns nothing in PrePhysics"}
+                  - {icon: warn, html: "<strong>GPU Distance Field collision</strong> requires <code>r.GenerateMeshDistanceFields=1</code> in project settings <em>and</em> individual meshes marked for DF generation — no error if missing, just empty hits"}
+                  - {icon: no,   html: "Mobile / ES3.1 has <strong>no distance field support</strong> — the DI compiles but returns no hits; always test on target hardware"}
+                  - {icon: ok,   html: "Prefer <strong>Depth collision</strong> (~3 texture reads) for environmental bounces; reserve Distance Field for shape-aware gameplay queries"}
+
+          - color: orange
+            title: "Data Channel DI · Frame-Scoped Pub/Sub"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   html: "Niagara Data Channels are a <strong>one-frame pub/sub bus</strong> — writers publish this frame, readers consume either this frame or next depending on tick order"}
+                  - {icon: warn, html: "<strong><code>fx.Niagara.DataChannels.ForceReadPrevFrame</code></strong> overrides every NDC reader <em>globally</em> — one forced emitter drags the whole project into prev-frame reads (<code>NiagaraDataInterfaceDataChannelRead.cpp:50-64</code>)"}
+                  - {icon: warn, html: "<strong><code>fx.Niagara.DataChannels.ForceReadTickGroup</code></strong> pins every NDC read into one tick group — breaks parallel tick-group load balancing for every NDC consumer"}
+                  - {icon: no,   html: "Data Channels are <strong>not persistent</strong> — if the reader ticks before the writer this frame, it sees nothing. Use tick prerequisites or explicit PrevFrame reads"}
+
+          - color: yellow
+            title: "Skeletal Mesh, Export &amp; Render Target"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>Skeletal Mesh DI</strong> is the heaviest built-in — binds index, vertex, skin weights, <em>and</em> current + previous bone transforms per emitter. Its <code>RWGuard</code> is reentrant-safe but <strong>not recursive</strong> — two emitters sampling the same mesh from different threads contend for the lock"}
+                  - {icon: warn, html: "<strong>Export DI</strong> (GPU → CPU readback) is capped by <code>fx.Niagara.GpuReadbackMaxBytes</code>; overruns are silently dropped, and the readback fence adds one frame of latency"}
+                  - {icon: warn, html: "<strong>Render Target DI</strong> — resolution is per-system and persists across the render target's lifetime; shrinking it mid-session does not reclaim VRAM until the next system reset"}
+                  - {icon: ok,   html: "<strong>Curve DI</strong> bakes to a texture LUT at <em>editor time</em> — runtime cost is a single texture fetch. Editing the curve asset triggers a rebake on next PIE; cooked builds use the baked LUT only"}
+                  - {icon: ok,   html: "<strong>Spline DI</strong> LUT is immutable per-instance — move the spline actor and particles follow, but reshape the spline and already-spawned particles see stale positions"}
+
+      # ── SECTION 11: ENGINE GOTCHAS ─────────────────────────────────────────
+      - id: ni-gotchas
+        label: "Engine Gotchas · Source-Verified"
+        grid: "grid grid-2"
+        cards:
+
+          - color: red
+            title: "Interpolated Spawn · 2-Frame Parameter Validity"
+            content:
+              - type: gotcha
+                problem: "Parameters read on frame 0 of an interpolated-spawn emitter are stale — velocity-based spawn math produces garbage on the very first frame."
+                why: "The engine flips parameter stores via <code>FlipParameterBuffers()</code>; <code>ParametersValid</code> only sets on the <strong>second</strong> flip. Scoped to interpolated-spawn emitters — regular emitters don't hit this."
+                why_ref: "NiagaraEmitter.cpp:670"
+                fix: "Either clamp spawn to frame &gt;= <m>1</m>, or switch off interpolated spawning if you don't need velocity blending between spawn events."
+                detect: "First-frame particles spawn in the wrong place or with wrong velocity; subsequent frames look correct. Log <code>bParametersValid</code> in the Update script to confirm."
+              - type: gotcha
+                problem: "Interpolated-spawn emitters <strong>always tick the update script</strong>, even when idle — per-frame cost never drops to zero."
+                why: "<code>UsesInterpolatedSpawning()</code> sets <code>bGpuAlwaysRunParticleUpdateScript = true</code>."
+                why_ref: "NiagaraEmitter.cpp:670"
+                fix: "Disable Interpolated Spawning unless the emitter genuinely needs frame-to-frame velocity blending. For ambient looping FX this is almost always unnecessary."
+                detect: "<code>stat gpu</code> — Niagara update time stays flat while visible particle count trends to zero."
+              - type: gotcha
+                problem: "Flipping the Interpolated Spawning checkbox without recompiling silently desyncs <code>InterpolatedSpawnMode</code> from the compiled script — common cause of &quot;velocity blending stopped working.&quot;"
+                why: "The engine silently resets <code>InterpolatedSpawnMode</code> to <code>NoInterpolation</code> when the flag disagrees with the compiled state, with no warning."
+                why_ref: "NiagaraEmitter.cpp:854-860"
+                fix: "After toggling the checkbox, hit <strong>Apply</strong> or recompile the emitter. Don't just save the asset."
+                detect: "Spawned particles with velocity inheritance suddenly pop to the emitter origin instead of smoothly interpolating — and no log entry explains why."
+
+          - color: orange
+            title: "GPU Dispatch · X→Y Silent Remap at 65,535"
+            content:
+              - type: gotcha
+                problem: "Shader code that recovers a linear thread ID from <code>SV_DispatchThreadID.x</code> alone produces <strong>wrong indices above ~<m>4M</m> particles</strong>."
+                why: "When <code>DispatchCount.X</code> exceeds <code>GRHIMaxDispatchThreadGroupsPerDimension.X</code> (<m>65,535</m> on most RHIs), the dispatcher silently redistributes groups onto Y."
+                why_ref: "NiagaraGpuComputeDispatch.cpp:1775-1802"
+                fix: "Always use <code>DispatchThreadId.x + DispatchThreadId.y * DispatchCount.x</code> to recover the linear index, never just <code>.x</code>."
+                detect: "Sim starts reading the wrong particle slots above ~<m>4M</m> particles with no warning. Debug by capping <code>SpawnRate</code> and watching for position discontinuities."
+              - type: gotcha
+                problem: "Free-ID assignment lags spawn by one frame — particles spawned in frame N have <code>INDEX_NONE</code> for their persistent ID until frame N+1."
+                why: "Instance count buffer updates run in <code>PostOpaque</code> tick group."
+                why_ref: "NiagaraGpuComputeDispatch.cpp:223-228, 514-518"
+                fix: "Never read a particle's persistent ID on the same frame it spawned. Gate any ID-lookup logic on <code>PersistentID != INDEX_NONE</code>."
+                detect: "Code that maps a particle to a spawn event (e.g. damage numbers bound to hit particles) misses the first frame of each spawn."
+              - type: gotcha
+                problem: "Event spawn overflow is silent — a <m>5,000</m>-hit burst against a <m>1,000</m>-particle buffer silently drops <m>4,000</m>."
+                why: "Event handlers clamp spawn count to remaining buffer space with no log entry."
+                fix: "Size the event spawn buffer (<code>MaxAllocationCount</code>) against your worst-case burst. Prefer GPU event systems with persistent buffers over CPU event handlers for bursty gameplay events."
+                detect: "Expected particle bursts look visually thinner than debug draws of the underlying events. Check emitter max-allocation setting vs. the event frequency."
+
+          - color: yellow
+            title: "Scalability Lag · Up to 1 Second Behind Camera"
+            content:
+              - type: prose
+                text: "The scalability manager is rate-limited by three per-significance CVars and a per-frame cap (<code>NiagaraScalabilityManager.cpp:10-22, 38-77</code>):"
+              - type: rowlist
+                layout: stacked
+                rows:
+                  - {label: "fx.NiagaraScalabilityUpdateTime_Low",    text: "Default <m>1.0 s</m> — for inactive / distant systems"}
+                  - {label: "fx.NiagaraScalabilityUpdateTime_Medium", text: "Default <m>0.5 s</m> — for moderately significant systems"}
+                  - {label: "fx.NiagaraScalabilityUpdateTime_High",   text: "Default <m>0.25 s</m> — for high-significance systems (hero VFX)"}
+                  - {label: "fx.ScalabilityMaxUpdatesPerFrame",       text: "Default <m>50</m> — caps how many instances re-evaluate significance per frame"}
+              - type: gotcha
+                problem: "Fast camera cuts pay <strong>old-LOD cost</strong> for the full Low cadence (<m>1 s</m> default) before culling catches up."
+                why: "The scalability manager only re-evaluates each instance at its cadence — on a cinematic cut, everything in the old frustum remains at its old LOD for up to a full second."
+                fix: "Budget for it on cinematic cuts, or drop <code>fx.NiagaraScalabilityUpdateTime_Low</code> to <m>0.25 s</m> before the cut and restore after."
+                detect: "GPU spike on the first second after a camera cut, then drop. Correlate with <code>stat gpu</code> timings against camera-cut timing."
+              - type: gotcha
+                problem: "<code>UNiagaraSystem::bNeedsSignificanceCull</code> is <strong>opt-in per system</strong> — without it, the scalability manager treats all instances as flat, with no distance ranking."
+                why: "Effect Types alone don't enable it — the per-system flag must be set separately."
+                why_ref: "NiagaraScalabilityManager.cpp:262-266, 285-290"
+                fix: "Enable <strong>Needs Significance Cull</strong> on every System you want distance-sorted. Audit existing systems — this is frequently missed."
+                detect: "All instances of a system get culled together rather than nearest-first when budget fills. Budget-overflow behavior looks random rather than distance-ordered."
+
+          - color: blue
+            title: "Low-Latency Translucency · Per-Emitter VRAM Double"
+            content:
+              - type: gotcha
+                problem: "<strong>VRAM cost doubles per GPU emitter</strong> — dozens of GPU emitters silently cost hundreds of MB."
+                why: "<code>fx.NiagaraGpuLowLatencyTranslucencyEnabled</code> defaults to <strong>1</strong>. It allocates a second particle data buffer <em>per GPU emitter</em> so translucent materials can read current-frame sim data regardless of tick stage."
+                why_ref: "NiagaraGpuComputeDispatch.cpp:71-77"
+                fix: "On VRAM-constrained platforms (mobile, Switch) set the CVar to <m>0</m>. Trade-off: PostOpaqueRender emitters sample 1-frame-old positions — visible as subtle smear on fast particles. There is <strong>no per-emitter override</strong>."
+                detect: "Unexpected VRAM growth proportional to GPU emitter count. Check with <code>stat vram</code> or RenderDoc — look for 2× expected particle buffer allocations."
+
+          - color: red
+            title: "State Machine · Disabled is Terminal"
+            content:
+              - type: gotcha
+                problem: "Async operations can make <code>RequestedExecutionState = Complete</code> while <code>ActualExecutionState = Active</code>. Branching on Requested is unreliable."
+                why: "Two state slots — Requested is a hint, Actual is authoritative. Requested changes synchronously; Actual follows after async teardown completes."
+                fix: "Always branch on <code>ActualExecutionState</code>, never <code>RequestedExecutionState</code>, for any gameplay decision."
+                detect: "Spawn checks that gate on state sometimes fire one frame late; async particle systems look &quot;stuck pending&quot; in the debugger."
+              - type: gotcha
+                problem: "Once <code>ActualExecutionState == Disabled</code>, the only recovery is <code>Reset(EResetMode::ReInit)</code>. All other transitions respect this invariant."
+                fix: "If a system enters Disabled and you need it back, call <code>Reset</code>. Don't try to force <code>Activate</code> — it silently no-ops."
+                detect: "<code>Activate()</code> returns but the system never starts. Check <code>ActualExecutionState</code> in the Niagara Debugger."
+              - type: gotcha
+                problem: "<strong>Scalability culling ≠ destruction</strong> — culled emitters return <code>ShouldTick() == false</code> but stay allocated. A system with all emitters culled can still reach Complete."
+                fix: "If you need a system to survive culling, gate Complete logic on visible particle count &gt; <m>0</m> rather than on culling state."
+                detect: "Systems that should loop forever sometimes unload after being off-screen for a while. Check Complete-on-disable settings."
+              - type: gotcha
+                problem: "Warm-up ticks are invisible to game logic — a <m>100</m>-frame warmup can spawn thousands of particles before the first visible frame."
+                why: "<code>SetWarmupSettings()</code> runs N pre-ticks before activation; warmup particles don't fire events or update bounds."
+                fix: "Keep warmup under <m>30</m> frames for gameplay-relevant FX. For pure ambient decor, higher is fine but budget the initial cost on spawn."
+                detect: "Spawn-time GPU spike disproportionate to visible particle count on system activation. Check <code>WarmupTicks</code> in the asset."

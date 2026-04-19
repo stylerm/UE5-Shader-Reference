@@ -1,0 +1,48 @@
+# ── SECTION 1: SCRATCH PAD ─────────────────────────────────────────────
+- id: scratch-pad
+  label: "Scratch Pad Module HLSL"
+  priority: high
+  cards:
+
+    - color: blue
+      title: "Scratch Pad Basics"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok, html: "Niagara uses a <strong>restricted HLSL subset</strong> — not the same as Material Custom nodes"}
+            - {icon: ok, html: "In the Scratch Pad UI, add input/output <strong>map pins</strong> and bind each to a <strong><code>Particles.X</code></strong> attribute — the local pin name is what you use in HLSL"}
+            - {icon: ok, html: "<strong><code>Parameters.X</code></strong> refers to <em>module-level user parameters</em> (exposed inputs), NOT particle attributes"}
+            - {icon: ok, html: "<strong><code>ExecutionIndex</code></strong> gives the current particle index for per-particle logic"}
+            - {icon: ok, html: "Use <strong><code>Emitter.LocalSpace</code></strong> / <strong><code>Emitter.Age</code></strong> for emitter-level data"}
+            - {icon: ok, html: "Write results via your <strong>output pin names</strong> — no <code>return</code> statement, no <code>OutputParameters</code>"}
+
+    - color: orange
+      title: "Scratch Pad Access Pattern"
+      content:
+        - type: code
+          src: |
+            // Bind pins in Scratch Pad UI: Particles.Position → "InPosition"
+            // In HLSL you use the LOCAL PIN NAME you chose in the UI
+            float3 Pos      = InPosition;   // bound to Particles.Position
+            float  Age      = InAge;        // bound to Particles.Age
+            float  Life     = InLifetime;   // bound to Particles.Lifetime
+            float  DT       = InDeltaTime;  // bound to Engine.DeltaTime
+            int    ID       = InUniqueID;   // bound to Particles.UniqueID
+
+            // Writing: assign to your output pin names (bound in UI)
+            OutPosition = Pos + InVelocity * DT; // → Particles.Position
+            OutColor    = float4(1,0,0,1);        // → Particles.Color
+
+            // No return, no OutputParameters — output pins are the writes
+
+    - color: green
+      title: "Niagara Random Intrinsics"
+      content:
+        - type: prose
+          text: "Niagara provides seeded random functions (not HLSL standard):"
+        - type: rowlist
+          rows:
+            - {label: "RandomUInt(seed)",     text: "Seeded random integer — deterministic per particle"}
+            - {label: "RandomFloat(seed)",    text: "Seeded random float [0,1]"}
+            - {label: "RandomUnitFloat3(seed)",text: "Random direction on unit sphere"}
+            - {label: "Particles.UniqueID",   text: "Bind to an input pin; use as hash seed for per-particle randomness"}

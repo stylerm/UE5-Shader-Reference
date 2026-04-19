@@ -270,52 +270,65 @@ def render_checklist(items: list) -> str:
     return f'<div class="checklist">{"".join(out)}</div>'
 
 
+def _gotcha_row(cls: str, label: str, text: str) -> str:
+    return (
+        f'<div class="gotcha-row {cls}">'
+        f'<span class="gotcha-label">{label}</span>'
+        f'<span class="gotcha-text">{text}</span>'
+        f'</div>'
+    )
+
+
 def render_gotcha(block: dict) -> str:
-    """Structured gotcha block — 4 labelled sub-rows: PROBLEM / WHY / FIX / DETECT.
+    """Structured gotcha block — two variants.
 
-    Breaks up the dense prose+checklist gotcha cards by giving each concern a
-    dedicated, visually-distinct row. `why_ref` is a small code-cite appended
-    to the WHY row; `detect` answers *how a dev would notice this bug*.
+    COMPACT (default): Problem + Fix always visible; context/ref collapsed
+    under a <details>. Supports `fixes:` list for ranked remedies.
+
+    FULL (variant: full): Legacy 4-row PROBLEM / WHY / FIX / DETECT layout.
+    Reserve for gotchas where forensic detail must be always-visible.
     """
+    variant = block.get("variant", "compact")
     problem = block.get("problem", "")
-    why     = block.get("why", "")
-    why_ref = block.get("why_ref", "")
     fix     = block.get("fix", "")
-    detect  = block.get("detect", "")
 
+    if variant == "full":
+        why     = block.get("why", "")
+        why_ref = block.get("why_ref", "")
+        detect  = block.get("detect", "")
+        ref_html = f' <code class="gotcha-ref">{why_ref}</code>' if why_ref else ""
+        rows = []
+        if problem: rows.append(_gotcha_row("problem", "Problem", problem))
+        if why:     rows.append(_gotcha_row("why", "Why", why + ref_html))
+        if fix:     rows.append(_gotcha_row("fix", "Fix", fix))
+        if detect:  rows.append(_gotcha_row("detect", "Detect", detect))
+        return f'<div class="gotcha-block">{"".join(rows)}</div>'
+
+    fixes   = block.get("fixes")
+    context = block.get("context", "")
+    ref     = block.get("ref", "")
     rows = []
     if problem:
-        rows.append(
-            '<div class="gotcha-row problem">'
-            '<span class="gotcha-label">Problem</span>'
-            f'<span class="gotcha-text">{problem}</span>'
-            '</div>'
-        )
-    if why:
-        ref_html = (
-            f' <code class="gotcha-ref">{why_ref}</code>' if why_ref else ""
-        )
-        rows.append(
-            '<div class="gotcha-row why">'
-            '<span class="gotcha-label">Why</span>'
-            f'<span class="gotcha-text">{why}{ref_html}</span>'
-            '</div>'
-        )
-    if fix:
+        rows.append(_gotcha_row("problem", "Problem", problem))
+    if fixes and isinstance(fixes, list):
+        items = "".join(f"<li>{f}</li>" for f in fixes)
         rows.append(
             '<div class="gotcha-row fix">'
             '<span class="gotcha-label">Fix</span>'
-            f'<span class="gotcha-text">{fix}</span>'
+            f'<ol class="gotcha-fixes">{items}</ol>'
             '</div>'
         )
-    if detect:
+    elif fix:
+        rows.append(_gotcha_row("fix", "Fix", fix))
+    if context or ref:
+        ref_html = f' <code class="gotcha-ref">{ref}</code>' if ref else ""
         rows.append(
-            '<div class="gotcha-row detect">'
-            '<span class="gotcha-label">Detect</span>'
-            f'<span class="gotcha-text">{detect}</span>'
-            '</div>'
+            '<details class="gotcha-context-details">'
+            '<summary>Context &amp; detection</summary>'
+            f'<div class="gotcha-context-body">{context}{ref_html}</div>'
+            '</details>'
         )
-    return f'<div class="gotcha-block">{"".join(rows)}</div>'
+    return f'<div class="gotcha-block gotcha-compact">{"".join(rows)}</div>'
 
 
 def render_table(data: dict) -> str:
@@ -520,9 +533,34 @@ _PAGES = [
 ]
 
 
+def _expand_includes(data: dict, data_file: Path) -> None:
+    """Expand `include:` references on each section_group.
+
+    A page can split its content across `data/<page>/*.yaml` files. Each
+    included file is a top-level YAML sequence of section dicts. The files
+    listed in `include:` are loaded in order and appended to any inline
+    `sections:` the group already has. Mechanical — no content munging.
+    """
+    page_dir = data_file.parent / data_file.stem
+    for group in data.get("section_groups", []) or []:
+        includes = group.get("include")
+        if not includes:
+            continue
+        sections = list(group.get("sections", []) or [])
+        for inc in includes:
+            inc_path = page_dir / inc
+            with open(inc_path, encoding="utf-8") as f:
+                inc_sections = yaml.safe_load(f)
+            if inc_sections:
+                sections.extend(inc_sections)
+        group["sections"] = sections
+
+
 def build_page(data_file: Path, template: str) -> None:
     with open(data_file, encoding="utf-8") as f:
         data = yaml.safe_load(f)
+
+    _expand_includes(data, data_file)
 
     meta     = data.get("meta", {})
     page_id  = meta.get("active", "")
@@ -561,41 +599,47 @@ def build_page(data_file: Path, template: str) -> None:
         link_parts.append(f'<a href="#{a["id"]}"{area_attr}>{a["label"]}</a>')
     section_links = "\n".join(link_parts)
 
-    # Main content — supports both flat `sections` and grouped `section_groups`.
-    # When a page has 2+ themed groups, wrap each in a <section class="subpage">
-    # and emit a tab switcher. The tab bar is data-driven over the groups list,
-    # so a page can ship 2, 3, or more subpages (e.g. ref / optim / engine).
+    # Sidenav subpage switcher — rendered only when the page has 2+ themed
+    # groups. Emitted as {{SUBPAGE_NAV}} between page links and section anchors
+    # so it stays visible while the user scrolls the content.
     groups = data.get("section_groups", [])
-    if groups:
-        # Any group with a theme attribute participates in the tab switcher.
-        themed = [g for g in groups if g.get("theme")]
-        multi  = len(themed) >= 2
+    themed = [g for g in groups if g.get("theme")] if groups else []
+    multi  = len(themed) >= 2
 
-        parts = []
-        if multi:
-            parts.append(
-                '<div class="subpage-tabs" role="tablist" aria-label="Page view">\n'
+    if multi:
+        nav_parts = [
+            '<div class="sidenav-divider"></div>\n'
+            '<span class="sidenav-section">VIEW</span>\n'
+            '<div class="sidenav-subpage-tabs" role="tablist" aria-label="Page view">\n'
+        ]
+        for i, g in enumerate(themed):
+            theme    = g.get("theme", "ref")
+            icon     = g.get("icon", "")
+            title    = g.get("title", "")
+            selected = "true" if i == 0 else "false"
+            nav_parts.append(
+                f'<button class="subpage-tab" role="tab" '
+                f'data-subpage="{theme}" aria-selected="{selected}">'
+                f'<span class="subpage-tab-icon">{icon}</span> {title}</button>\n'
             )
-            for i, g in enumerate(themed):
-                theme = g.get("theme", "ref")
-                icon  = g.get("icon", "")
-                title = g.get("title", "")
-                selected = "true" if i == 0 else "false"
-                parts.append(
-                    f'  <button class="subpage-tab" role="tab" '
-                    f'data-subpage="{theme}" aria-selected="{selected}">'
-                    f'<span class="subpage-tab-icon">{icon}</span> {title}</button>\n'
-                )
-            parts.append('</div>\n')
+        nav_parts.append('</div>\n')
+        subpage_nav = "".join(nav_parts)
+    else:
+        subpage_nav = ""
+
+    # Main content
+    if groups:
+        parts = []
         for g in groups:
-            theme = g.get("theme", "ref")
-            if multi:
+            theme      = g.get("theme", "ref")
+            is_subpage = multi and bool(g.get("theme"))
+            if is_subpage:
                 parts.append(f'<section class="subpage" data-subpage="{theme}" role="tabpanel">\n')
             parts.append(render_area_wrapper_open(g))
             parts.append(render_area_heading(g))
             parts.extend(render_section(s) for s in g.get("sections", []))
             parts.append(render_area_wrapper_close())
-            if multi:
+            if is_subpage:
                 parts.append('</section>\n')
         content = "".join(parts)
     else:
@@ -619,6 +663,7 @@ def build_page(data_file: Path, template: str) -> None:
         "{{HEADER_H1}}":        meta.get("header_h1", ""),
         "{{HEADER_RIGHT}}":     header_right,
         "{{PAGE_LINKS}}":       page_links,
+        "{{SUBPAGE_NAV}}":      subpage_nav,
         "{{SECTION_LINKS}}":    section_links,
         "{{MAIN_CONTENT}}":     content,
         "{{FOOTER_LINKS}}":     footer_links,

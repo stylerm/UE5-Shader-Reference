@@ -1,0 +1,80 @@
+# ── SECTION 10: DATA INTERFACES ────────────────────────────────────────
+- id: ni-data-interfaces
+  label: "Data Interfaces · Tips &amp; Gotchas"
+  cards:
+
+    - color: blue
+      span: grid-full
+      title: "DI Cost Cheatsheet — Pick by Budget"
+      content:
+        - type: prose
+          text: "Data Interfaces are the <em>only</em> way a Niagara script reaches engine data. Costs range from near-free (pre-baked LUTs) to entire GPU passes (async traces, skeletal reads). Bucket them <em>before</em> you add one to an emitter."
+        - type: table
+          style: default
+          cols: ["Tier", "Data Interfaces", "Notes"]
+          rows:
+            - ["<strong>Cheap</strong> — use freely", "<code>Curve</code>, <code>Spline</code>, <code>Vector Field</code>, <code>Simple Counter</code>, <code>Parameter Collection</code>", "Read pre-baked LUTs or CPU-side static data. One fetch per particle; near-zero runtime cost."]
+            - ["<strong>Medium</strong> — budget carefully", "<code>Array</code>, <code>Texture 2D</code>, <code>Render Target</code>, <code>Grid2D</code>, <code>Grid3D</code>, <code>Neighbor Grid</code>, <code>Camera</code>", "Allocate GPU buffers proportional to size; double-buffered grids require a swap per tick. One per emitter is fine, ten is not."]
+            - ["<strong>Expensive</strong> — hero assets only", "<code>Skeletal Mesh</code>, <code>Static Mesh</code>, <code>Async GPU Trace</code>, <code>Collision Query</code>, <code>Export</code>, <code>Data Channel</code><sup>†</sup>", "Bind multi-MB SRVs, run compute passes, or force readback/publish paths. Each carries enough hidden state to dominate a frame on its own."]
+        - type: prose
+          text: "<sup>†</sup> <strong>Data Channel</strong> — medium per-call, but <em>near-free architecturally</em> when collapsing N per-actor systems into 1 pooled consumer. Tier placement is honest for isolated use; see <a href=\"#emitter-arch\">Emitter Architecture</a> for the topology-level accounting."
+
+    - color: orange
+      title: "Grid2D / Grid3D · Read-After-Write Hazard"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "Grid DIs are <strong>double-buffered</strong> — a sim-stage <em>write</em> updates the back buffer while <em>reads</em> still hit the front. You never see your own writes inside the same stage"}
+            - {icon: warn, html: "The buffer swap happens when <strong>Execute Stage</strong> completes — put reads in the <em>next</em> sim stage, not the writer stage"}
+            - {icon: no,   html: "<strong>Resizing mid-run corrupts the iteration</strong> — sim-stage dispatch args come from <code>GetDispatchArgs()</code> (<code>NiagaraGpuComputeDispatch.cpp:936-945, 1705-1730</code>); resize without rebinding the stage silently desyncs iteration vs. buffer size"}
+            - {icon: warn, html: "<code>X * Y * Z</code> of a Grid3D must fit in <code>int32</code> — large grids on mobile hit this before they hit VRAM"}
+
+    - color: yellow
+      title: "Array DI · Sync Mode &amp; Type Restrictions"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "<code>GpuSyncMode</code> defaults to <strong>None</strong> — CPU writes do NOT reach the GPU sim. Flip to <code>CpuToGpu</code> explicitly or the GPU sees a stale array forever"}
+            - {icon: warn, html: "<strong><code>MaxElements</code> is a hard cap</strong> — overruns clamp silently, no warning in the log"}
+            - {icon: no,   html: "<strong>Atomic ops</strong> (<code>AtomicAdd</code>, <code>AtomicMin</code>, etc.) only work on <code>int</code> and <code>uint</code> array types; float arrays compile but the ops are no-ops"}
+            - {icon: ok,   html: "Prefer Array DIs over raw <code>StructuredBuffer</code> — the DI handles proxy lifetime, GPU mirror, and safe resize; raw buffers leak across reloads"}
+
+    - color: red
+      title: "Collision Query · Silent Stage Dependencies"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>CPU path</strong> runs sync physics line traces — blocks the game thread and scales linearly with particle count"}
+            - {icon: warn, html: "<strong>GPU Depth collision</strong> needs the depth buffer populated <em>before</em> the tick — works in PostOpaque tick groups, silently returns nothing in PrePhysics"}
+            - {icon: warn, html: "<strong>GPU Distance Field collision</strong> requires <code>r.GenerateMeshDistanceFields=1</code> in project settings <em>and</em> individual meshes marked for DF generation — no error if missing, just empty hits"}
+            - {icon: no,   html: "Mobile / ES3.1 has <strong>no distance field support</strong> — the DI compiles but returns no hits; always test on target hardware"}
+            - {icon: ok,   html: "Prefer <strong>Depth collision</strong> (~3 texture reads) for environmental bounces; reserve Distance Field for shape-aware gameplay queries"}
+
+    - color: orange
+      title: "Data Channel DI · Architecture + Frame-Scoped Pub/Sub"
+      content:
+        - type: prose
+          text: "Per-call cost is <strong>medium</strong>, but architecturally a Data Channel can collapse N per-actor systems into 1 pooled consumer — often the biggest single win available. See <a href=\"#emitter-arch\">Emitter Architecture</a> for the full pattern."
+        - type: checklist
+          items:
+            - {icon: ok,   cost: cheap,       difficulty: intermediate, html: "<strong>Break-even heuristic</strong> — ≥<m>5</m> similar per-actor systems publishing the same event shape = architectural win. 1–2 publishers = added complexity for no gain; keep them inline."}
+            - {icon: ok,   cost: cheap,       difficulty: intermediate, html: "<strong>Good fit</strong> — N projectile trails, N hit-impact sparks, N footstep puffs, crowd chatter VFX. Shape: many publishers, one FX response."}
+            - {icon: no,   cost: situational,                           html: "<strong>Bad fit</strong> — one-shot cinematic FX, single-instance hero effect, any case where the publisher also owns unique per-instance VFX state."}
+            - {icon: warn, cost: moderate,                              html: "<strong>Pool the consumer</strong> — a channel without a pooled consumer just moves the dispatch storm by one layer. Use <code>UNiagaraComponentPool</code>."}
+        - type: checklist
+          items:
+            - {icon: ok,   html: "Niagara Data Channels are a <strong>one-frame pub/sub bus</strong> — writers publish this frame, readers consume either this frame or next depending on tick order"}
+            - {icon: warn, html: "<strong><code>fx.Niagara.DataChannels.ForceReadPrevFrame</code></strong> overrides every NDC reader <em>globally</em> — one forced emitter drags the whole project into prev-frame reads (<code>NiagaraDataInterfaceDataChannelRead.cpp:50-64</code>)"}
+            - {icon: warn, html: "<strong><code>fx.Niagara.DataChannels.ForceReadTickGroup</code></strong> pins every NDC read into one tick group — breaks parallel tick-group load balancing for every NDC consumer"}
+            - {icon: no,   html: "Data Channels are <strong>not persistent</strong> — if the reader ticks before the writer this frame, it sees nothing. Use tick prerequisites or explicit PrevFrame reads"}
+
+    - color: yellow
+      title: "Skeletal Mesh, Export &amp; Render Target"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Skeletal Mesh DI</strong> is the heaviest built-in — binds index, vertex, skin weights, <em>and</em> current + previous bone transforms per emitter. Its <code>RWGuard</code> is reentrant-safe but <strong>not recursive</strong> — two emitters sampling the same mesh from different threads contend for the lock"}
+            - {icon: warn, html: "<strong>Export DI</strong> (GPU → CPU readback) is capped by <code>fx.Niagara.GpuReadbackMaxBytes</code>; overruns are silently dropped, and the readback fence adds one frame of latency"}
+            - {icon: warn, html: "<strong>Render Target DI</strong> — resolution is per-system and persists across the render target's lifetime; shrinking it mid-session does not reclaim VRAM until the next system reset"}
+            - {icon: ok,   html: "<strong>Curve DI</strong> bakes to a texture LUT at <em>editor time</em> — runtime cost is a single texture fetch. Editing the curve asset triggers a rebake on next PIE; cooked builds use the baked LUT only"}
+            - {icon: ok,   html: "<strong>Spline DI</strong> LUT is immutable per-instance — move the spline actor and particles follow, but reshape the spline and already-spawned particles see stale positions"}

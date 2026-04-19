@@ -1,0 +1,57 @@
+# ── SECTION 0: MENTAL MODEL ────────────────────────────────────────────
+- id: ni-mental-model
+  label: "Mental Model — Where · When · What Costs"
+  priority: high
+  cards:
+
+    - color: blue
+      span: grid-full
+      title: "Orient in 30 seconds"
+      content:
+        - type: prose
+          text: "Niagara runs <strong>per-particle scripts</strong> on either the <strong>CPU</strong> or the <strong>GPU</strong>. Each emitter has a <strong>Spawn</strong> script (runs once per new particle) and an <strong>Update</strong> script (runs every frame, per particle). <strong>Data Interfaces</strong> are the only bridge from your script to engine data — textures, skeletal meshes, distance fields, other systems. Everything else is compute-isolated: no scene queries, no callbacks, no game-thread access from GPU sims."
+
+    - color: orange
+      title: "Where code runs"
+      content:
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "CPU sim",        text: "Full module set, gameplay callbacks, light emission. Scales with particle count on the game thread — keep under <m>100</m> particles per emitter."}
+            - {label: "GPU sim",        text: "Compute dispatch, near-zero CPU cost. No callbacks, no per-particle lights, no sync physics. Right for <m>100+</m> particles."}
+            - {label: "Module scripts", text: "Stateless HLSL in Scratch Pad — inputs via pins, outputs via pin writes. No <code>return</code>, no globals."}
+            - {label: "Hybrid via DI",  text: "Data Interface calls (Texture Sample, Skeletal Mesh, Distance Field, Niagara DI) are the <em>only</em> way a script reads engine state."}
+
+    - color: green
+      title: "When it runs"
+      content:
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "PrePhysics",       text: "Default tick group. Spawn + Update run before scene physics — safe for most work."}
+            - {label: "DuringPhysics",    text: "Runs parallel with physics. Avoid unless you specifically need async overlap."}
+            - {label: "PostPhysics",      text: "Runs after collisions resolve. Needed when reading post-physics transforms (e.g. ragdolls)."}
+            - {label: "PostOpaqueRender", text: "GPU-only stage. Lets sim sample the scene depth buffer for collision or soft-depth. <m>1-frame</m> lag vs CPU."}
+
+    - color: yellow
+      title: "4 things that control cost"
+      content:
+        - type: checklist
+          items:
+            - {icon: arrow, cost: situational, html: "<strong>Particle count</strong> — the multiplier on everything else. Tier CPU at <m>&lt;100</m>, GPU at <m>100-1M</m>."}
+            - {icon: arrow, cost: situational, html: "<strong>Script complexity</strong> — ops per particle per frame. Expensive intrinsics (<code>pow</code>, texture reads) hurt more on GPU when fanned across millions of threads."}
+            - {icon: arrow, cost: expensive,   html: "<strong>Data Interface fan-out</strong> — Skeletal Mesh DI binds <m>5+</m> SRVs per emitter; Texture Sample DI is cheap; Render Target DI burns VRAM."}
+            - {icon: arrow, cost: expensive,   html: "<strong>Render cost</strong> — overdraw × material cost. Often larger than sim cost on translucent FX; see the Optimization tab."}
+
+    - color: green
+      span: grid-full
+      title: "Pick your architecture — emitter × topology"
+      content:
+        - type: prose
+          text: "Two orthogonal axes compose. Emitter <em>type</em> is how state carries frame-to-frame. System <em>topology</em> is how many instances exist. Deep-dive in <a href=\"#emitter-arch\">Emitter Architecture</a>."
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "Stateful",              text: "Attributes persist on the particle — <code>Velocity</code>, custom floats, accumulators. Wins when behavior depends on history: collision response, target chase, predator-prey, physics-ish sims."}
+            - {label: "Stateless",             text: "Every frame is a pure function of <code>Age</code> + <code>UniqueID</code>. GPU-only, no per-particle memory, scales to millions. Wins for motion-graphics FX, LUT-driven loops, swarms without interaction."}
+            - {label: "Pooled + Data Channel", text: "One consumer system subscribes; N actors publish spawn events. Collapses N per-actor emitter instances into 1. Wins at ≥<m>5</m> similar emitters; added complexity at 1–2."}

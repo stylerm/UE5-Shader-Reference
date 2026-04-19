@@ -1,0 +1,59 @@
+# ── SECTION 3.5: EMITTER ARCHITECTURE ──────────────────────────────────
+- id: emitter-arch
+  label: "Emitter Architecture — Pick Your Model"
+  cards:
+
+    - color: blue
+      span: grid-full
+      title: "Three architectures compared"
+      content:
+        - type: prose
+          text: "Per-call DI cost is one axis; <em>architectural</em> cost is another. A Data Channel is medium per-read, but collapsing N actor-owned systems into 1 pooled consumer can dwarf every other optimization on this page."
+        - type: table
+          style: default
+          cols: ["Dimension", "Stateful (inline)", "Stateless (inline)", "Pooled + Data Channel"]
+          rows:
+            - ["**State model**", "Attributes persist frame-to-frame", "Pure function of `Age` + `UniqueID`", "Consumer is stateful or stateless; publishers emit frame-scoped events"]
+            - ["**GPU-only**", "No — CPU or GPU", "Yes — hard-coded `GPUComputeSim` (`NiagaraStatelessEmitterInstance.cpp:86-93`)", "Consumer follows its own rules; channel itself is GPU+CPU"]
+            - ["**Particle-count sweet spot**", "CPU <m>&lt;100</m> / GPU <m>100–1M</m>", "<m>1K–10M+</m> (motion-graphics, swarms)", "Scales with <em>publishers</em>, not particles — N actors → 1 dispatch"]
+            - ["**Best-for workload**", "Collision response, chase/seek, accumulators, physics-ish sims", "Trails, decals, loops, bursts, anything driven by age curves", "Projectile trails, hit VFX, footstep dust — many actors, same FX"]
+            - ["**Break-even**", "Always — it's the default", "Whenever history isn't needed", "≥<m>5</m> similar per-actor systems. 1–2 = added complexity for no gain"]
+            - ["**How it fails**", "Tick cost scales with particle × emitter count; <m>10+</m> emitters per actor = dispatch storm", "Can't react to neighbors, can't accumulate, can't branch on prior state", "Tick-order hazards, `ForceReadPrevFrame` globals, no persistence across frames"]
+
+    - color: yellow
+      title: "When stateless isn't enough"
+      content:
+        - type: prose
+          text: "Stateless is a trap if the behavior needs memory. If you can't express the next frame as <code>f(Age, UniqueID, Params)</code>, you need state."
+        - type: checklist
+          items:
+            - {icon: no, html: "<strong>Collision response</strong> — reflecting off geometry requires last frame's velocity and contact normal. Stateless has neither."}
+            - {icon: no, html: "<strong>Target chase / seek</strong> — steering needs integrated velocity; pure age-curve paths can't course-correct."}
+            - {icon: no, html: "<strong>Predator–prey / flocking</strong> — neighbor queries feed an accumulator (separation, alignment, cohesion). No accumulator = no flock."}
+            - {icon: no, html: "<strong>Soft-body / constraint sims</strong> — Verlet integration, spring networks, cloth-ish behavior all need <code>PreviousPosition</code> as real state, not derived."}
+            - {icon: warn, html: "<strong>Any branch on prior state</strong> — &quot;has this particle hit something yet?&quot; needs a persistent flag. Stateless can fake it via age thresholds only if the event is deterministic at spawn."}
+
+    - color: orange
+      title: "Pooled + Data Channel — worked example"
+      content:
+        - type: prose
+          text: "N projectiles each need a trail. Naive: N projectile actors × 1 trail emitter each = N systems ticking. Pooled: 1 trail consumer system subscribes to a <code>ProjectileTrail</code> Data Channel; each projectile publishes <code>{Position, Velocity, Color}</code> per frame."
+        - type: code
+          src: |
+            // Publisher (projectile BP / C++ tick):
+            //   NDC.Write({ Position, Velocity, Color, ActorID });
+            //
+            // Consumer emitter (1 instance, pooled):
+            //   Spawn stage reads NDC entries → spawns particle per entry
+            //   Update stage is stateless: Age-driven trail fade
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "N = 1 projectile",   text: "Pooled is a loss — 1 NDC publish + 1 consumer tick costs more than 1 inline emitter tick. Use inline."}
+            - {label: "N = 5 projectiles",  text: "Break-even. 5 inline ticks vs. 5 publishes + 1 consumer tick. Pooled wins on dispatch setup, loses on channel overhead — roughly a wash."}
+            - {label: "N = 50 projectiles", text: "<strong>Pooled wins hard.</strong> 50 inline emitter instances = 50 dispatches + 50 draw setups. Pooled = 50 cheap CPU publishes + 1 GPU consumer dispatch. <m>10–20×</m> CPU tick reduction is typical."}
+            - {label: "Memory profile",     text: "Inline N=50 allocates <m>50×</m> per-emitter GPU buffers (each rounded up to 4KB). Pooled allocates 1. Often the bigger win on mobile/VRAM-tight targets."}
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Tick order matters</strong> — publisher must tick before consumer this frame, or set <code>ForceReadPrevFrame</code> for the channel and eat 1 frame of lag. See <a href=\"#ni-data-interfaces\">Data Channel DI gotchas</a>."}
+            - {icon: ok,   html: "<strong>Pool the consumer</strong> via <code>UNiagaraComponentPool</code> — one long-lived instance, not spawn-and-destroy per projectile."}

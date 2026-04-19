@@ -26,7 +26,7 @@ body {
   font-family: 'Inter', sans-serif;
   font-size: 18px;
   line-height: 1.6;
-  padding: 32px 24px 60px 150px; /* left = sidenav width (130px) + 20px gap */
+  padding: 32px 24px 60px 185px; /* left = sidenav width (165px) + 20px gap */
   min-height: 100vh;
   background-image:
     radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,229,255,0.06) 0%, transparent 70%),
@@ -40,7 +40,7 @@ body {
 .sidenav {
   position: fixed;
   left: 0; top: 0; bottom: 0;
-  width: 130px;
+  width: 165px;
   background: rgba(8,10,14,0.98);
   border-right: 1px solid var(--border);
   display: flex;
@@ -302,62 +302,53 @@ h1 span { color: var(--accent); }
 }
 
 /* ══ SUBPAGE TABS ═════════════════════════════════════════════════════════════
-   Toggle between the HLSL Reference subpage and the Best Practices subpage.
-   The active tab is driven by body.subpage-ref / body.subpage-optim; CSS below
-   hides the inactive panel and filters the sidenav anchors to match.
+   Subpage switching lives in the sidenav (.sidenav-subpage-tabs) so it
+   stays reachable while scrolling without returning to the page top.
+   Active tab is driven by body.subpage-<theme>; CSS below hides the
+   inactive panel and filters the sidenav anchors to match.
    ══════════════════════════════════════════════════════════════════════════ */
-.subpage-tabs {
+
+/* Sidenav subpage switcher — stacks below page links, above anchors */
+.sidenav-subpage-tabs {
   display: flex;
-  gap: 4px;
-  margin: 0 0 26px;
-  padding: 0;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 6px;
 }
-.subpage-tab {
-  position: relative;
-  padding: 12px 20px 11px;
+.sidenav-subpage-tabs .subpage-tab {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 16px;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;             /* overlap parent border */
+  border-left: 3px solid transparent;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
   cursor: pointer;
+  text-align: left;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
-.subpage-tab-icon { font-size: 14px; opacity: 0.8; }
-.subpage-tab:hover {
-  color: var(--text);
-  background: rgba(255,255,255,0.02);
+.sidenav-subpage-tabs .subpage-tab-icon { font-size: 14px; opacity: 0.7; flex-shrink: 0; }
+.sidenav-subpage-tabs .subpage-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="ref"] {
+  color: var(--accent); border-left-color: var(--accent); background: rgba(0,229,255,0.06);
 }
-.subpage-tab.active[data-subpage="ref"] {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  background: rgba(0,229,255,0.04);
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="ref"] .subpage-tab-icon { opacity: 1; }
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="optim"] {
+  color: var(--accent2); border-left-color: var(--accent2); background: rgba(255,107,53,0.06);
 }
-.subpage-tab.active[data-subpage="ref"] .subpage-tab-icon { opacity: 1; }
-.subpage-tab.active[data-subpage="optim"] {
-  color: var(--accent2);
-  border-bottom-color: var(--accent2);
-  background: rgba(255,107,53,0.05);
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="optim"] .subpage-tab-icon { opacity: 1; }
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="engine"] {
+  color: var(--accent3); border-left-color: var(--accent3); background: rgba(184,255,87,0.06);
 }
-.subpage-tab.active[data-subpage="optim"] .subpage-tab-icon { opacity: 1; }
-/* Engine Internals — source-verified / how-the-engine-works reference.
-   Uses the green accent to read as "verified truth" and stay distinct
-   from both the cyan ref and warm optim tabs. */
-.subpage-tab.active[data-subpage="engine"] {
-  color: var(--accent3);
-  border-bottom-color: var(--accent3);
-  background: rgba(184,255,87,0.05);
-}
-.subpage-tab.active[data-subpage="engine"] .subpage-tab-icon { opacity: 1; }
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="engine"] .subpage-tab-icon { opacity: 1; }
 
 /* Panel visibility — hide the non-active subpage entirely */
 .subpage { display: none; }
@@ -973,15 +964,15 @@ table.table-multi td { max-width: 48ch; word-wrap: break-word; }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    RESPONSIVE
-   Desktop (>1100px): sidenav 130px fixed, body padding-left 150px
-   Tablet  (900-1100px): sidenav 110px, body padding-left 130px
+   Desktop (>1100px): sidenav 165px fixed, body padding-left 185px
+   Tablet  (900-1100px): sidenav 140px, body padding-left 160px
    Mobile  (<600px): sidenav off-canvas slide-in, hamburger button visible
 ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── Tablet ── */
 @media (max-width: 1100px) {
-  .sidenav { width: 110px; }
-  body { padding-left: 130px; }
+  .sidenav { width: 140px; }
+  body { padding-left: 160px; }
 }
 
 /* ── Small screens — stacked tables for 3+ col ── */
@@ -1110,9 +1101,8 @@ table.table-multi td { max-width: 48ch; word-wrap: break-word; }
   /* Area optim — reduce padding on mobile */
   .area.area-optim { padding: 16px 12px 4px; margin-top: 6px; }
 
-  /* Subpage tabs — compact on mobile */
-  .subpage-tab { padding: 10px 12px; font-size: 11px; letter-spacing: 0.1em; }
-  .subpage-tab-icon { font-size: 12px; }
+  /* Subpage tabs compact on mobile — sidenav is hidden so tabs show inline */
+  .sidenav-subpage-tabs .subpage-tab { padding: 6px 12px; font-size: 10px; }
 
   /* Cards — slightly less padding */
   .card { padding: 14px; }
@@ -1293,6 +1283,40 @@ m {
   .gotcha-row { grid-template-columns: 1fr; gap: 4px; }
   .gotcha-label { font-size: 9px; }
 }
+
+/* ── GOTCHA COMPACT — two-tier variant.
+   Primary tier (Problem + Fix) stays visible; secondary tier (Context +
+   Ref) collapses into a <details>. Tighter vertical rhythm than the full
+   block because the card usually stacks 2-3 of these. */
+.gotcha-block.gotcha-compact { gap: 4px; margin: 4px 0 10px; }
+.gotcha-block.gotcha-compact .gotcha-row { padding: 5px 10px 5px 12px; }
+.gotcha-fixes { margin: 0; padding-left: 18px; }
+.gotcha-fixes li { margin: 2px 0; font-size: 15px; color: var(--text); line-height: 1.5; }
+.gotcha-fixes li:first-child { margin-top: 0; }
+.gotcha-fixes li:last-child { margin-bottom: 0; }
+.gotcha-context-details {
+  margin-top: 2px;
+  padding: 5px 10px 5px 12px;
+  border-left: 3px solid var(--border);
+  background: rgba(107,122,141,0.03);
+  border-radius: 0 3px 3px 0;
+}
+.gotcha-context-details > summary {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.gotcha-context-details > summary::-webkit-details-marker { display: none; }
+.gotcha-context-details > summary::before { content: "▸"; display: inline-block; margin-right: 6px; font-size: 9px; }
+.gotcha-context-details[open] > summary::before { content: "▾"; }
+.gotcha-context-body { margin-top: 6px; font-size: 13px; color: var(--text-dim); line-height: 1.55; }
+.gotcha-context-body .gotcha-ref { margin-left: 6px; }
 
 /* ── FILTER STRIP — per-section tag filter, rendered by build.py only when the
    section contains tagged items. Click a tag → `.tag-dimmed` on non-matching

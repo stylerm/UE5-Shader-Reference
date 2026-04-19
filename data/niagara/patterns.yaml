@@ -1,0 +1,48 @@
+# ── SECTION 5: PATTERNS ────────────────────────────────────────────────
+- id: patterns
+  label: "Patterns &amp; Tips"
+  cards:
+
+    - color: green
+      title: "Useful Patterns"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok,   html: "<strong>Random per-particle</strong> — bind <code>Particles.UniqueID</code> to an input pin, use as seed with a hash function"}
+            - {icon: ok,   html: "<strong>Custom module</strong> — wrap HLSL in a Scratch Pad module for reuse across emitters"}
+            - {icon: ok,   html: "<strong>Quaternion math</strong> — multiply quaternions manually (no built-in <code>qmul</code>)"}
+            - {icon: ok,   html: "<strong>Jitter</strong> — pre-bake random sphere offsets: <code>RandomUnitFloat3(seed) * Radius</code>"}
+            - {icon: ok,   html: "<strong>Loop modes</strong> — implement Once/Loop/PingPong via switch on age-based index"}
+            - {icon: ok,   html: "<strong>Early exit</strong> — guard empty arrays: <code>if (NumPositions == 0) return;</code>"}
+
+    - color: yellow
+      title: "Quaternion Multiply (Helper)"
+      content:
+        - type: prose
+          text: "No built-in quaternion multiply in Niagara HLSL — use this:"
+        - type: code
+          src: |
+            float4 QuatMultiply(float4 Q1, float4 Q2)
+            {
+              return float4(
+                Q1.w*Q2.x + Q1.x*Q2.w + Q1.y*Q2.z - Q1.z*Q2.y,
+                Q1.w*Q2.y - Q1.x*Q2.z + Q1.y*Q2.w + Q1.z*Q2.x,
+                Q1.w*Q2.z + Q1.x*Q2.y - Q1.y*Q2.x + Q1.z*Q2.w,
+                Q1.w*Q2.w - Q1.x*Q2.x - Q1.y*Q2.y - Q1.z*Q2.z
+              );
+            }
+
+            // Usage: combine rotations
+            Particle.MeshOrientation =
+              QuatMultiply(BaseRot, DeltaRot);
+
+    - color: orange
+      title: "Debugging Tips"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Debug via Color</strong> — write intermediate values to <code>Particle.Color</code> to visualize"}
+            - {icon: warn, html: "<strong>Scale debugging</strong> — set <code>Particle.Scale = float3(value, value, value)</code> to see ranges"}
+            - {icon: warn, html: "<strong>NaN check</strong> — if particles disappear, check for <code>0/0</code> or <code>sqrt(negative)</code>"}
+            - {icon: warn, html: "<strong>Stateless emitters are GPU-only</strong> — <code>NiagaraStatelessEmitterInstance.cpp:86-93</code> hard-codes <code>SimTarget = GPUComputeSim</code>; there is <em>no CPU fallback path</em>, so platforms without compute support can't use them"}
+            - {icon: ok,   html: "<strong>Guard empty buffers</strong> — always check <code>if (Count == 0) return;</code> before buffer reads"}

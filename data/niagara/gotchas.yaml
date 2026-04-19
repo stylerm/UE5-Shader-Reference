@@ -1,0 +1,92 @@
+# ── SECTION 11: ENGINE GOTCHAS ─────────────────────────────────────────
+# Gotcha schema: two-tier (default). `problem` + `fix` are always visible;
+# `context:` merges Why + Detect into one paragraph, collapsed under a
+# <details>. `ref:` is the source-cite. Use `fixes:` (list) for ranked
+# remedies. Opt into legacy 4-row layout with `variant: full` — reserved for
+# cases where the forensic detail must be believed before the fix is
+# actionable (e.g. GPU Dispatch X→Y remap).
+- id: ni-gotchas
+  label: "Engine Gotchas · Source-Verified"
+  grid: "grid grid-2"
+  cards:
+
+    - color: red
+      title: "Interpolated Spawn · Three failure modes, one flag"
+      content:
+        - type: gotcha
+          problem: "Interpolated Spawn fails in three ways: frame-0 parameters are stale, the update script never idles, and toggling the checkbox without recompile silently reverts the mode."
+          fixes:
+            - "<strong>Default off</strong> — most FX don't need frame-to-frame velocity blending between spawn events. Leave it disabled for ambient and looping emitters."
+            - "<strong>If it must be on</strong> — clamp spawn-velocity logic to frame &gt;= <m>1</m>, and always hit <strong>Apply</strong> / recompile after toggling the checkbox."
+            - "<strong>Audit existing emitters</strong> — log <code>bParametersValid</code> in Update, verify <code>InterpolatedSpawnMode</code> matches the compiled script state."
+          context: "The flag is coupled to compiled state at three points — <code>UsesInterpolatedSpawning()</code> forces <code>bGpuAlwaysRunParticleUpdateScript = true</code> so cost never drops to zero, <code>FlipParameterBuffers()</code> only marks parameters valid on the second flip (frame 0 reads stale data), and toggling without recompile silently resets <code>InterpolatedSpawnMode</code> to <code>NoInterpolation</code>. Detect via <code>stat gpu</code> (update time flat while visible count trends to zero), origin-popping first-frame particles, or velocity blending that quietly stops working after a toggle."
+          ref: "NiagaraEmitter.cpp:670, 854-860"
+
+    - color: orange
+      title: "GPU Dispatch · X→Y Silent Remap at 65,535"
+      content:
+        - type: gotcha
+          variant: full
+          problem: "Shader code that recovers a linear thread ID from <code>SV_DispatchThreadID.x</code> alone produces <strong>wrong indices above ~<m>4M</m> particles</strong>."
+          why: "When <code>DispatchCount.X</code> exceeds <code>GRHIMaxDispatchThreadGroupsPerDimension.X</code> (<m>65,535</m> on most RHIs), the dispatcher silently redistributes groups onto Y."
+          why_ref: "NiagaraGpuComputeDispatch.cpp:1775-1802"
+          fix: "Always use <code>DispatchThreadId.x + DispatchThreadId.y * DispatchCount.x</code> to recover the linear index, never just <code>.x</code>."
+          detect: "Sim starts reading the wrong particle slots above ~<m>4M</m> particles with no warning. Debug by capping <code>SpawnRate</code> and watching for position discontinuities."
+        - type: gotcha
+          problem: "Particles spawned in frame N have <code>INDEX_NONE</code> for their persistent ID until frame N+1."
+          fix: "Gate any ID-lookup logic on <code>PersistentID != INDEX_NONE</code>. Never read persistent ID on the spawn frame."
+          context: "Instance count buffer updates run in <code>PostOpaque</code>, one tick group after Spawn. Detect: code that maps a particle to a spawn event (e.g. damage numbers bound to hit particles) misses the first frame of each spawn."
+          ref: "NiagaraGpuComputeDispatch.cpp:223-228, 514-518"
+        - type: gotcha
+          problem: "Event spawn overflow is silent — a <m>5,000</m>-hit burst against a <m>1,000</m>-particle buffer drops <m>4,000</m>."
+          fix: "Size <code>MaxAllocationCount</code> against worst-case burst. Prefer GPU event systems with persistent buffers over CPU event handlers for bursty gameplay."
+          context: "Event handlers clamp spawn count to remaining buffer space with no log entry. Detect: particle bursts look visually thinner than debug draws of the underlying events. Compare emitter max-allocation against event frequency."
+
+    - color: yellow
+      title: "Scalability Lag · Up to 1 Second Behind Camera"
+      content:
+        - type: prose
+          text: "The scalability manager is rate-limited by three per-significance CVars and a per-frame cap (<code>NiagaraScalabilityManager.cpp:10-22, 38-77</code>):"
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "fx.NiagaraScalabilityUpdateTime_Low",    text: "Default <m>1.0 s</m> — for inactive / distant systems"}
+            - {label: "fx.NiagaraScalabilityUpdateTime_Medium", text: "Default <m>0.5 s</m> — for moderately significant systems"}
+            - {label: "fx.NiagaraScalabilityUpdateTime_High",   text: "Default <m>0.25 s</m> — for high-significance systems (hero VFX)"}
+            - {label: "fx.ScalabilityMaxUpdatesPerFrame",       text: "Default <m>50</m> — caps how many instances re-evaluate significance per frame"}
+        - type: gotcha
+          problem: "Fast camera cuts pay old-LOD cost for up to a full second before culling catches up."
+          fix: "Budget for the spike on cinematic cuts, or drop <code>fx.NiagaraScalabilityUpdateTime_Low</code> to <m>0.25 s</m> before the cut and restore after."
+          context: "The scalability manager re-evaluates each instance at its cadence (<m>1 s</m> default for inactive / distant) — on a cut, everything in the old frustum keeps its old LOD until the next tick. Detect: GPU spike in the first second after a camera cut, then drop. Correlate <code>stat gpu</code> timings with camera-cut timing."
+        - type: gotcha
+          problem: "Budget overflow culls random systems instead of distant ones — the manager treats all instances as flat with no distance ranking."
+          fix: "Enable <strong>Needs Significance Cull</strong> on every System you want distance-sorted. Audit existing systems — this is frequently missed."
+          context: "<code>UNiagaraSystem::bNeedsSignificanceCull</code> is opt-in per system; Effect Types alone don't enable it. Detect: budget-overflow behavior looks random rather than distance-ordered, and all instances of one system get culled together."
+          ref: "NiagaraScalabilityManager.cpp:262-266, 285-290"
+
+    - color: blue
+      title: "Low-Latency Translucency · Per-Emitter VRAM Double"
+      content:
+        - type: gotcha
+          problem: "<strong>VRAM cost doubles per GPU emitter</strong> — dozens of GPU emitters silently cost hundreds of MB."
+          fix: "On VRAM-constrained platforms (mobile, Switch) set <code>fx.NiagaraGpuLowLatencyTranslucencyEnabled=0</code>. Trade-off: PostOpaqueRender emitters sample 1-frame-old positions — subtle smear on fast particles. There is <strong>no per-emitter override</strong>."
+          context: "The CVar defaults to <strong>1</strong>, allocating a second particle data buffer per GPU emitter so translucent materials can read current-frame sim data regardless of tick stage. Detect: VRAM growth proportional to GPU emitter count. Confirm with <code>stat vram</code> or RenderDoc — look for 2× expected particle buffer allocations."
+          ref: "NiagaraGpuComputeDispatch.cpp:71-77"
+
+    - color: red
+      title: "State Machine · Disabled is Terminal"
+      content:
+        - type: gotcha
+          problem: "The two-slot state machine traps you twice: branching on <code>RequestedExecutionState</code> is unreliable, and once <code>ActualExecutionState == Disabled</code> the system no-ops forever."
+          fixes:
+            - "<strong>Branch on <code>ActualExecutionState</code></strong> — never on Requested — for any gameplay decision."
+            - "<strong>Revive Disabled with <code>Reset(EResetMode::ReInit)</code></strong>. <code>Activate()</code> silently no-ops on Disabled."
+          context: "Requested is a synchronous hint; Actual is authoritative and lags through async teardown. Disabled is a terminal state — every other transition respects this invariant. Detect: spawn checks fire one frame late, async systems look &quot;stuck pending&quot; in the debugger, or <code>Activate()</code> returns but the system never starts."
+        - type: gotcha
+          problem: "Scalability culling ≠ destruction — a system with all emitters culled can still reach Complete and unload."
+          fix: "If a system must survive culling, gate Complete logic on visible particle count &gt; <m>0</m>, not on culling state."
+          context: "Culled emitters return <code>ShouldTick() == false</code> but stay allocated; the Complete path treats them as if empty. Detect: systems that should loop forever sometimes unload after being off-screen — check Complete-on-disable settings."
+        - type: gotcha
+          problem: "Warm-up ticks are invisible to game logic — a <m>100</m>-frame warmup can spawn thousands of particles before the first visible frame."
+          fix: "Keep warmup under <m>30</m> frames for gameplay-relevant FX. Ambient decor can go higher, but budget the initial spawn cost."
+          context: "<code>SetWarmupSettings()</code> runs N pre-ticks before activation; warmup particles don't fire events or update bounds. Detect: spawn-time GPU spike disproportionate to visible particle count on activation. Check <code>WarmupTicks</code> in the asset."

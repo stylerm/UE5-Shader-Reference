@@ -1,0 +1,25 @@
+# ── SECTION 4: ATTRIBUTES ──────────────────────────────────────────────
+- id: attributes
+  label: "Particle Attribute Reference"
+  cards:
+
+    - color: blue
+      span: grid-full
+      title: "Particle Attributes · Scratch Pad vs Stateless Access"
+      content:
+        - type: table
+          style: default
+          cols: ["Attribute", "Niagara Namespace", "Stateless Struct", "Notes"]
+          rows:
+            - ["**Position**",         "`Particles.Position`",                  "`Particle.Position`",              "Bind to Scratch Pad pin; world or local-space per emitter setting"]
+            - ["**Previous Position**", "`Particles.PreviousPosition`",          "`Particle.PreviousPosition`",      "Last frame's position — for velocity/trail computation"]
+            - ["**Velocity**",          "`Particles.Velocity`",                  "<em>Derived from Pos delta</em>",  "Scratch Pad has explicit velocity; stateless derives it"]
+            - ["**Age**",               "`Particles.Age`",                       "`Particle.Age`",                   "Time since particle spawned (seconds)"]
+            - ["**Lifetime**",          "`Particles.Lifetime`",                  "`Particle.Lifetime`",              "Total lifespan (seconds)"]
+            - ["**Normalized Age**",    "`Particles.Age / Particles.Lifetime`",  "`Particle.Age / Particle.Lifetime`","0→1 over lifetime; compute manually in both contexts"]
+            - ["**Color**",             "`Particles.Color`",                     "`Particle.Color`",                 "float4 RGBA"]
+            - ["**Scale**",             "`Particles.Scale`",                     "`Particle.Scale`",                 "float3 per-axis scale"]
+            - ["**Mesh Orientation**",  "`Particles.MeshOrientation`",           "`Particle.MeshOrientation`",       "float4 quaternion"]
+            - ["**Execution Index**",   "`ExecutionIndex`",                      "`Context.ExecIndex`",              "Per-particle index for deterministic behavior"]
+            - ["**Unique ID**",         "`Particles.UniqueID`",                  "`Context.ParticleID`",             "Persistent ID — use as hash seed for randomness"]
+            - ["**Delta Time**",        "`Engine.DeltaTime`",                    "<em>Not directly available</em>",  "Frame delta in seconds — bind via Engine namespace"]

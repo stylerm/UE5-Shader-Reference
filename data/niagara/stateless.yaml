@@ -1,0 +1,83 @@
+# ── SECTION 3: STATELESS ───────────────────────────────────────────────
+- id: stateless
+  label: "Stateless Module Patterns · From Real Code"
+  cards:
+
+    - color: orange
+      title: "Stateless Particle Struct"
+      content:
+        - type: prose
+          text: "Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:"
+        - type: code
+          src: |
+            // Stateless module entry point
+            void MyModule_Initialize(
+                inout FStatelessParticle Particle,
+                in FStatelessParticleContext Context)
+            {
+              // Read state
+              uint   Idx = Context.ExecIndex;
+              float3 Pos = Particle.Position;
+              float  Age = Particle.Age;
+
+              // Write state directly
+              Particle.Position         = NewPos;
+              Particle.PreviousPosition = OldPos;
+              Particle.Scale            = float3(1,1,1);
+              Particle.Color            = float4(1,0,0,1);
+              Particle.MeshOrientation  = NewQuat;
+            }
+
+    - color: green
+      title: "GPU Buffer Access Pattern"
+      content:
+        - type: prose
+          text: "Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:"
+        - type: code
+          src: |
+            // Reading float3 from typed float buffer
+            float3 ReadFloat3FromBuffer(
+                Buffer<float> InBuffer, uint Index)
+            {
+              uint Base = Index * 3;
+              return float3(
+                InBuffer[Base + 0],
+                InBuffer[Base + 1],
+                InBuffer[Base + 2]);
+            }
+
+            // Reading float4 (color, quaternion)
+            float4 ReadFloat4FromBuffer(
+                Buffer<float> InBuffer, uint Index)
+            {
+              uint Base = Index * 4;
+              return float4(
+                InBuffer[Base + 0], InBuffer[Base + 1],
+                InBuffer[Base + 2], InBuffer[Base + 3]);
+            }
+
+    - color: blue
+      title: "Indexing Strategies"
+      content:
+        - type: prose
+          text: "Common patterns for selecting which array element a particle uses:"
+        - type: code
+          src: |
+            // Sequential (round-robin by particle ID)
+            uint Idx = ParticleID % NumPositions;
+
+            // Sequential with clamping (no wrap)
+            uint Idx = min(ParticleID, NumPositions - 1);
+
+            // Random via MurmurHash3 finalizer
+            uint Hash = ParticleID;
+            Hash ^= Hash >> 16;
+            Hash *= 0x85ebca6b;
+            Hash ^= Hash >> 13;
+            Hash *= 0xc2b2ae35;
+            Hash ^= Hash >> 16;
+            uint Idx = Hash % NumPositions;
+
+            // Age-based (interpolate through array)
+            float T   = NormalizedAge * (float)Count;
+            uint  Idx = min((uint)T, Count - 1);

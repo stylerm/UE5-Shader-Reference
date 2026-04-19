@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="A practical reference for converting GLSL/HLSL shaders to Unreal Engine 5 Material Custom nodes, Niagara HLSL, .usf, and .ush files.">
+<meta name="description" content="A practical reference for UE5 shader development — Custom nodes, Niagara HLSL, .usf/.ush compute shaders, optimization, and engine internals.">
 <meta name="theme-color" content="#0a0c10">
-<title>UE5 Shader Conversion Cheatsheet</title>
+<title>UE5 Shader Reference</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚗️</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -48,7 +48,7 @@
   <div class="header">
     <div class="header-left">
       <span class="header-tag">● Shader Conversion Reference · Community Edition</span>
-      <h1>GLSL/HLSL → <span>Unreal</span> Conversion</h1>
+      <h1>UE5 <span>Shader</span> Reference</h1>
     </div>
     <div class="header-right">
       Engine: <strong>UE 5.x</strong><br>
@@ -57,8 +57,35 @@
     </div>
   </div>
 
+  <!-- ── HUB NAVIGATION ── -->
+  <div id="start" class="diagnostic-row-label">Browse by topic</div>
+  <div class="hub-grid">
+
+    <a href="materials.html" class="hub-card blue">
+      <span class="hub-card-icon">🎨</span>
+      <div class="hub-card-title">Materials</div>
+      <div class="hub-card-desc">Custom node rules, GLSL→HLSL intrinsic table, Shadertoy porting guide, WPO/vertex shader patterns, and prompt templates.</div>
+      <div class="hub-card-count">CUSTOM NODE · SHADERTOY · WPO</div>
+    </a>
+
+    <a href="niagara.html" class="hub-card orange">
+      <span class="hub-card-icon">✨</span>
+      <div class="hub-card-title">Niagara</div>
+      <div class="hub-card-desc">Niagara-specific HLSL rules, particle attribute access, stateless module patterns, compute restrictions, and GPU buffer access.</div>
+      <div class="hub-card-count">SCRATCH PAD · STATELESS · GPU SIM</div>
+    </a>
+
+    <a href="shaders.html" class="hub-card green">
+      <span class="hub-card-icon">⚙</span>
+      <div class="hub-card-title">Shaders</div>
+      <div class="hub-card-desc">.usf/.ush file rules, compute shader patterns, include guards, TGSM, feature level matrix, UE type keywords, and platform guards.</div>
+      <div class="hub-card-count">.USF · .USH · COMPUTE · SM5/SM6</div>
+    </a>
+
+  </div>
+
   <!-- ── DIAGNOSTIC HUB ── -->
-  <div id="start" class="diagnostic-row">
+  <div class="diagnostic-row">
     <div class="diagnostic-row-label">What are you trying to do?</div>
     <div class="task-grid">
       <a href="materials.html#custom-node" class="task-card">
@@ -123,33 +150,6 @@
         <div class="symptom-card-desc">Identical HLSL with different input wiring compiles twice. Normalize inputs.</div>
       </a>
     </div>
-  </div>
-
-  <!-- ── HUB NAVIGATION ── -->
-  <div class="diagnostic-row-label">Browse by topic</div>
-  <div class="hub-grid">
-
-    <a href="materials.html" class="hub-card blue">
-      <span class="hub-card-icon">🎨</span>
-      <div class="hub-card-title">Materials</div>
-      <div class="hub-card-desc">Custom node rules, GLSL→HLSL intrinsic table, Shadertoy porting guide, WPO/vertex shader patterns, and prompt templates.</div>
-      <div class="hub-card-count">CUSTOM NODE · SHADERTOY · WPO</div>
-    </a>
-
-    <a href="niagara.html" class="hub-card orange">
-      <span class="hub-card-icon">✨</span>
-      <div class="hub-card-title">Niagara</div>
-      <div class="hub-card-desc">Niagara-specific HLSL rules, particle attribute access, stateless module patterns, compute restrictions, and GPU buffer access.</div>
-      <div class="hub-card-count">SCRATCH PAD · STATELESS · GPU SIM</div>
-    </a>
-
-    <a href="shaders.html" class="hub-card green">
-      <span class="hub-card-icon">⚙</span>
-      <div class="hub-card-title">Shaders</div>
-      <div class="hub-card-desc">.usf/.ush file rules, compute shader patterns, include guards, TGSM, feature level matrix, UE type keywords, and platform guards.</div>
-      <div class="hub-card-count">.USF · .USH · COMPUTE · SM5/SM6</div>
-    </a>
-
   </div>
 
   <!-- ── QUICK OVERVIEW ── -->

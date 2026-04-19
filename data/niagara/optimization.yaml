@@ -1,0 +1,168 @@
+# ── SECTION 6: PERFORMANCE TIERS ───────────────────────────────────────
+- id: perf-tiers
+  label: "Performance Tiers at a Glance"
+  cards:
+
+    - color: green
+      title: "Tier 1 — Effectively Free"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok, cost: cheap, difficulty: intermediate, html: "<strong>Combine emitters</strong> — merging 5→1 cuts tick time <m>30-50%</m> (each adds tick + dispatch + draw setup)"}
+            - {icon: ok, cost: free,  difficulty: beginner,     html: "<strong>Fixed Bounds</strong> — enable in System settings; GPU trusts the bounds, skips per-frame recompute"}
+            - {icon: ok, cost: free,  difficulty: beginner,     html: "<strong>Stop unused loops</strong> — invisible systems still eat GPU dispatch + CPU"}
+            - {icon: ok, cost: free,  difficulty: intermediate, html: "<strong>Effect Type asset</strong> — attach one per system; enables budget-based culling at zero per-frame cost"}
+
+    - color: yellow
+      title: "Tier 2 — Cheap Wins"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok,   cost: cheap,    difficulty: intermediate, html: "<strong>LOD via Scalability</strong> — configure Low / Medium / High / Epic / Cinematic in Effect Type"}
+            - {icon: ok,   cost: cheap,    difficulty: beginner,     html: "<strong>Distance culling</strong> — particles at <m>2×</m> distance cost ~<m>4×</m> less fill"}
+            - {icon: ok,   cost: cheap,    difficulty: intermediate, html: "<strong>Texture atlasing</strong> — <m>4×4</m> SubUV atlas driven by SubUV Animation module cuts draw calls"}
+
+    - color: orange
+      title: "Tier 3 — Expensive"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, cost: expensive,   difficulty: intermediate, html: "<strong>Avoid CPU per-particle collision</strong> — blocking line trace scales linearly; use GPU depth (~<m>3</m> tex reads) or DF (<m>1</m> SDF lookup)"}
+            - {icon: warn, cost: expensive,   html: "<strong>Light emission</strong> — CPU sims only; each particle light = one shadow-casting draw call"}
+            - {icon: warn, cost: moderate,    html: "<strong>Many dynamic material params</strong> — per-emitter updates flush batching"}
+            - {icon: warn, cost: expensive,   html: "<strong>Full-screen translucent sprites</strong> — overdraw × material cost multiplies; minimize screen coverage"}
+
+    - color: red
+      title: "Tier 4 — Very Expensive"
+      content:
+        - type: checklist
+          items:
+            - {icon: no, cost: expensive, html: "<strong>Unbounded GPU sims &gt;<m>1M</m> particles</strong> — no fixed bounds = unreliable culling, unbounded memory"}
+            - {icon: no, cost: expensive, html: "<strong>Use cutout masks for translucency</strong> — <m>5-10×</m> overdraw = <m>5-10×</m> material cost"}
+            - {icon: no, cost: expensive, html: "<strong>&gt;<m>10</m> active emitters per actor</strong> — each allocates its own dataset + tick entry + dispatch"}
+            - {icon: no, cost: expensive, difficulty: advanced, html: "<strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target early"}
+
+# ── SECTION 7: GPU VS CPU ──────────────────────────────────────────────
+- id: gpu-vs-cpu
+  label: "GPU vs CPU Simulation"
+  cards:
+
+    - color: blue
+      span: grid-full
+      title: "When to Use GPU vs CPU"
+      content:
+        - type: table
+          style: default
+          cols: ["Decision Factor", "CPU Simulation", "GPU Simulation"]
+          rows:
+            - ["Particle count sweet spot", "1 – 100", "100+ (thousands to millions)"]
+            - ["Collision", "Sync/async physics traces — blocking, scales linearly", "Depth buffer (~3 tex reads) or Distance Field (SDF lookup) — parallel, far cheaper"]
+            - ["Gameplay events &amp; callbacks", "Yes — full scene query support", "No — compute only, no callbacks"]
+            - ["Light emission", "Yes", "No"]
+            - ["Module feature set", "Full — all Niagara modules", "Limited — compute-compatible only"]
+            - ["Texture sampling", "Via Data Interface", "Via Texture Sample DI only"]
+            - ["Per-frame CPU thread cost", "Scales with particle count", "Near-zero (async GPU dispatch)"]
+            - ["Memory pressure", "System RAM", "VRAM — watch on mobile/consoles"]
+            - ["Offline / deterministic render", "Yes — CPU path available", "GPU path only (non-deterministic)"]
+
+# ── SECTION 8: OPTIMIZATION RULES ─────────────────────────────────────
+- id: perf-rules
+  label: "Optimization Rules"
+  cards:
+
+    - color: green
+      title: "DO — Emitter &amp; System"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok, html: "<strong>Enable Fixed Bounds</strong> in System settings — prevents GPU particles from disappearing when emitter actor is off-screen"}
+            - {icon: ok, html: "<strong>Batch emitters</strong> — combine emitters that share the same material into one emitter with SubUV variation"}
+            - {icon: ok, html: "<strong>Atlas textures</strong> — 4×4 SubUV atlas = 16 visual variations, 1 draw call"}
+            - {icon: ok, html: "<strong>Effect Type asset</strong> — define per-quality budgets once and reuse across all systems in the project"}
+            - {icon: ok, html: "<strong>Deactivate off-screen systems</strong> — use Significance Handler to pause systems beyond a set distance"}
+
+    - color: red
+      title: "AVOID — Emitter &amp; Render"
+      content:
+        - type: checklist
+          items:
+            - {icon: no,   html: "<strong>Never-ending loops without culling</strong> — idle GPU dispatches drain budget even when nothing is visible"}
+            - {icon: no,   html: "<strong>Full-screen translucent quads</strong> — overdraw × material cost is your largest GPU risk"}
+            - {icon: no,   html: "<strong>Dynamic bounding boxes</strong> — force GPU to re-derive bounds every frame; switch to Fixed Bounds for stable sims"}
+            - {icon: warn, html: "<strong>Keep translucency under <m>3ms</m></strong> — additive across all FX; check <code>stat gpu</code>"}
+            - {icon: warn, html: "<strong>No Significance Handler without Effect Type</strong> — budget overruns go unmanaged; add Effect Type first"}
+
+    - color: orange
+      title: "Spawning &amp; Renderer Costs"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>GPU spawn cap</strong> — engine limits spawning to 2M particles per frame across all systems; burst spawning beyond this is silently clamped"}
+            - {icon: warn, html: "<strong>Prefer Sprite over Mesh renderer</strong> — mesh computes per-particle vertex data on game thread; <code>CalcMeshUsedParticleCount</code> (default &gt;64) skips hidden indices"}
+            - {icon: warn, html: "<strong>Skeletal Mesh DI</strong> is one of the heaviest data interfaces — it binds multiple large SRVs per emitter (index, vertex, skin weights, current + prev bone transforms)"}
+            - {icon: ok,   html: "<strong>Sprite renderer</strong> is cheapest — simple billboard quads with minimal per-particle overhead"}
+            - {icon: ok,   html: "<strong>GPU buffer allocation</strong> rounds up to 4KB chunks and only shrinks when usage drops below 50%; pre-allocate with <code>MaxAllocationCount</code> in emitter properties to avoid runtime resizing"}
+
+    - color: blue
+      title: "Overdraw Reduction"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok,   html: "<strong>Cutout / alpha erosion masks</strong> — shaped cutout replaces rect sprite, cuts covered pixels <m>5-10×</m>"}
+            - {icon: ok,   html: "<strong>Reduce particle size</strong> — smaller screen footprint = less fill; pair with higher emitter count if needed"}
+            - {icon: ok,   html: "<strong>Distance-based transparency fade</strong> — fade particles out before they're too small to be meaningful"}
+            - {icon: warn, html: "<strong>Use Unlit for small particles</strong> — Lit translucency is far more expensive; reserve for hero VFX"}
+
+# ── SECTION 9: SCALABILITY ─────────────────────────────────────────────
+- id: scalability
+  label: "Scalability &amp; Effect Types"
+  grid: "grid grid-2"
+  cards:
+
+    - color: orange
+      span: grid-full
+      title: "Effect Type Asset — Budget Controls"
+      content:
+        - type: prose
+          text: "The <strong>Effect Type</strong> is a global scalability asset — create one, attach it to every Niagara System via System settings, then configure these per-quality-level budgets:"
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "Max Global Budget Usage", text: "Cull entire systems once the total Niagara ms budget across the scene is exceeded — the most important setting to set"}
+            - {label: "Max Distance Scale", text: "Shrinks cull distance proportionally as the budget fills — near-full budget = more aggressive distance culling automatically"}
+            - {label: "Max Instance Count Scale", text: "Globally scales down simultaneous particle system instances across all systems that share this Effect Type"}
+            - {label: "Max System Instance Count", text: "Per-system instance cap — prevents any one effect from monopolising the budget at the expense of others"}
+            - {label: "Scalability levels", text: "Low / Medium / High / Epic / Cinematic — configure per-level behaviour in <strong>Project Settings → Niagara</strong>"}
+
+    - color: yellow
+      title: "Significance Handler &amp; Cull Reactions"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok,   html: "<strong>Significance Handler</strong> determines <em>which</em> systems stay active when over budget — closest / most visible effects survive"}
+            - {icon: ok,   html: "Assign a <strong>Significance Handler asset</strong> in the Effect Type — default handler sorts by distance"}
+            - {icon: ok,   html: "Custom handlers can weight by screen size, gameplay importance, or camera proximity"}
+            - {icon: warn, html: "Without an Effect Type, the Significance Handler has no budget thresholds to react to — both must be configured"}
+        - type: prose
+          text: "<strong>Cull Reactions</strong> (what happens when a system fails its budget check):"
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "Deactivate", text: "Kill particles gradually, no auto-reactivation — use for one-shot FX", code_label: true}
+            - {label: "DeactivateImmediate", text: "Clear all particles instantly, no reactivation — use when popping is acceptable", code_label: true}
+            - {label: "DeactivateResume", text: "Sleep mode — reactivate when passing cull tests again; best for ambient/looping FX", code_label: true}
+            - {label: "PauseResume", text: "Cheapest option — maintains state but stops ticking entirely; no per-frame cost while paused", code_label: true}
+        - type: prose
+          text: "<strong>Scalability update frequency</strong>: set to <code>Low</code> (1s) or <code>Medium</code> (0.5s) — <code>Continuous</code> (every frame) adds overhead. The manager parallelises above 50 active instances."
+
+    - color: blue
+      title: "Profiling Tools"
+      content:
+        - type: rowlist
+          layout: stacked
+          rows:
+            - {label: "stat gpu", text: "Console command — shows GPU ms per pass; watch the <em>Translucency</em> and <em>ParticleSimulation</em> rows specifically"}
+            - {label: "GPU Insights (UE 5.4+)", text: "Visual GPU profiler inside Unreal Insights — shows per-system and per-material GPU time on a timeline"}
+            - {label: "Niagara Debugger", text: "Window → Niagara Debugger — live particle counts, active systems, budget usage per system while in PIE"}
+            - {label: "viewmode shadercomplexity", text: "Viewport display mode — visualizes per-pixel instruction cost; target green on all particle materials"}
+            - {label: "r.Niagara.GPUCmdBufSafety 1", text: "Enables extra GPU safety checks in development builds — disable for shipping builds"}

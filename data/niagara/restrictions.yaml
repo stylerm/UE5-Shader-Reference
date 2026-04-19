@@ -1,0 +1,41 @@
+# ── SECTION 2: RESTRICTIONS ────────────────────────────────────────────
+- id: restrictions
+  label: "Restrictions &amp; Things to Avoid"
+  priority: high
+  cards:
+
+    - color: red
+      title: "Niagara HLSL · Never Do This"
+      content:
+        - type: checklist
+          items:
+            - {icon: no, html: "<strong>No raw <code>Texture2DSample()</code></strong> calls in Scratch Pad HLSL — use the <strong>Texture Sample Data Interface</strong> module instead; it wraps the texture correctly for GPU sim"}
+            - {icon: no, html: "<strong>No dynamic loop bounds</strong> — use <code>[unroll]</code> or fixed iteration counts"}
+            - {icon: no, html: "<strong>No <code>ddx</code> / <code>ddy</code></strong> — these are pixel shader only; Niagara sim runs in compute"}
+            - {icon: no, html: "<strong>No <code>return</code> statements</strong> in Scratch Pad — write to output parameters instead"}
+            - {icon: no, html: "<strong>No struct definitions</strong> in Scratch Pad — use flat parameter lists"}
+            - {icon: no, html: "<strong>Don't assume Material intrinsics</strong> — many UE material functions aren't available"}
+            - {icon: no, html: "<strong>No UAV writes</strong> in standard modules — data flows through typed SRV buffers only"}
+
+    - color: yellow
+      title: "Simulation vs Render Stage"
+      content:
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Simulation HLSL</strong> (Spawn/Update) runs as <strong>compute</strong> — no raw texture calls in HLSL, no derivatives; use Texture Sample <em>Data Interface</em> for texture access"}
+            - {icon: warn, html: "<strong>Render HLSL</strong> (Particle Render) differs from simulation HLSL — different available functions"}
+            - {icon: warn, html: "<strong>Data Interface HLSL</strong> runs in its own context — check DI docs for available functions"}
+            - {icon: ok,   html: "<strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both"}
+            - {icon: ok,   html: "<strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection"}
+
+    - color: blue
+      title: "What IS Available"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok, html: "Standard math: <code>lerp</code>, <code>saturate</code>, <code>smoothstep</code>, <code>clamp</code>, <code>abs</code>, <code>sign</code>, <code>pow</code>"}
+            - {icon: ok, html: "Vector math: <code>dot</code>, <code>cross</code>, <code>normalize</code>, <code>length</code>, <code>distance</code>"}
+            - {icon: ok, html: "Trig: <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>atan2</code>, <code>asin</code>, <code>acos</code>"}
+            - {icon: ok, html: "Floor/ceil: <code>floor</code>, <code>ceil</code>, <code>round</code>, <code>frac</code>, <code>fmod</code>"}
+            - {icon: ok, html: "Flow control: <code>BRANCH</code>, <code>FLATTEN</code>, <code>UNROLL</code>, <code>LOOP</code> hints"}
+            - {icon: ok, html: "Typed buffer reads: <code>Buffer&lt;float&gt;</code> SRV access via index"}

@@ -365,12 +365,40 @@ section_groups:
           - color: orange
             title: "Instruction Count Tiers"
             content:
+              - type: prose
+                text: "Rule-of-thumb ranges from real-world usage. These are context-dependent guidelines — not hard limits. A 400-instruction water material is normal; a 400-instruction rock is a red flag."
               - type: checklist
                 items:
-                  - {icon: ok,   html: "<strong>&lt;30 instructions</strong> — lightweight; suitable for mobile and high-density meshes"}
-                  - {icon: ok,   html: "<strong>30–100 instructions</strong> — acceptable for hero/foreground meshes on PC/console"}
-                  - {icon: warn, html: "<strong>100–200 instructions</strong> — expensive; only for primary character or cinematic materials"}
-                  - {icon: no,   html: "<strong>&gt;200 instructions</strong> — only acceptable in offline/cinematic contexts; optimize aggressively"}
+                  - icon: ok
+                    html: "<strong>&lt;100 instructions</strong> — lightweight; safe for high-density meshes, foliage, decals, and mobile"
+                    detail: "Virtually anything works here. Good target for repeated/instanced assets like foliage, ground tiles, or props that tile across a scene."
+                  - icon: ok
+                    html: "<strong>100–300 instructions</strong> — moderate; standard for hero props, characters, and environment hero assets on PC/console"
+                    detail: "This is where most well-authored materials live. Perfectly acceptable with good texture packing. Texture bandwidth will likely cost more than the instruction count here."
+                  - icon: warn
+                    html: "<strong>300–500 instructions</strong> — expensive; needs justification — reserve for hero characters, complex VFX, or featured surfaces"
+                    detail: "Fine when the asset earns it (a primary character or hero vehicle). Watch pixel coverage: a 400-instruction full-screen fog effect is far heavier than a 400-instruction prop."
+                  - icon: warn
+                    html: "<strong>500+ instructions</strong> — very expensive; usually translucency, complex shading, or layered VFX — profile before shipping"
+                    detail: "Translucent water, volumetric fog materials, or heavily layered landscape shaders often land here. The cost is real but sometimes justified. Always verify with stat gpu and Shader Complexity view — instruction count alone won't tell you if it's a problem."
+
+          - color: yellow
+            title: "Instruction Count ≠ Real Cost"
+            content:
+              - type: checklist
+                items:
+                  - icon: warn
+                    html: "<strong>Texture samples dominate bandwidth</strong> — a single texture fetch can cost more than dozens of ALU instructions"
+                    detail: "Each Texture2DSample stalls the shader while waiting for memory. On mobile the hard cap is 16 samplers. Pack channels (R=Rough, G=Metal, B=AO) to cut sample count before chasing instruction count."
+                  - icon: warn
+                    html: "<strong>Pixel coverage scales cost linearly</strong> — a 200-instruction full-screen effect costs 10× more than a 200-instruction small prop"
+                    detail: "Instructions × pixels shaded = actual GPU load. Use Shader Complexity view (viewport display mode) to spot high-coverage surfaces — they show as red regardless of low instruction counts."
+                  - icon: arrow
+                    html: "<strong>Blend mode matters more than count</strong> — Translucent draws the surface multiple times per overdraw layer; Opaque does not"
+                    detail: "Translucency bypasses the depth buffer, so every overlapping translucent surface is shaded again. A 50-instruction translucent VFX sheet covering the screen costs more than a 300-instruction opaque character."
+                  - icon: arrow
+                    html: "<strong>Profile with stat gpu, not just Stats panel</strong> — instruction count is a proxy; GPU milliseconds are the truth"
+                    detail: "Window → Stats shows instruction counts before GPU execution. Use stat gpu in-editor and watch BasePass (opaque) and Translucency (glass/particles) rows for real frame-time cost."
 
           - color: yellow
             title: "Sampler &amp; Permutation Cost"

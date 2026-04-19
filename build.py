@@ -530,6 +530,7 @@ _PAGES = [
     ("materials.html", "materials", "MATERIALS"),
     ("niagara.html",   "niagara",   "NIAGARA"),
     ("shaders.html",   "shaders",   "SHADERS"),
+    ("visuals.html",   "visuals",   "VISUALS"),
 ]
 
 

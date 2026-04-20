@@ -101,6 +101,7 @@
             - {icon: no,   html: "<strong>Never-ending loops without culling</strong> — idle GPU dispatches drain budget even when nothing is visible"}
             - {icon: no,   html: "<strong>Full-screen translucent quads</strong> — overdraw × material cost is your largest GPU risk"}
             - {icon: no,   html: "<strong>Dynamic bounding boxes</strong> — force GPU to re-derive bounds every frame; switch to Fixed Bounds for stable sims"}
+            - {icon: warn, cost: moderate, html: "<strong>Minimise User Parameters per system</strong> — each param adds an entry to the <code>FNiagaraParameterStore</code> copied per active instance; setting many params from Blueprint every frame marks the store dirty and can trigger a GPU constant-buffer rebind per dispatch"}
             - {icon: warn, html: "<strong>Keep translucency under <m>3ms</m></strong> — additive across all FX; check <code>stat gpu</code>"}
             - {icon: warn, html: "<strong>No Significance Handler without Effect Type</strong> — budget overruns go unmanaged; add Effect Type first"}
 

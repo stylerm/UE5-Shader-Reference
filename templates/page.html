@@ -847,8 +847,12 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     var ctx = canvas.getContext('2d');
     /* offscreen canvas — used for the RGBA composite to isolate
        destination-in masking from the background */
-    var off = document.createElement('canvas');
-    var offCtx = off.getContext('2d');
+    var off     = document.createElement('canvas');
+    var offCtx  = off.getContext('2d');
+    /* second offscreen — builds the combined A-channel mask so that
+       destination-in is applied exactly once, not once-per-spot */
+    var mask    = document.createElement('canvas');
+    var maskCtx = mask.getContext('2d');
     var activeCh = 'rgb';
     var LABELS = {
       rgb:'RGB COMPOSITE', rgba:'RGBA — ALPHA APPLIED',
@@ -946,23 +950,30 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
         drawCh(offCtx, 'b', 0, 0, CW, drawH);
         offCtx.globalCompositeOperation = 'source-over';
 
-        /* 3. Apply A channel as the alpha mask using destination-in.
-              destination-in keeps dst (RGB composite) only where src (A mask)
-              has opacity — result_alpha = dst_alpha × src_alpha.
-              Emissive spots are opaque → RGB stays.
-              Black background → fully transparent → checkerboard shows. */
-        offCtx.globalCompositeOperation = 'destination-in';
+        /* 3. Build the full A-channel mask on the mask canvas first.
+              All spots are drawn with normal source-over so they accumulate
+              additively.  Then we apply the combined mask to the RGB composite
+              in a single destination-in drawImage call.
+              destination-in: result_alpha = dst_alpha × src_alpha
+                → RGB pixels stay where the mask is opaque (spot centres)
+                → RGB pixels disappear where the mask is transparent (gaps)
+                → checkerboard shows through the transparent gaps */
+        if (mask.width !== CW || mask.height !== CH) { mask.width = CW; mask.height = CH; }
+        maskCtx.clearRect(0, 0, CW, CH);
         SPOTS.forEach(function(s) {
-          var gA = offCtx.createRadialGradient(
+          var gA = maskCtx.createRadialGradient(
             CW * s[0], drawH * s[1], 0,
             CW * s[0], drawH * s[1], CW * s[2]
           );
           gA.addColorStop(0,   'rgba(255,255,255,0.95)');
           gA.addColorStop(0.5, 'rgba(255,255,255,0.50)');
           gA.addColorStop(1,   'rgba(255,255,255,0)');
-          offCtx.fillStyle = gA;
-          offCtx.fillRect(0, 0, CW, drawH);
+          maskCtx.fillStyle = gA;
+          maskCtx.fillRect(0, 0, CW, drawH);
         });
+        /* single destination-in pass — avoids the intersection-of-N-masks bug */
+        offCtx.globalCompositeOperation = 'destination-in';
+        offCtx.drawImage(mask, 0, 0);
         offCtx.globalCompositeOperation = 'source-over';
 
         /* 4. Composite the masked RGB onto the checkerboard */

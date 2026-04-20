@@ -1164,15 +1164,29 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
 (function() {
   var roots = document.querySelectorAll('[data-viz-channels]');
   if (!roots.length) return;
+  /* Emissive spot positions — shared between the A-channel draw and the
+     RGBA alpha-mask so both are always in sync. */
+  var SPOTS = [[0.25,0.30,0.12],[0.70,0.62,0.10],[0.50,0.76,0.08],[0.15,0.66,0.07],[0.80,0.24,0.09]];
   function hydrate(root) {
     var canvas = root.querySelector('[data-canvas]');
     var chBtns = root.querySelectorAll('[data-ch]');
     var chipCh = root.querySelector('[data-chip-ch]');
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
+    /* offscreen canvas — used for the RGBA composite to isolate
+       destination-in masking from the background */
+    var off     = document.createElement('canvas');
+    var offCtx  = off.getContext('2d');
+    /* second offscreen — builds the combined A-channel mask so that
+       destination-in is applied exactly once, not once-per-spot */
+    var mask    = document.createElement('canvas');
+    var maskCtx = mask.getContext('2d');
     var activeCh = 'rgb';
-    var LABELS = { rgb:'RGB COMPOSITE', r:'R — ROUGHNESS', g:'G — HEIGHT MAP', b:'B — AMBIENT OCCLUSION', a:'A — EMISSIVE MASK' };
-    var TINTS  = { r:[255,87,87], g:[184,255,87], b:[0,229,255], a:[255,179,71] };
+    var LABELS = {
+      rgb:'RGB COMPOSITE', rgba:'RGBA — ALPHA APPLIED',
+      r:'R — ROUGHNESS', g:'G — HEIGHT MAP', b:'B — AMBIENT OCCLUSION', a:'A — EMISSIVE MASK'
+    };
+    var TINTS = { r:[255,87,87], g:[184,255,87], b:[0,229,255], a:[255,179,71] };
     chBtns.forEach(function(btn) {
       btn.addEventListener('click', function() {
         activeCh = btn.getAttribute('data-ch');
@@ -1182,50 +1196,139 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
         draw();
       });
     });
-    function drawCh(ch, x, y, w, h) {
-      ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+
+    /* drawCh — renders one channel pattern into tCtx at rect (x,y,w,h).
+       Takes an explicit context so it works on both main and offscreen. */
+    function drawCh(tCtx, ch, x, y, w, h) {
+      tCtx.save(); tCtx.beginPath(); tCtx.rect(x, y, w, h); tCtx.clip();
       var cx = x + w*0.5, cy = y + h*0.5;
       if (ch === 'r') {
-        var g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w,h)*0.62);
+        var g1 = tCtx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w,h)*0.62);
         g1.addColorStop(0, '#ff5757'); g1.addColorStop(0.5, '#8a1a1a'); g1.addColorStop(1, '#1a0505');
-        ctx.fillStyle = g1; ctx.fillRect(x, y, w, h);
+        tCtx.fillStyle = g1; tCtx.fillRect(x, y, w, h);
         for (var ri = 1; ri <= 3; ri++) {
-          ctx.strokeStyle = 'rgba(255,120,120,0.2)'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.arc(cx, cy, ri * Math.min(w,h)*0.16, 0, Math.PI*2); ctx.stroke();
+          tCtx.strokeStyle = 'rgba(255,120,120,0.2)'; tCtx.lineWidth = 1;
+          tCtx.beginPath(); tCtx.arc(cx, cy, ri * Math.min(w,h)*0.16, 0, Math.PI*2); tCtx.stroke();
         }
       } else if (ch === 'g') {
-        ctx.fillStyle = '#070a0f'; ctx.fillRect(x, y, w, h);
+        tCtx.fillStyle = '#070a0f'; tCtx.fillRect(x, y, w, h);
         for (var band = 0; band < h; band++) {
-          var t = (band) / h;
-          var v = Math.sin(t * Math.PI * 5) * 0.5 + 0.5;
-          ctx.fillStyle = 'rgba(184,255,87,' + (v * 0.85) + ')';
-          ctx.fillRect(x, y + band, w, 1);
+          var tt = band / h;
+          var v = Math.sin(tt * Math.PI * 5) * 0.5 + 0.5;
+          tCtx.fillStyle = 'rgba(184,255,87,' + (v * 0.85) + ')';
+          tCtx.fillRect(x, y + band, w, 1);
         }
       } else if (ch === 'b') {
-        var g2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w,h)*0.65);
+        var g2 = tCtx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w,h)*0.65);
         g2.addColorStop(0, 'rgba(180,220,255,0.9)'); g2.addColorStop(0.5, 'rgba(40,80,130,0.7)'); g2.addColorStop(1, 'rgba(4,8,14,0.95)');
-        ctx.fillStyle = g2; ctx.fillRect(x, y, w, h);
+        tCtx.fillStyle = g2; tCtx.fillRect(x, y, w, h);
       } else if (ch === 'a') {
-        ctx.fillStyle = '#05070c'; ctx.fillRect(x, y, w, h);
-        [[0.25,0.30,0.12],[0.70,0.62,0.10],[0.50,0.76,0.08],[0.15,0.66,0.07],[0.80,0.24,0.09]].forEach(function(s) {
-          var g3 = ctx.createRadialGradient(x+w*s[0], y+h*s[1], 0, x+w*s[0], y+h*s[1], w*s[2]);
+        tCtx.fillStyle = '#05070c'; tCtx.fillRect(x, y, w, h);
+        SPOTS.forEach(function(s) {
+          var g3 = tCtx.createRadialGradient(x+w*s[0], y+h*s[1], 0, x+w*s[0], y+h*s[1], w*s[2]);
           g3.addColorStop(0, 'rgba(255,200,80,0.95)'); g3.addColorStop(0.5, 'rgba(255,130,40,0.5)'); g3.addColorStop(1, 'rgba(200,80,0,0)');
-          ctx.fillStyle = g3; ctx.fillRect(x, y, w, h);
+          tCtx.fillStyle = g3; tCtx.fillRect(x, y, w, h);
         });
       }
-      ctx.restore();
+      tCtx.restore();
     }
+
+    /* drawCheckerboard — standard transparency indicator pattern */
+    function drawCheckerboard(tCtx, x, y, w, h) {
+      var sz = Math.max(4, Math.round(w / 28));
+      for (var ry = 0; ry < h; ry += sz) {
+        for (var rx = 0; rx < w; rx += sz) {
+          tCtx.fillStyle = ((Math.floor(ry/sz) + Math.floor(rx/sz)) % 2 === 0) ? '#1c2030' : '#0d1018';
+          tCtx.fillRect(x + rx, y + ry, Math.min(sz, w-rx), Math.min(sz, h-ry));
+        }
+      }
+    }
+
     function draw() {
       var dpr = _vizFitCanvas(canvas);
       var CW = canvas.width, CH = canvas.height;
+      if (off.width !== CW || off.height !== CH) { off.width = CW; off.height = CH; }
       ctx.clearRect(0, 0, CW, CH);
       ctx.fillStyle = '#07090e'; ctx.fillRect(0, 0, CW, CH);
       var LH = Math.round(20*dpr), drawH = CH - LH;
-      if (activeCh === 'rgb') {
+
+      if (activeCh === 'rgba') {
+        /* ── RGBA composite ──────────────────────────────────────────────────
+           Shows what the packed texture looks like when the A channel is used
+           as actual alpha/transparency.  The checkerboard behind makes the
+           transparent regions visible — just as it does in Photoshop/Substance.
+
+           GPU equivalent:
+             float4 packed = Texture2DSample(Tex, Smp, uv);
+             float3 rgb    = packed.rgb;        // colour / data channels
+             float  a      = packed.a;          // emissive mask → opacity
+             return float4(rgb, a);             // alpha-blended output
+        ── */
+
+        /* 1. Checkerboard fills the full draw area — shows through wherever
+              the texture is transparent */
+        drawCheckerboard(ctx, 0, 0, CW, drawH);
+
+        /* 2. Draw the three data channels screen-blended onto offscreen
+              so all channels are visible in one composite image */
+        offCtx.clearRect(0, 0, CW, CH);
+        drawCh(offCtx, 'r', 0, 0, CW, drawH);
+        offCtx.globalCompositeOperation = 'screen';
+        drawCh(offCtx, 'g', 0, 0, CW, drawH);
+        drawCh(offCtx, 'b', 0, 0, CW, drawH);
+        offCtx.globalCompositeOperation = 'source-over';
+
+        /* 3. Build the full A-channel mask on the mask canvas first.
+              All spots are drawn with normal source-over so they accumulate
+              additively.  Then we apply the combined mask to the RGB composite
+              in a single destination-in drawImage call.
+              destination-in: result_alpha = dst_alpha × src_alpha
+                → RGB pixels stay where the mask is opaque (spot centres)
+                → RGB pixels disappear where the mask is transparent (gaps)
+                → checkerboard shows through the transparent gaps */
+        if (mask.width !== CW || mask.height !== CH) { mask.width = CW; mask.height = CH; }
+        maskCtx.clearRect(0, 0, CW, CH);
+        SPOTS.forEach(function(s) {
+          var gA = maskCtx.createRadialGradient(
+            CW * s[0], drawH * s[1], 0,
+            CW * s[0], drawH * s[1], CW * s[2]
+          );
+          gA.addColorStop(0,   'rgba(255,255,255,0.95)');
+          gA.addColorStop(0.5, 'rgba(255,255,255,0.50)');
+          gA.addColorStop(1,   'rgba(255,255,255,0)');
+          maskCtx.fillStyle = gA;
+          maskCtx.fillRect(0, 0, CW, drawH);
+        });
+        /* single destination-in pass — avoids the intersection-of-N-masks bug */
+        offCtx.globalCompositeOperation = 'destination-in';
+        offCtx.drawImage(mask, 0, 0);
+        offCtx.globalCompositeOperation = 'source-over';
+
+        /* 4. Composite the masked RGB onto the checkerboard */
+        ctx.drawImage(off, 0, 0);
+
+        /* 5. Thin emissive-orange border on each spot to aid identification */
+        ctx.save();
+        SPOTS.forEach(function(s) {
+          ctx.strokeStyle = 'rgba(255,179,71,0.30)'; ctx.lineWidth = dpr;
+          ctx.beginPath();
+          ctx.arc(CW*s[0], drawH*s[1], CW*s[2]*0.95, 0, Math.PI*2);
+          ctx.stroke();
+        });
+        ctx.restore();
+
+        /* 6. Label row */
+        ctx.fillStyle = '#07090e'; ctx.fillRect(0, drawH, CW, LH);
+        ctx.fillStyle = 'rgba(255,179,71,0.85)';
+        ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('RGBA — A channel applied as alpha · checkerboard = transparent · R+G+B screen-blended', Math.round(8*dpr), drawH + Math.round(14*dpr));
+
+      } else if (activeCh === 'rgb') {
+        /* four channels side by side */
         var pw = Math.floor(CW / 4);
         ['r','g','b','a'].forEach(function(ch, i) {
           var px2 = i * pw, pw2 = i === 3 ? CW - i*pw : pw;
-          drawCh(ch, px2, 0, pw2, drawH);
+          drawCh(ctx, ch, px2, 0, pw2, drawH);
           ctx.fillStyle = '#070a0e'; ctx.fillRect(px2, drawH, pw2, LH);
           var tc = TINTS[ch];
           ctx.fillStyle = 'rgba(' + tc[0] + ',' + tc[1] + ',' + tc[2] + ',0.8)';
@@ -1234,14 +1337,15 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
           if (i > 0) { ctx.strokeStyle = 'rgba(15,20,30,0.9)'; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(px2,0); ctx.lineTo(px2,CH); ctx.stroke(); }
         });
       } else {
+        /* left = RGB composite overlay, right = isolated channel */
         var half = Math.floor(CW / 2);
-        ['r','g','b','a'].forEach(function(ch) { drawCh(ch, 0, 0, half, drawH); });
-        // tint overlay to distinguish composite
+        ['r','g','b','a'].forEach(function(ch) { drawCh(ctx, ch, 0, 0, half, drawH); });
         ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, 0, half, drawH);
         ctx.fillStyle = '#070a0e'; ctx.fillRect(0, drawH, half, LH);
-        ctx.fillStyle = 'rgba(200,210,220,0.55)'; ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(200,210,220,0.55)';
+        ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
         ctx.fillText('RGB COMPOSITE', Math.round(5*dpr), drawH + Math.round(14*dpr));
-        drawCh(activeCh, half, 0, CW - half, drawH);
+        drawCh(ctx, activeCh, half, 0, CW - half, drawH);
         var tc2 = TINTS[activeCh];
         ctx.fillStyle = '#070a0e'; ctx.fillRect(half, drawH, CW - half, LH);
         ctx.fillStyle = 'rgba(' + tc2[0] + ',' + tc2[1] + ',' + tc2[2] + ',0.85)';

@@ -437,6 +437,296 @@ def render_area_wrapper_close() -> str:
     return '</div>\n'
 
 
+def render_viz_tbn(block: dict) -> str:
+    number  = html_mod.escape(str(block.get("number", "07")))
+    title   = html_mod.escape(block.get("title", "Coord Spaces · TBN → World → View"))
+    caption = block.get("caption", "")
+    # caption allows inline <code>/<strong> so don't escape — authors control it
+    return (
+        '<div class="viz viz-tbn" data-viz-tbn>\n'
+        f'  <div class="viz-header">'
+        f'<span class="viz-num">{number}</span>'
+        f'<span class="viz-title">{title}</span>'
+        '</div>\n'
+        '  <div class="viz-chips" data-viz-chips>'
+        '<span class="viz-chip viz-chip-state" data-chip-state>TANGENT</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>T tangent</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>B bitangent</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>N normal</span>'
+        '<span class="viz-chip viz-chip-meta" data-chip-meta>BASIS T↦B↦N · HANDED RIGHT</span>'
+        '</div>\n'
+        '  <div class="viz-body">\n'
+        '    <svg class="viz-svg" viewBox="0 0 560 320" preserveAspectRatio="xMidYMid meet" aria-label="Coordinate-space basis vectors">\n'
+        '      <defs>\n'
+        '        <marker id="viz-arrow-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">\n'
+        '          <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6b35"/></marker>\n'
+        '        <marker id="viz-arrow-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">\n'
+        '          <path d="M 0 0 L 10 5 L 0 10 z" fill="#b8ff57"/></marker>\n'
+        '        <marker id="viz-arrow-n" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">\n'
+        '          <path d="M 0 0 L 10 5 L 0 10 z" fill="#00e5ff"/></marker>\n'
+        '      </defs>\n'
+        '      <g data-viz-grid></g>\n'
+        '      <g data-viz-patch></g>\n'
+        '      <g data-viz-vectors>\n'
+        '        <line data-vec="t" x1="280" y1="200" x2="280" y2="200" stroke="#ff6b35" stroke-width="3" marker-end="url(#viz-arrow-t)"/>\n'
+        '        <line data-vec="b" x1="280" y1="200" x2="280" y2="200" stroke="#b8ff57" stroke-width="3" marker-end="url(#viz-arrow-b)"/>\n'
+        '        <line data-vec="n" x1="280" y1="200" x2="280" y2="200" stroke="#00e5ff" stroke-width="3" marker-end="url(#viz-arrow-n)"/>\n'
+        '        <text data-lbl="t" fill="#ff6b35" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">T</text>\n'
+        '        <text data-lbl="b" fill="#b8ff57" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">B</text>\n'
+        '        <text data-lbl="n" fill="#00e5ff" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">N</text>\n'
+        '      </g>\n'
+        '      <g data-viz-uv style="display:none">\n'
+        '        <rect x="180" y="60" width="160" height="160" fill="none" stroke="#1e2530" stroke-width="1"/>\n'
+        '        <rect x="180" y="60" width="160" height="160" fill="url(#viz-uv-pat)"/>\n'
+        '        <text x="170" y="64" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11" data-uv-top>1</text>\n'
+        '        <text x="170" y="224" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11" data-uv-bot>0</text>\n'
+        '        <text x="180" y="245" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11">u 0</text>\n'
+        '        <text x="340" y="245" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11">u 1</text>\n'
+        '        <text x="260" y="150" text-anchor="middle" fill="#cdd6e0" font-family="JetBrains Mono, monospace" font-size="14" data-uv-label>Shadertoy (Y-up)</text>\n'
+        '      </g>\n'
+        '      <defs>\n'
+        '        <pattern id="viz-uv-pat" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">\n'
+        '          <rect width="40" height="40" fill="#0e131a"/>\n'
+        '          <path d="M 0 0 H 40 M 0 0 V 40" stroke="#1e2530" stroke-width="1"/>\n'
+        '        </pattern>\n'
+        '      </defs>\n'
+        '    </svg>\n'
+        '    <div class="viz-caption">' + caption + '</div>\n'
+        '  </div>\n'
+        '  <div class="viz-controls">\n'
+        '    <div class="viz-steps" role="tablist">\n'
+        '      <button class="viz-step active" data-step="0" type="button">1 · TANGENT</button>\n'
+        '      <button class="viz-step" data-step="1" type="button">2 · OBJECT</button>\n'
+        '      <button class="viz-step" data-step="2" type="button">3 · WORLD</button>\n'
+        '      <button class="viz-step" data-step="3" type="button">4 · VIEW</button>\n'
+        '      <button class="viz-step" data-step="4" type="button">5 · UV (Shadertoy)</button>\n'
+        '    </div>\n'
+        '    <div class="viz-toggles">\n'
+        '      <button class="viz-toggle" data-play type="button">▶ PLAY</button>\n'
+        '      <button class="viz-toggle" data-toggle-handed type="button">HANDED: RIGHT</button>\n'
+        '      <button class="viz-toggle" data-toggle-yflip type="button">Y-FLIP: OFF</button>\n'
+        '    </div>\n'
+        '  </div>\n'
+        '</div>\n'
+    )
+
+
+def render_viz_interp(block: dict) -> str:
+    """Lerp vs Smoothstep vs Step — three side-by-side SVG plots driven by a
+    shared `t` slider. The IIFE in templates/page.html hydrates [data-viz-interp]
+    elements: draws the curves, tracks a vertical marker, updates the readout."""
+    number  = html_mod.escape(str(block.get("number", "01")))
+    title   = html_mod.escape(block.get("title", "Lerp vs Smoothstep vs Step"))
+    caption = block.get("caption", "")
+
+    def plot(kind: str, formula: str, dot_class: str) -> str:
+        return (
+            f'    <div class="viz-plot" data-plot="{kind}">\n'
+            f'      <div class="viz-plot-label"><span class="viz-dot {dot_class}"></span>{kind}</div>\n'
+            f'      <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid meet" class="viz-plot-svg">\n'
+            f'        <rect x="0" y="0" width="160" height="120" fill="#0a0d12"/>\n'
+            f'        <g stroke="#1e2530" stroke-width="0.5" fill="none">\n'
+            f'          <line x1="16" y1="12"  x2="152" y2="12"/>\n'
+            f'          <line x1="16" y1="46"  x2="152" y2="46"/>\n'
+            f'          <line x1="16" y1="80"  x2="152" y2="80"/>\n'
+            f'          <line x1="16" y1="108" x2="152" y2="108"/>\n'
+            f'        </g>\n'
+            f'        <path data-curve d="" fill="none" stroke-width="2"/>\n'
+            f'        <line data-marker x1="16" y1="12" x2="16" y2="108" stroke="#cdd6e0" stroke-width="0.8" stroke-dasharray="2 3"/>\n'
+            f'        <circle data-dot cx="16" cy="108" r="3" fill="#cdd6e0"/>\n'
+            f'        <text x="12" y="16"  text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">1</text>\n'
+            f'        <text x="12" y="112" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">0</text>\n'
+            f'      </svg>\n'
+            f'      <div class="viz-plot-formula"><code>{formula}</code></div>\n'
+            f'      <div class="viz-plot-out"><span data-out>—</span></div>\n'
+            f'    </div>\n'
+        )
+
+    plots = (
+        plot("STEP",       "step(0.5, t)",            "t")
+      + plot("LERP",       "lerp(0, 1, t)",           "b")
+      + plot("SMOOTHSTEP", "smoothstep(0, 1, t)",     "n")
+    )
+
+    return (
+        '<div class="viz viz-interp" data-viz-interp>\n'
+        f'  <div class="viz-header">'
+        f'<span class="viz-num">{number}</span>'
+        f'<span class="viz-title">{title}</span>'
+        '</div>\n'
+        '  <div class="viz-chips">'
+        '<span class="viz-chip viz-chip-state" data-chip-t>t = 0.50</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>step = 1</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>lerp = 0.50</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>smoothstep = 0.50</span>'
+        '</div>\n'
+        '  <div class="viz-body">\n'
+        '    <div class="viz-plots">\n'
+        f'{plots}'
+        '    </div>\n'
+        '    <div class="viz-slider-row">\n'
+        '      <span class="viz-slider-label">t</span>\n'
+        '      <input type="range" min="0" max="1000" value="500" step="1" data-slider aria-label="interpolation parameter t">\n'
+        '      <span class="viz-slider-val" data-slider-val>0.500</span>\n'
+        '    </div>\n'
+        '    <div class="viz-caption">' + caption + '</div>\n'
+        '  </div>\n'
+        '</div>\n'
+    )
+
+
+def _viz_canvas_shell(
+    block: dict,
+    tag: str,
+    default_num: str,
+    default_title: str,
+    chips_html: str,
+    controls_html: str,
+) -> str:
+    """Shared wrapper for canvas-based visualizers."""
+    number  = html_mod.escape(str(block.get("number", default_num)))
+    title   = html_mod.escape(block.get("title", default_title))
+    caption = block.get("caption", "")
+    return (
+        f'<div class="viz {tag}" data-{tag}>\n'
+        f'  <div class="viz-header">'
+        f'<span class="viz-num">{number}</span>'
+        f'<span class="viz-title">{title}</span>'
+        f'</div>\n'
+        f'  <div class="viz-chips">{chips_html}</div>\n'
+        f'  <div class="viz-body">\n'
+        f'    <canvas class="viz-canvas" data-canvas></canvas>\n'
+        f'    <div class="viz-caption">{caption}</div>\n'
+        f'  </div>\n'
+        f'  <div class="viz-controls">\n{controls_html}'
+        f'  </div>\n'
+        f'</div>\n'
+    )
+
+
+def render_viz_depth(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-mode>HARD EDGE</span>'
+        '<span class="viz-chip">depth diff <b data-chip-diff style="color:var(--accent)">—</b></span>'
+        '<span class="viz-chip">opacity <b data-chip-alpha style="color:var(--accent3)">1.00</b></span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-mode="hard" type="button">HARD EDGE</button>\n'
+        '      <button class="viz-step" data-mode="soft" type="button">SOFT FADE</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">FADE</span>\n'
+        '      <input type="range" min="1" max="100" value="30" data-fade-dist aria-label="fade distance">\n'
+        '      <span class="viz-slider-val" data-fade-val>30</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-depth", "02", "Depth Fade · Soft Particles", chips, controls)
+
+
+def render_viz_flipbook(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-frame>FRAME 1 / 16</span>'
+        '<span class="viz-chip" data-chip-fps>FPS 8</span>'
+        '<span class="viz-chip" data-chip-interp>INTERP OFF</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-toggle active" data-interp="off" type="button">INTERP: OFF</button>\n'
+        '      <button class="viz-toggle" data-interp="on" type="button">INTERP: ON</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">FPS</span>\n'
+        '      <input type="range" min="1" max="30" value="8" data-fps aria-label="frames per second">\n'
+        '      <span class="viz-slider-val" data-fps-val>8</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-flipbook", "03", "Sub-UV Flipbook Timing", chips, controls)
+
+
+def render_viz_channels(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-ch>RGB COMPOSITE</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>R = roughness</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>G = height</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>B = AO</span>'
+        '<span class="viz-chip" style="color:var(--accent2)">● A = emissive</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-ch="rgb" type="button">RGB</button>\n'
+        '      <button class="viz-step" data-ch="r" type="button" style="color:#ff5757">R</button>\n'
+        '      <button class="viz-step" data-ch="g" type="button" style="color:#b8ff57">G</button>\n'
+        '      <button class="viz-step" data-ch="b" type="button" style="color:#00e5ff">B</button>\n'
+        '      <button class="viz-step" data-ch="a" type="button" style="color:#ffb347">A</button>\n'
+        '      <button class="viz-step" data-ch="rgba" type="button" style="color:var(--warn)">RGBA</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-channels", "04", "Channel Packing (RGBA)", chips, controls)
+
+
+def render_viz_uvflow(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-mode>PANNER ONLY</span>'
+        '<span class="viz-chip">distortion <b data-chip-str style="color:var(--accent)">0.00</b></span>'
+        '<span class="viz-chip">t = <b data-chip-time style="color:var(--accent3)">0.00</b></span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">DISTORT</span>\n'
+        '      <input type="range" min="0" max="100" value="0" data-strength aria-label="distortion strength">\n'
+        '      <span class="viz-slider-val" data-strength-val>0.00</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-uvflow", "01", "UV Flow / Distortion", chips, controls)
+
+
+def render_viz_burst(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-t>t = 0.0 s</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>rate <b data-chip-rate style="color:var(--accent3)">0</b> alive</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>burst <b data-chip-burst style="color:var(--accent2)">0</b> alive</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-toggle" data-play type="button">▶ PLAY</button>\n'
+        '      <button class="viz-toggle" data-reset type="button">RESET</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-burst", "02", "Spawn Rate vs Burst", chips, controls)
+
+
+def render_viz_sortorder(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-order>BACK-TO-FRONT</span>'
+        '<span class="viz-chip" data-chip-result style="color:var(--accent3)">✓ CORRECT</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-order="btf" type="button">BACK-TO-FRONT</button>\n'
+        '      <button class="viz-step" data-order="ftb" type="button">FRONT-TO-BACK</button>\n'
+        '      <button class="viz-step" data-order="unsorted" type="button">UNSORTED</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-sortorder", "03", "Sort Order Artifacts", chips, controls)
+
+
+def render_viz_precision(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-range>0.000 → 1.000</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>fp32 — smooth</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>fp16 — 10-bit mantissa</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-zoom="full" type="button">0 → 1</button>\n'
+        '      <button class="viz-step" data-zoom="near" type="button">NEAR ZERO</button>\n'
+        '      <button class="viz-step" data-zoom="mid" type="button">MID RANGE</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-precision", "04", "float vs half Precision", chips, controls)
+
+
 def render_block(block: dict) -> str:
     t = block.get("type")
     dispatch = {
@@ -448,6 +738,15 @@ def render_block(block: dict) -> str:
         "prose":       lambda: render_prose(block),
         "nested_grid": lambda: render_nested_grid(block),
         "gotcha":      lambda: render_gotcha(block),
+        "viz-tbn":        lambda: render_viz_tbn(block),
+        "viz-interp":     lambda: render_viz_interp(block),
+        "viz-depth":      lambda: render_viz_depth(block),
+        "viz-flipbook":   lambda: render_viz_flipbook(block),
+        "viz-channels":   lambda: render_viz_channels(block),
+        "viz-uvflow":     lambda: render_viz_uvflow(block),
+        "viz-burst":      lambda: render_viz_burst(block),
+        "viz-sortorder":  lambda: render_viz_sortorder(block),
+        "viz-precision":  lambda: render_viz_precision(block),
         "raw":         lambda: block.get("html", ""),
     }
     fn = dispatch.get(t)
@@ -531,6 +830,7 @@ _PAGES = [
     ("niagara.html",   "niagara",   "NIAGARA"),
     ("shaders.html",   "shaders",   "SHADERS"),
     ("visuals.html",   "visuals",   "VISUALS"),
+    ("fundamentals.html", "fundamentals", "FUNDAMENTALS"),
 ]
 
 
@@ -580,24 +880,35 @@ def build_page(data_file: Path, template: str) -> None:
     # Side nav — on-this-page anchors (supports {divider: "label"} separators).
     # Each link is tagged with data-area="ref" | "optim" so the subpage toggle
     # can filter which anchors are visible.
-    in_optim = False
+    # Determine the starting area from the first themed group on the page. For a
+    # legacy `ref/optim/engine` page this stays "ref"; a fundamentals-style
+    # `beginner/intermediate/advanced` page starts as "beginner". Anchors above
+    # any explicit divider inherit this area.
+    default_area = "ref"
+    if data.get("section_groups"):
+        first_theme = data["section_groups"][0].get("theme")
+        if first_theme:
+            default_area = first_theme
+    current_area = default_area
     link_parts = []
-    # Initial "ON THIS PAGE" divider — tagged as ref so it hides on the optim subpage
+    # Initial "ON THIS PAGE" divider — tagged with the default area so it only
+    # shows on the subpage it belongs to.
     link_parts.append(
-        '<div class="sidenav-divider area-ref"></div>\n'
-        '<span class="sidenav-section area-ref">ON THIS PAGE</span>'
+        f'<div class="sidenav-divider area-{default_area}"></div>\n'
+        f'<span class="sidenav-section area-{default_area}">ON THIS PAGE</span>'
     )
     for a in meta.get("anchors", []):
         if "divider" in a:
-            area = a.get("area", "optim")
+            area = a.get("area", current_area)
             link_parts.append(
                 f'<div class="sidenav-divider area-{area}"></div>\n'
                 f'<span class="sidenav-section area-{area}">{a["divider"]}</span>'
             )
-            in_optim = area == "optim"
+            current_area = area
             continue
-        area_attr = ' data-area="optim"' if in_optim else ' data-area="ref"'
-        link_parts.append(f'<a href="#{a["id"]}"{area_attr}>{a["label"]}</a>')
+        link_parts.append(
+            f'<a href="#{a["id"]}" data-area="{current_area}">{a["label"]}</a>'
+        )
     section_links = "\n".join(link_parts)
 
     # Sidenav subpage switcher — rendered only when the page has 2+ themed

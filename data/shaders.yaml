@@ -151,6 +151,16 @@ section_groups:
                   - {icon: no,   html: "<strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only"}
                   - {icon: warn, html: "<strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits"}
 
+          - color: green
+            title: "See the dispatch geometry"
+            content:
+              - type: raw
+                html: |
+                  <a class="viz-ref" href="visuals.html#threadgroups">
+                    <span class="viz-ref-badge">03</span>
+                    Threadgroup dispatch grid · drag the slider to hit the 65,535 X-axis remap
+                  </a>
+
           - color: blue
             title: "Resource Types"
             content:
@@ -207,6 +217,16 @@ section_groups:
                   - {icon: ok,   html: "<strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes"}
                   - {icon: warn, html: "<strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed"}
                   - {icon: warn, html: "<strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads"}
+
+          - color: orange
+            title: "See thread group layout"
+            content:
+              - type: raw
+                html: |
+                  <a class="viz-ref" href="visuals.html#threadgroups">
+                    <span class="viz-ref-badge">03</span>
+                    Threadgroup dispatch grid · see how X×Y groups tile across the work domain
+                  </a>
 
           - color: green
             title: "TGSM Macro Pattern"

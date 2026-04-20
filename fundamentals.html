@@ -4,13 +4,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards, and compute optimization.">
-<meta property="og:title" content="Shaders — UE5 Shader Cheatsheet">
-<meta property="og:description" content="UE5 .usf/.ush shader file reference — compute shaders, include guards, TGSM, feature level matrix, platform guards, and compute optimization.">
+<meta name="description" content="Skill-tiered walkthroughs for HLSL and Niagara — beginner concepts, intermediate patterns, and advanced engine plumbing, each with an interactive visualizer.">
+<meta property="og:title" content="Fundamentals — UE5 Shader Cheatsheet">
+<meta property="og:description" content="Skill-tiered walkthroughs for HLSL and Niagara — beginner concepts, intermediate patterns, and advanced engine plumbing, each with an interactive visualizer.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0a0c10">
-<title>Shaders — UE5 Shader Cheatsheet</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+<title>Fundamentals — UE5 Shader Cheatsheet</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
@@ -29,32 +29,35 @@
 <span class="sidenav-section">PAGES</span>
 <a href="materials.html">MATERIALS</a>
 <a href="niagara.html">NIAGARA</a>
-<a href="shaders.html" class="active">SHADERS</a>
+<a href="shaders.html">SHADERS</a>
 <a href="visuals.html">VISUALS</a>
-<a href="fundamentals.html">FUNDAMENTALS</a>
+<a href="fundamentals.html" class="active">FUNDAMENTALS</a>
 
 <div class="sidenav-divider"></div>
 <span class="sidenav-section">VIEW</span>
 <div class="sidenav-subpage-tabs" role="tablist" aria-label="Page view">
-<button class="subpage-tab" role="tab" data-subpage="ref" aria-selected="true"><span class="subpage-tab-icon">⚗</span> HLSL Reference</button>
-<button class="subpage-tab" role="tab" data-subpage="optim" aria-selected="false"><span class="subpage-tab-icon">⚡</span> In-Engine Optimization</button>
-<button class="subpage-tab" role="tab" data-subpage="engine" aria-selected="false"><span class="subpage-tab-icon">🔬</span> Engine Internals</button>
+<button class="subpage-tab" role="tab" data-subpage="beginner" aria-selected="true"><span class="subpage-tab-icon">🌱</span> Beginner</button>
+<button class="subpage-tab" role="tab" data-subpage="intermediate" aria-selected="false"><span class="subpage-tab-icon">🌿</span> Intermediate</button>
+<button class="subpage-tab" role="tab" data-subpage="advanced" aria-selected="false"><span class="subpage-tab-icon">🌳</span> Advanced</button>
 </div>
 
-<div class="sidenav-divider area-ref"></div>
-<span class="sidenav-section area-ref">ON THIS PAGE</span>
-<a href="#usf-rules" data-area="ref">USF / USH</a>
-<a href="#compute" data-area="ref">Compute</a>
-<a href="#tgsm" data-area="ref">TGSM</a>
-<a href="#reference" data-area="ref">Reference</a>
-<a href="#sampling" data-area="ref">Sampling</a>
-<div class="sidenav-divider area-optim"></div>
-<span class="sidenav-section area-optim">OPTIMIZATION</span>
-<a href="#compute-perf" data-area="optim">Perf Rules</a>
-<div class="sidenav-divider area-engine"></div>
-<span class="sidenav-section area-engine">ENGINE INTERNALS</span>
-<a href="#dispatch-rules" data-area="engine">Dispatch</a>
-<a href="#platform-perf" data-area="engine">Platform</a>
+<div class="sidenav-divider area-beginner"></div>
+<span class="sidenav-section area-beginner">ON THIS PAGE</span>
+<div class="sidenav-divider area-beginner"></div>
+<span class="sidenav-section area-beginner">BEGINNER</span>
+<a href="#interp" data-area="beginner">Lerp / Smoothstep / Step</a>
+<a href="#depth-fade" data-area="beginner">Depth Fade / Soft Particles</a>
+<a href="#flipbook" data-area="beginner">Sub-UV Flipbook Timing</a>
+<a href="#channels" data-area="beginner">Channel Packing (RGBA)</a>
+<div class="sidenav-divider area-intermediate"></div>
+<span class="sidenav-section area-intermediate">INTERMEDIATE</span>
+<a href="#uvflow" data-area="intermediate">UV Flow / Distortion</a>
+<a href="#burst" data-area="intermediate">Spawn Rate vs Burst</a>
+<a href="#sortorder" data-area="intermediate">Sort Order Artifacts</a>
+<a href="#precision" data-area="intermediate">float vs half Precision</a>
+<div class="sidenav-divider area-advanced"></div>
+<span class="sidenav-section area-advanced">ADVANCED</span>
+<a href="#advanced-coming" data-area="advanced">Coming soon</a>
   </div>
 </nav>
 
@@ -75,310 +78,353 @@
   <!-- Page header -->
   <div class="header">
     <div class="header-left">
-      <span class="header-tag">● Shader Files · Compute · TGSM · Platform Guards</span>
-      <h1>.usf / .ush <span>Shader</span> Reference</h1>
+      <span class="header-tag">● Fundamentals · Learn by Level · Interactive Demos</span>
+      <h1>Shader <span>Fundamentals</span> by Skill Level</h1>
     </div>
     <div class="header-right">
-      Engine: <strong>UE 5.x</strong><br>
-      Context: <strong>.usf · .ush · Compute Shaders</strong><br>
-      Target: <strong>SM5 / SM6 / ES3.1</strong>
+      Audience: <strong>Beginner → Advanced</strong><br>
+      Mode: <strong>Interactive SVG demos</strong><br>
+      Approach: <strong>One concept per demo</strong>
     </div>
   </div>
 
-<section class="subpage" data-subpage="ref" role="tabpanel">
-<div class="area area-ref">
-<div class="area-heading">⚗ HLSL Reference</div>
-<div id="usf-rules" class="section-label" data-priority="high">.usf / .ush File Rules</div>
+<section class="subpage" data-subpage="beginner" role="tabpanel">
+<div class="area area-beginner">
+<div class="area-heading">🌱 Beginner</div>
+<div id="interp" class="section-label">Interpolation — Lerp vs Smoothstep vs Step</div>
 <div class="grid">
-<div class="card blue">
-<div class="card-title"><span class="dot"></span> File Structure Basics</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Use <strong><code>#pragma once</code></strong> or <code>#ifndef</code>/<code>#define</code> include guards</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Include <strong><code>/Engine/Public/Platform.ush</code></strong> as the base header</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Declare module macro: <strong><code>YOURMODULE_API</code></strong></span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Use <strong>virtual shader path</strong> mapping for plugin custom paths</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><code>.ush</code> = header (shared types/helpers) · <code>.usf</code> = source (entry points)</span></div></div></div>
-<div class="card orange">
-<div class="card-title"><span class="dot"></span> Include Guard Pattern</div>
-<pre><span class="c">// Option A: pragma once</span>
-<span class="kw">#pragma</span> once
-
-<span class="c">// Option B: traditional guards</span>
-<span class="kw">#ifndef</span> MY_SHADER_COMMON_USH
-<span class="kw">#define</span> MY_SHADER_COMMON_USH
-
-<span class="kw">#include</span> &quot;/Engine/Public/Platform.ush&quot;
-<span class="kw">#include</span> &quot;/MyPlugin/Private/MyCommon.ush&quot;
-
-<span class="c">// Shared types and helpers here</span>
-<span class="kw">struct</span> FMyData {
-  <span class="kw">float3</span> Position;
-  <span class="kw">float</span>  Radius;
-  <span class="kw">float</span>  Intensity;
-  <span class="kw">uint</span>   Flags;
-};
-
-<span class="kw">#endif</span> <span class="c">// MY_SHADER_COMMON_USH</span></pre></div>
-<div class="card yellow">
-<div class="card-title"><span class="dot"></span> Platform &amp; Feature Guards</div>
-<pre><span class="c">// Feature level guard</span>
-<span class="kw">#if</span> FEATURE_LEVEL &gt;= FEATURE_LEVEL_SM5
-  <span class="c">// SM5+ only code (compute, UAV, etc.)</span>
-<span class="kw">#endif</span>
-
-<span class="c">// SM6-only features</span>
-<span class="kw">#if</span> FEATURE_LEVEL &gt;= FEATURE_LEVEL_SM6
-  <span class="c">// WaveOps, RayQuery, etc.</span>
-<span class="kw">#endif</span>
-
-<span class="c">// Platform-specific</span>
-<span class="kw">#if</span> COMPILER_HLSL
-  <span class="c">// HLSL-specific path</span>
-<span class="kw">#elif</span> COMPILER_GLSL || COMPILER_GLSL_ES3_1
-  <span class="c">// Mobile / OpenGL path</span>
-<span class="kw">#endif</span>
-
-<span class="c">// Vulkan-specific</span>
-<span class="kw">#if</span> VULKAN_PROFILE
-  <span class="c">// Vulkan workarounds</span>
-<span class="kw">#endif</span></pre></div>
-</div>
-
-<div id="compute" class="section-label" data-priority="high">Compute Shader Patterns</div>
-<div class="grid">
-<div class="card green">
-<div class="card-title"><span class="dot"></span> Compute Shader Entry Point</div>
-<pre><span class="kw">#include</span> &quot;/Engine/Public/Platform.ush&quot;
-<span class="kw">#include</span> &quot;/MyPlugin/Private/MyCommon.ush&quot;
-
-<span class="c">// Thread group sizing</span>
-<span class="kw">#define</span> NUM_THREADS_X 8
-<span class="kw">#define</span> NUM_THREADS_Y 8
-
-<span class="c">// Resource bindings</span>
-<span class="kw">Texture2D</span>&lt;<span class="kw">float4</span>&gt;   InputTexture;
-<span class="kw">RWTexture2D</span>&lt;<span class="kw">float4</span>&gt; OutputTexture;
-<span class="kw">uint</span> Resolution;
-
-[<span class="fn">numthreads</span>(NUM_THREADS_X, NUM_THREADS_Y, 1)]
-<span class="kw">void</span> <span class="fn">MainCS</span>(
-    <span class="kw">uint3</span> DispatchThreadID : <span class="kw">SV_DispatchThreadID</span>,
-    <span class="kw">uint3</span> GroupThreadID   : <span class="kw">SV_GroupThreadID</span>,
-    <span class="kw">uint3</span> GroupID         : <span class="kw">SV_GroupID</span>)
-{
-  <span class="kw">uint</span> x = DispatchThreadID.x;
-  <span class="kw">uint</span> y = DispatchThreadID.y;
-  <span class="kw">if</span> (x &gt;= Resolution || y &gt;= Resolution)
-    <span class="kw">return</span>;
-
-  <span class="c">// Read, process, write</span>
-  <span class="kw">float4</span> Val = InputTexture.<span class="fn">Load</span>(<span class="kw">int3</span>(x, y, 0));
-  OutputTexture[<span class="kw">uint2</span>(x, y)] = Val;
-}</pre></div>
-<div class="card red">
-<div class="card-title"><span class="dot"></span> Compute · Common Mistakes</div>
-<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Missing bounds check</strong> — always guard: <code>if (x >= Res || y >= Res) return;</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Wrong dispatch size</strong> — dispatch = ceil(Resolution / ThreadGroupSize)</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>UAV format mismatch</strong> — RWTexture format must match what C++ creates</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Missing barriers</strong> — always <code>GroupMemoryBarrierWithGroupSync()</code> after TGSM writes</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>No <code>ddx</code>/<code>ddy</code></strong> in compute — these are pixel shader only</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Thread group size</strong> — 8×8 is common; 16×16 may exceed shared memory limits</span></div></div></div>
-<div class="card green">
-<div class="card-title"><span class="dot"></span> See the dispatch geometry</div>
-<a class="viz-ref" href="visuals.html#threadgroups">
-  <span class="viz-ref-badge">03</span>
-  Threadgroup dispatch grid · drag the slider to hit the 65,535 X-axis remap
-</a>
-</div>
-<div class="card blue">
-<div class="card-title"><span class="dot"></span> Resource Types</div>
-<div class="row-list"><div class="row"><span class="row-label"><code>Texture2D<T></code></span><span class="row-text">Read-only texture (SRV)</span></div><div class="row"><span class="row-label"><code>RWTexture2D<T></code></span><span class="row-text">Read-write texture (UAV)</span></div><div class="row"><span class="row-label"><code>Buffer<T></code></span><span class="row-text">Read-only typed buffer (SRV)</span></div><div class="row"><span class="row-label"><code>RWBuffer<T></code></span><span class="row-text">Read-write typed buffer (UAV)</span></div><div class="row"><span class="row-label"><code>StructuredBuffer<T></code></span><span class="row-text">Read-only structured buffer</span></div><div class="row"><span class="row-label"><code>RWStructuredBuffer<T></code></span><span class="row-text">Read-write structured buffer</span></div><div class="row"><span class="row-label"><code>SamplerState</code></span><span class="row-text">Texture sampler (bilinear, point, etc.)</span></div></div></div>
-</div>
-
-<div id="tgsm" class="section-label">Thread Group Shared Memory (TGSM)</div>
-<div class="grid">
-<div class="card orange">
-<div class="card-title"><span class="dot"></span> TGSM Pattern</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use <code>groupshared</code> memory to share data between threads in a group, reducing global memory reads:</p><pre><span class="c">// Declare tile cache</span>
-<span class="kw">#define</span> TILE_DIM 10  <span class="c">// 8 + 1-pixel halo each side</span>
-<span class="kw">groupshared</span> <span class="kw">float</span> TileCache[TILE_DIM][TILE_DIM];
-
-<span class="c">// 1. Load tile from global memory</span>
-<span class="kw">int2</span> LoadPos = GroupID.xy * 8
-  + GroupThreadID.xy - 1;  <span class="c">// halo offset</span>
-LoadPos = <span class="fn">clamp</span>(LoadPos,
-  <span class="kw">int2</span>(0,0), <span class="kw">int2</span>(Res-1,Res-1));
-TileCache[GroupThreadID.y][GroupThreadID.x]
-  = SourceGrid.<span class="fn">Load</span>(<span class="kw">int3</span>(LoadPos, 0)).r;
-
-<span class="c">// 2. Sync all threads</span>
-<span class="fn">GroupMemoryBarrierWithGroupSync</span>();
-
-<span class="c">// 3. Read from cache (fast)</span>
-<span class="kw">float</span> Center = TileCache[ly][lx];
-<span class="kw">float</span> Left   = TileCache[ly][lx-1];
-<span class="kw">float</span> Right  = TileCache[ly][lx+1];</pre></div>
-<div class="card yellow">
-<div class="card-title"><span class="dot"></span> TGSM Rules</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong><code>groupshared</code></strong> keyword declares shared memory — visible to all threads in group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Always sync</strong> with <code>GroupMemoryBarrierWithGroupSync()</code> between write and read</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Halo loading</strong> — load 1+ pixel border around tile for stencil operations</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Memory budget</strong> — 32KB per thread group on most GPUs; float[10][10] = 400 bytes</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Bank conflicts</strong> — stride of 32 floats causes conflicts; pad arrays if needed</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Boundary clamping</strong> — halo loads must clamp to grid bounds to avoid OOB reads</span></div></div></div>
-<div class="card orange">
-<div class="card-title"><span class="dot"></span> See thread group layout</div>
-<a class="viz-ref" href="visuals.html#threadgroups">
-  <span class="viz-ref-badge">03</span>
-  Threadgroup dispatch grid · see how X×Y groups tile across the work domain
-</a>
-</div>
-<div class="card green">
-<div class="card-title"><span class="dot"></span> TGSM Macro Pattern</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Use macros to make TGSM reusable across passes:</p><pre><span class="c">// Declare macro for float tiles</span>
-<span class="kw">#define</span> <span class="fn">DECLARE_TILE_CACHE_FLOAT</span>(Name) \
-  <span class="kw">groupshared</span> <span class="kw">float</span> Name[TILE_DIM][TILE_DIM]
-
-<span class="c">// Load macro with scroll compensation</span>
-<span class="kw">#define</span> <span class="fn">LOAD_TILE_SCROLLED</span>(Cache, Tex, ...) \
-  { /* load with offset + <span class="fn">clamp</span> */ \
-    <span class="fn">GroupMemoryBarrierWithGroupSync</span>(); }
-
-<span class="c">// Usage in compute shader</span>
-<span class="fn">DECLARE_TILE_CACHE_FLOAT</span>(SDFCache);
-<span class="fn">LOAD_TILE_SCROLLED</span>(SDFCache, SDFTex, ...);</pre></div>
-</div>
-
-<div id="reference" class="section-label">Quick Reference</div>
-<div class="grid">
-<div class="card blue">
-<div class="card-title"><span class="dot"></span> Feature Level Capabilities</div>
-<table class="table-multi"><thead><tr><th>Feature</th><th>ES3.1</th><th>SM5</th><th>SM6</th></tr></thead><tbody><tr><td data-label="Feature"><strong>Wave Intrinsics</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="bad" data-label="SM5">✗</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>RayQuery / DXR</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="bad" data-label="SM5">✗</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>ddx / ddy</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Bindless Resources</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="bad" data-label="SM5">✗</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>half precision</strong></td><td class="good" data-label="ES3.1">✓</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Compute / UAV</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Geometry Shaders</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>TGSM (groupshared)</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr><tr><td data-label="Feature"><strong>Typed SRV Buffers</strong></td><td class="bad" data-label="ES3.1">✗</td><td class="good" data-label="SM5">✓</td><td class="good" data-label="SM6">✓</td></tr></tbody></table></div>
-<div class="card orange">
-<div class="card-title"><span class="dot"></span> UE Type Keywords &amp; Hints</div>
-<div class="row-list"><div class="row"><span class="row-label"><code>MaterialFloat</code></span><span class="row-text">Adapts precision per platform automatically</span></div><div class="row"><span class="row-label"><code>half / half3</code></span><span class="row-text">16-bit — use on mobile for performance</span></div><div class="row"><span class="row-label"><code>float / float3</code></span><span class="row-text">32-bit — default for PC / console</span></div><div class="row"><span class="row-label"><code>BRANCH</code></span><span class="row-text"><code>[branch]</code> hint — forces dynamic branching</span></div><div class="row"><span class="row-label"><code>FLATTEN</code></span><span class="row-text"><code>[flatten]</code> hint — forces both paths evaluated</span></div><div class="row"><span class="row-label"><code>UNROLL</code></span><span class="row-text"><code>[unroll]</code> — unroll loop at compile time</span></div><div class="row"><span class="row-label"><code>LOOP</code></span><span class="row-text"><code>[loop]</code> — force dynamic loop (required for dynamic bounds)</span></div></div></div>
-<div class="card red">
-<div class="card-title"><span class="dot"></span> Common Shader Errors</div>
-<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body">Matrix multiply order — HLSL is <strong>row-vector × matrix</strong>; GLSL is column-major</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Missing include guard</strong> — double-include causes redefinition errors</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Virtual path mismatch</strong> — <code>/MyPlugin/</code> must match <code>AddShaderSourceDirectoryMapping</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Uninitialized groupshared</strong> — TGSM is undefined until written</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Integer division</strong> — <code>1/2 = 0</code>; cast to float explicitly: <code>1.0/2.0</code></span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Scalar broadcast</strong> — <code>float3(1)</code> is valid HLSL but prefer <code>float3(1,1,1)</code> for clarity; some older compiler versions warn</span></div></div></div>
-</div>
-
-<div id="sampling" class="section-label">Texture Sampling &amp; SDF Patterns</div>
-<div class="grid">
-<div class="card blue">
-<div class="card-title"><span class="dot"></span> Sampling Methods</div>
-<pre><span class="c">// Load (integer coords, no filtering)</span>
-<span class="kw">float4</span> Val = Tex.<span class="fn">Load</span>(<span class="kw">int3</span>(x, y, 0));
-
-<span class="c">// SampleLevel (UV coords, explicit mip)</span>
-<span class="kw">float4</span> Val = Tex.<span class="fn">SampleLevel</span>(Sampler, UV, 0);
-
-<span class="c">// In Material Custom Node:</span>
-<span class="c">// Texture2DSample(Tex, TexSampler, UV)</span>
-<span class="c">// Texture2DSampleLevel(Tex, TexSampler, UV, Lod)</span>
-
-<span class="c">// External texture (registered via GUID)</span>
-<span class="kw">int32</span> TexCode = Compiler-&gt;<span class="fn">ExternalTexture</span>(GUID);
-<span class="kw">int32</span> Sample  = Compiler-&gt;<span class="fn">TextureSample</span>(
-  TexCode, UVCode, SAMPLERTYPE_External);</pre></div>
-<div class="card orange">
-<div class="card-title"><span class="dot"></span> Central-Difference Gradient</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Compute gradient from a scalar field (e.g. SDF distance):</p><pre><span class="c">// Read neighbors</span>
-<span class="kw">float</span> Left  = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(<span class="fn">max</span>(x-1, 0),      y, 0)).r;
-<span class="kw">float</span> Right = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(<span class="fn">min</span>(x+1, Res-1),  y, 0)).r;
-<span class="kw">float</span> Up    = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(x, <span class="fn">max</span>(y-1, 0),      0)).r;
-<span class="kw">float</span> Down  = Grid.<span class="fn">Load</span>(<span class="kw">int3</span>(x, <span class="fn">min</span>(y+1, Res-1),  0)).r;
-
-<span class="c">// Central difference</span>
-<span class="kw">float2</span> Gradient = <span class="kw">float2</span>(Right - Left, Down - Up);
-<span class="kw">float</span>  Len = <span class="fn">length</span>(Gradient);
-<span class="kw">if</span> (Len &gt; 0.001)
-  Gradient /= Len;  <span class="c">// Normalize</span>
-
-<span class="c">// Output: R=dist, GB=direction, A=mag</span>
-OutputRT[Pixel] = <span class="kw">float4</span>(
-  NormDist, Gradient.x, Gradient.y, Len);</pre></div>
-<div class="card green">
-<div class="card-title"><span class="dot"></span> SDF Math Helpers</div>
-<pre><span class="c">// Smooth minimum (polynomial blend)</span>
-<span class="kw">float</span> <span class="fn">SmoothMin</span>(<span class="kw">float</span> a, <span class="kw">float</span> b, <span class="kw">float</span> k)
-{
-  <span class="kw">if</span> (k &lt;= 0.0) <span class="kw">return</span> <span class="fn">min</span>(a, b);
-  <span class="kw">float</span> h = <span class="fn">saturate</span>(0.5 + 0.5 * (b - a) / k);
-  <span class="kw">return</span> <span class="fn">lerp</span>(b, a, h) - k * h * (1.0 - h);
-}
-
-<span class="c">// Distance to point</span>
-<span class="kw">float</span> <span class="fn">PointDist</span>(<span class="kw">float2</span> P, <span class="kw">float2</span> C, <span class="kw">float</span> R)
-{
-  <span class="kw">return</span> <span class="fn">length</span>(P - C) - R;
-}
-
-<span class="c">// Distance to line segment</span>
-<span class="kw">float</span> <span class="fn">SegmentDist</span>(<span class="kw">float2</span> P,
-    <span class="kw">float2</span> A, <span class="kw">float2</span> B, <span class="kw">float</span> R)
-{
-  <span class="kw">float2</span> AB = B - A;
-  <span class="kw">float</span>  t  = <span class="fn">saturate</span>(<span class="fn">dot</span>(P - A, AB) / <span class="fn">dot</span>(AB, AB));
-  <span class="kw">return</span> <span class="fn">length</span>(P - A - AB * t) - R;
-}</pre></div>
-</div>
-
-</div>
-</section>
-<section class="subpage" data-subpage="optim" role="tabpanel">
-<div class="area area-optim">
-<div class="area-heading">⚡ In-Engine Optimization</div>
-<div id="compute-perf" class="section-label">Compute Shader Performance Rules</div>
-<div class="grid">
-<div class="card green">
-<div class="card-title"><span class="dot"></span> Occupancy &amp; ALU</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Target 75%+ GPU occupancy</strong> — reduce register pressure by reusing temporaries and simplifying arithmetic chains</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Thread group size 8×8 (64 threads)</strong> — safe on all targets including mobile ES3.1 and SM5 desktop</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>16×16 (256 threads)</strong> — risks exceeding 32KB shared memory limit on some mobile/integrated GPUs; test explicitly</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Minimize register use</strong> — declare variables inside loop bodies where possible; fewer live registers = higher occupancy</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Avoid branch divergence</strong> — if half the threads take each side of an <code>if</code>, you pay 2× the cost; restructure with <code>lerp</code> / <code>select</code></span></div></div></div>
-<div class="card orange">
-<div class="card-title"><span class="dot"></span> Memory Bandwidth</div>
-<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>TGSM is the primary bandwidth tool</strong> — load a tile of data once into groupshared, read it many times within the group</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Coalesce global reads/writes</strong> — adjacent threads should access adjacent memory addresses (stride-1 access patterns)</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Scattered UAV writes are slow</strong> — random-address writes break GPU memory coalescing; prefer sorted or sequential indices</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Never read/write the same UAV in one dispatch</strong> — use ping-pong buffers (read A, write B; next frame swap)</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Minimize RW texture round-trips</strong> — avoid dispatches that write a texture and immediately read it in the same pass</span></div></div></div>
 <div class="card blue grid-full">
-<div class="card-title"><span class="dot"></span> Thread Group Size Cheat Sheet</div>
-<table class="table-multi"><thead><tr><th>Size</th><th>Threads</th><th>TGSM Budget</th><th>Recommended For</th></tr></thead><tbody><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~1.6KB float</td><td data-label="Recommended For">Safe on all targets — textures, SDF, general 2D</td></tr><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~3.2KB float2</td><td data-label="Recommended For">Gradient / neighbor reads with halo</td></tr><tr><td data-label="Size"><code>16×16×1</code></td><td data-label="Threads">256</td><td data-label="TGSM Budget">~6.4KB float</td><td data-label="Recommended For">PC/SM5+ only — larger tiles, reduce dispatch overhead</td></tr><tr><td data-label="Size"><code>64×1×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">1D passes: histograms, prefix sums, buffer ops</td></tr><tr><td data-label="Size"><code>32×1×1</code></td><td data-label="Threads">32</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">Mobile-safe 1D — matches warp/wavefront size</td></tr></tbody></table></div>
+<div class="card-title"><span class="dot"></span> Interactive — drag the slider</div>
+<div class="viz viz-interp" data-viz-interp>
+  <div class="viz-header"><span class="viz-num">01</span><span class="viz-title">Lerp vs Smoothstep vs Step</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-t>t = 0.50</span><span class="viz-chip"><span class="viz-dot t"></span>step = 1</span><span class="viz-chip"><span class="viz-dot b"></span>lerp = 0.50</span><span class="viz-chip"><span class="viz-dot n"></span>smoothstep = 0.50</span></div>
+  <div class="viz-body">
+    <div class="viz-plots">
+    <div class="viz-plot" data-plot="STEP">
+      <div class="viz-plot-label"><span class="viz-dot t"></span>STEP</div>
+      <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid meet" class="viz-plot-svg">
+        <rect x="0" y="0" width="160" height="120" fill="#0a0d12"/>
+        <g stroke="#1e2530" stroke-width="0.5" fill="none">
+          <line x1="16" y1="12"  x2="152" y2="12"/>
+          <line x1="16" y1="46"  x2="152" y2="46"/>
+          <line x1="16" y1="80"  x2="152" y2="80"/>
+          <line x1="16" y1="108" x2="152" y2="108"/>
+        </g>
+        <path data-curve d="" fill="none" stroke-width="2"/>
+        <line data-marker x1="16" y1="12" x2="16" y2="108" stroke="#cdd6e0" stroke-width="0.8" stroke-dasharray="2 3"/>
+        <circle data-dot cx="16" cy="108" r="3" fill="#cdd6e0"/>
+        <text x="12" y="16"  text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">1</text>
+        <text x="12" y="112" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">0</text>
+      </svg>
+      <div class="viz-plot-formula"><code>step(0.5, t)</code></div>
+      <div class="viz-plot-out"><span data-out>—</span></div>
+    </div>
+    <div class="viz-plot" data-plot="LERP">
+      <div class="viz-plot-label"><span class="viz-dot b"></span>LERP</div>
+      <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid meet" class="viz-plot-svg">
+        <rect x="0" y="0" width="160" height="120" fill="#0a0d12"/>
+        <g stroke="#1e2530" stroke-width="0.5" fill="none">
+          <line x1="16" y1="12"  x2="152" y2="12"/>
+          <line x1="16" y1="46"  x2="152" y2="46"/>
+          <line x1="16" y1="80"  x2="152" y2="80"/>
+          <line x1="16" y1="108" x2="152" y2="108"/>
+        </g>
+        <path data-curve d="" fill="none" stroke-width="2"/>
+        <line data-marker x1="16" y1="12" x2="16" y2="108" stroke="#cdd6e0" stroke-width="0.8" stroke-dasharray="2 3"/>
+        <circle data-dot cx="16" cy="108" r="3" fill="#cdd6e0"/>
+        <text x="12" y="16"  text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">1</text>
+        <text x="12" y="112" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">0</text>
+      </svg>
+      <div class="viz-plot-formula"><code>lerp(0, 1, t)</code></div>
+      <div class="viz-plot-out"><span data-out>—</span></div>
+    </div>
+    <div class="viz-plot" data-plot="SMOOTHSTEP">
+      <div class="viz-plot-label"><span class="viz-dot n"></span>SMOOTHSTEP</div>
+      <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid meet" class="viz-plot-svg">
+        <rect x="0" y="0" width="160" height="120" fill="#0a0d12"/>
+        <g stroke="#1e2530" stroke-width="0.5" fill="none">
+          <line x1="16" y1="12"  x2="152" y2="12"/>
+          <line x1="16" y1="46"  x2="152" y2="46"/>
+          <line x1="16" y1="80"  x2="152" y2="80"/>
+          <line x1="16" y1="108" x2="152" y2="108"/>
+        </g>
+        <path data-curve d="" fill="none" stroke-width="2"/>
+        <line data-marker x1="16" y1="12" x2="16" y2="108" stroke="#cdd6e0" stroke-width="0.8" stroke-dasharray="2 3"/>
+        <circle data-dot cx="16" cy="108" r="3" fill="#cdd6e0"/>
+        <text x="12" y="16"  text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">1</text>
+        <text x="12" y="112" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="8">0</text>
+      </svg>
+      <div class="viz-plot-formula"><code>smoothstep(0, 1, t)</code></div>
+      <div class="viz-plot-out"><span data-out>—</span></div>
+    </div>
+    </div>
+    <div class="viz-slider-row">
+      <span class="viz-slider-label">t</span>
+      <input type="range" min="0" max="1000" value="500" step="1" data-slider aria-label="interpolation parameter t">
+      <span class="viz-slider-val" data-slider-val>0.500</span>
+    </div>
+    <div class="viz-caption">Three interpolants that look similar on paper behave very differently at the edges. Drag the marker to see when each produces a hard seam, a linear ramp, or a smooth falloff.
+</div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> When to reach for each</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><strong>step(edge, x)</strong> — binary cutoff. Use for hard masks, opacity cutouts, or debug visualizations.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><strong>lerp(a, b, t)</strong> — straight-line blend. The workhorse for fades, blends, and mixing two textures.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><strong>smoothstep(e0, e1, x)</strong> — S-curve between two edges. Use for feathered masks, soft transitions, anti-aliased edges.</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> See smoothstep in a real shader</div>
+<a class="viz-ref" href="visuals.html#noise-strip">
+  <span class="viz-ref-badge">06</span>
+  Noise fields (Value / Worley / fBm) · smoothstep drives the colour ramp on all three
+</a>
+</div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common beginner mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Hard seams everywhere.</strong> <code>step()</code> leaves aliased edges. For anti-aliased masks, <code>smoothstep(x-d, x+d, t)</code> gives you a filtered edge with width <code>2d</code>.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Using lerp as a mask.</strong> <code>lerp(a, b, t)</code> is not clamped — if <code>t &gt; 1</code> you overshoot. Use <code>saturate(t)</code> first, or reach for <code>smoothstep</code> which clamps for you.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Smoothstep argument order.</strong> HLSL is <code>smoothstep(edge0, edge1, x)</code> — edges first, then the value. GLSL matches. Getting it backwards silently gives a flat zero.</span></div></div></div>
+</div>
+
+<div id="depth-fade" class="section-label">Depth Fade / Soft Particles</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — toggle hard vs soft, drag fade distance</div>
+<div class="viz viz-depth" data-viz-depth>
+  <div class="viz-header"><span class="viz-num">B2</span><span class="viz-title">Depth Fade / Soft Particles</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-mode>HARD EDGE</span><span class="viz-chip">depth diff <b data-chip-diff style="color:var(--accent)">—</b></span><span class="viz-chip">opacity <b data-chip-alpha style="color:var(--accent3)">1.00</b></span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">A particle quad intersecting scene geometry. Toggle between hard-clip and soft-fade modes, then drag the fade distance slider to see how the contact edge changes.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-step active" data-mode="hard" type="button">HARD EDGE</button>
+      <button class="viz-step" data-mode="soft" type="button">SOFT FADE</button>
+    </div>
+    <div class="viz-slider-row" style="flex:1;min-width:160px;">
+      <span class="viz-slider-label">FADE</span>
+      <input type="range" min="1" max="100" value="30" data-fade-dist aria-label="fade distance">
+      <span class="viz-slider-val" data-fade-val>30</span>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> How depth fade works in UE5</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">The <strong>Depth Fade</strong> material node samples <code>SceneDepth</code> and compares it to the particle's own depth. The difference drives a 0→1 mask.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Pass the mask through <code>smoothstep(0, FadeDistance, diff)</code> for a feathered edge, or <code>step(0, diff)</code> for hard-clip.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">In Niagara, pair with <strong>Sprite Facing</strong> and make sure <em>Translucency Sort Priority</em> is set, or sort artifacts can swallow the fade.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Fade distance too large.</strong> A fade zone larger than the particle radius makes the particle disappear before it fully intersects geometry.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Depth Fade on opaque materials.</strong> The node only works in translucent/additive blend modes; on opaque it silently returns 1.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Using PixelDepth instead of SceneDepth.</strong> <code>PixelDepth</code> is the fragment's own depth — you need <code>SceneDepth</code> (the background) for the comparison.</span></div></div></div>
+</div>
+
+<div id="flipbook" class="section-label">Sub-UV Flipbook Timing</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — adjust FPS and toggle frame interpolation</div>
+<div class="viz viz-flipbook" data-viz-flipbook>
+  <div class="viz-header"><span class="viz-num">B3</span><span class="viz-title">Sub-UV Flipbook Timing</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-frame>FRAME 1 / 16</span><span class="viz-chip" data-chip-fps>FPS 8</span><span class="viz-chip" data-chip-interp>INTERP OFF</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">A 4×4 atlas grid ticks through frames at the chosen FPS. Toggle linear interpolation to see how the ghost overlay smooths the transition — and why low-FPS atlases pop without it.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-toggle active" data-interp="off" type="button">INTERP: OFF</button>
+      <button class="viz-toggle" data-interp="on" type="button">INTERP: ON</button>
+    </div>
+    <div class="viz-slider-row" style="flex:1;min-width:160px;">
+      <span class="viz-slider-label">FPS</span>
+      <input type="range" min="1" max="30" value="8" data-fps aria-label="frames per second">
+      <span class="viz-slider-val" data-fps-val>8</span>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Sub-UV in UE5 materials</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Use the <strong>SubUV</strong> texture sampler or the <strong>SubUV Motion Blur</strong> node in the material to handle atlas tiling automatically.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Drive the frame index from a Niagara <code>SubImageIndex</code> parameter, or compute it as <code>Time * FPS % FrameCount</code> in HLSL.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Linear interpolation (<strong>SubUV Blend Enabled</strong>) blends two consecutive frames. Costs one extra texture sample but eliminates popping at ≤ 24fps.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Frame count mismatch.</strong> If the material's <em>Sub Image Size</em> (e.g. 4,4) doesn't match the atlas layout, frames wrap incorrectly or show seams.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Driving index from world time directly.</strong> <code>Time * FPS</code> is not particle-relative; two particles spawned 1 s apart will be in sync instead of staggered.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Interpolation on a flipbook with alpha.</strong> Linear blending two semi-transparent frames doubles coverage — use <em>premultiplied alpha</em> or disable blend.</span></div></div></div>
+</div>
+
+<div id="channels" class="section-label">Channel Packing (RGBA)</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — click channels to isolate each mask</div>
+<div class="viz viz-channels" data-viz-channels>
+  <div class="viz-header"><span class="viz-num">B4</span><span class="viz-title">Channel Packing — RGBA as 4 Independent Masks</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-ch>RGB COMPOSITE</span><span class="viz-chip"><span class="viz-dot t"></span>R = roughness</span><span class="viz-chip"><span class="viz-dot b"></span>G = height</span><span class="viz-chip"><span class="viz-dot n"></span>B = AO</span><span class="viz-chip" style="color:var(--accent2)">● A = emissive</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">A single texture stores four unrelated grayscale masks in R, G, B, and A. Click the channel buttons to reveal each one. One texture sample, four uses — half your sampler budget.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-step active" data-ch="rgb" type="button">RGB</button>
+      <button class="viz-step" data-ch="r" type="button" style="color:#ff5757">R</button>
+      <button class="viz-step" data-ch="g" type="button" style="color:#b8ff57">G</button>
+      <button class="viz-step" data-ch="b" type="button" style="color:#00e5ff">B</button>
+      <button class="viz-step" data-ch="a" type="button" style="color:#ffb347">A</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> How to read packed channels in HLSL</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Sample once: <code>float4 packed = Texture2DSample(Tex, Smp, UV);</code></span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Then unpack: <code>packed.r</code> = roughness, <code>packed.g</code> = height, <code>packed.b</code> = AO, <code>packed.a</code> = emissive mask.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">UE5 convention for ORM textures: <strong>R</strong> = Ambient Occlusion, <strong>G</strong> = Roughness, <strong>B</strong> = Metallic. Check your art pipeline — conventions vary.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Packing data with different compression needs.</strong> BC4 compresses one channel optimally; BC7 handles correlated RGB. A roughness map packed with an RGB normal loses quality — keep normals separate.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Forgetting sRGB on packed textures.</strong> Packing maps (roughness, AO, height) should use <em>Linear</em> color space in the Texture Editor. sRGB gamma-corrects the data and breaks your values.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Treating alpha as free storage.</strong> Alpha adds memory overhead on some platforms (BC1 has no alpha; you'd need BC3). Audit compression before packing alpha.</span></div></div></div>
 </div>
 
 </div>
 </section>
-<section class="subpage" data-subpage="engine" role="tabpanel">
-<div class="area area-engine">
-<div class="area-heading">🔬 Engine Internals</div>
-<div id="dispatch-rules" class="section-label">Dispatch &amp; Resource Rules</div>
-<div class="grid grid-2">
-<div class="card orange grid-full">
-<div class="card-title"><span class="dot"></span> Dispatch Setup Rules</div>
-<div class="row-list stacked"><div class="row"><span class="row-label"><code>Dispatch size</code></span><span class="row-text"><code>ceil(Resolution / ThreadGroupSize)</code> — never dispatch without a bounds check inside the shader; out-of-bounds threads must return early</span></div><div class="row"><span class="row-label"><code>Ping-pong buffers</code></span><span class="row-text">Never read and write the same UAV in a single dispatch — use two separate buffers (A and B) and swap which one is read vs written each frame</span></div><div class="row"><span class="row-label"><code>Async compute</code></span><span class="row-text">Overlap GPU work (e.g. shadow depth pass + simulation) using the async compute queue — reduces overall frame latency without extra CPU cost</span></div><div class="row"><span class="row-label"><code>RDG resources</code></span><span class="row-text">Use <code>FRDGBuilder</code> to declare textures and buffers — the Render Dependency Graph handles barrier insertion and lifetime automatically</span></div><div class="row"><span class="row-label"><code>Indirect dispatch</code></span><span class="row-text">Use when dispatch dimensions are determined on the GPU (e.g. particle counts) — avoids an expensive CPU readback stall</span></div></div></div>
-<div class="card yellow">
-<div class="card-title"><span class="dot"></span> RDG (Render Dependency Graph) Patterns</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">UE5 native render pass system — always prefer RDG over manual render commands:</p><pre><span class="c">// Declare RDG texture</span>
-FRDGTextureRef OutputTex = GraphBuilder.<span class="fn">CreateTexture</span>(
-  FRDGTextureDesc::<span class="fn">Create2D</span>(
-    <span class="fn">FIntPoint</span>(Width, Height),
-    PF_FloatRGBA,
-    FClearValueBinding::Black,
-    TexCreate_UAV | TexCreate_ShaderResource),
-  <span class="fn">TEXT</span>(&quot;MyOutputTexture&quot;));
-
-<span class="c">// Pass parameters</span>
-FMyShaderParameters* PassParams =
-  GraphBuilder.AllocParameters&lt;FMyShaderParameters&gt;();
-PassParams-&gt;OutputTexture =
-  GraphBuilder.<span class="fn">CreateUAV</span>(OutputTex);
-
-<span class="c">// Add compute pass</span>
-GraphBuilder.<span class="fn">AddPass</span>(
-  <span class="fn">RDG_EVENT_NAME</span>(&quot;MyComputePass&quot;),
-  PassParams,
-  ERDGPassFlags::Compute,
-  [PassParams, Width, Height](FRHIComputeCommandList&amp; RHICmdList)
-  {
-    <span class="c">// Dispatch here</span>
-  });</pre></div>
-<div class="card blue">
-<div class="card-title"><span class="dot"></span> Profiling Compute Shaders</div>
-<div class="row-list stacked"><div class="row"><span class="row-label"><code>stat gpu</code></span><span class="row-text">Console command — shows GPU time per pass; look for your pass name from <code>RDG_EVENT_NAME</code></span></div><div class="row"><span class="row-label"><code>RenderDoc</code></span><span class="row-text">Frame capture tool — inspect every dispatch, view UAV contents, check thread occupancy</span></div><div class="row"><span class="row-label"><code>GPU Insights (5.4+)</code></span><span class="row-text">Built-in Unreal Insights GPU view — shows compute pass durations on a timeline</span></div><div class="row"><span class="row-label"><code>r.RDG.Debug 1</code></span><span class="row-text">Enables RDG validation — catches missing barriers, resource aliasing, and UAV hazards</span></div><div class="row"><span class="row-label"><code>profilegpu</code></span><span class="row-text">Console command — dumps per-pass GPU timings to the output log</span></div></div></div>
+<section class="subpage" data-subpage="intermediate" role="tabpanel">
+<div class="area area-intermediate">
+<div class="area-heading">🌿 Intermediate</div>
+<div id="uvflow" class="section-label">UV Flow / Distortion</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — drag distortion strength</div>
+<div class="viz viz-uvflow" data-viz-uvflow>
+  <div class="viz-header"><span class="viz-num">I1</span><span class="viz-title">UV Flow / Distortion</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-mode>PANNER ONLY</span><span class="viz-chip">distortion <b data-chip-str style="color:var(--accent)">0.00</b></span><span class="viz-chip">t = <b data-chip-time style="color:var(--accent3)">0.00</b></span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">A panning UV grid with sinusoidal distortion. Drag the strength slider to see how the warp grows — and notice the point where tiling seams become visible.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-slider-row" style="flex:1;min-width:160px;">
+      <span class="viz-slider-label">DISTORT</span>
+      <input type="range" min="0" max="100" value="0" data-strength aria-label="distortion strength">
+      <span class="viz-slider-val" data-strength-val>0.00</span>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> UV flow in UE5 materials</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">The classic two-layer trick: sample a <strong>flow map</strong> texture (stored in RG as -1…+1 offsets), add to UV, then sample your detail texture twice at half-phase and blend.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">In HLSL: <code>float2 flow = FlowTex.Sample(S, uv).rg * 2 - 1;</code> then <code>uv0 = uv + flow * frac(Time * Speed);</code></span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">The <strong>Panner</strong> node handles simple linear flow. For turbulent flow use the <strong>FlowMap</strong> material function shipped with the engine.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Single-layer flow.</strong> Without the two half-phase layers, the texture snaps visibly when it wraps. Use two samples at <code>frac(t)</code> and <code>frac(t + 0.5)</code> and crossfade.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Flow strength too high.</strong> Beyond ~0.3 units the warp tears tiling textures. Clamp with <code>saturate</code> or scale the flow map's contribution.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Non-tiling flow map.</strong> The flow texture itself must tile, or the UV offsets will jump at the seam — use a seamlessly-tiled noise export.</span></div></div></div>
 </div>
 
-<div id="platform-perf" class="section-label">Platform-Specific Performance Notes</div>
-<div class="filter-strip" role="group" aria-label="Filter by tag"><span class="filter-strip-label">Filter:</span><button type="button" class="filter-tag filter-all active" data-tag="" aria-pressed="true">All</button><button type="button" class="filter-tag" data-tag="SM6" aria-pressed="false">SM6</button><button type="button" class="filter-tag" data-tag="Desktop" aria-pressed="false">Desktop</button><button type="button" class="filter-tag" data-tag="Mobile" aria-pressed="false">Mobile</button><button type="button" class="filter-tag" data-tag="ES3.1" aria-pressed="false">ES3.1</button><button type="button" class="filter-tag" data-tag="Vulkan" aria-pressed="false">Vulkan</button><button type="button" class="filter-tag" data-tag="Metal" aria-pressed="false">Metal</button></div>
+<div id="burst" class="section-label">Spawn Rate vs Burst</div>
 <div class="grid">
-<div class="card blue">
-<div class="card-title"><span class="dot"></span> SM5 / SM6 Desktop</div>
-<div class="checklist"><div class="check-item" data-tags="SM6"><span class="check-icon ok">✓</span><span class="check-body"><strong>Wave intrinsics (SM6)</strong> — <code>WaveActiveSum</code>, <code>WaveActiveBallot</code> for prefix sums and culling; no atomic lock needed</span></div><div class="check-item" data-tags="SM6"><span class="check-icon ok">✓</span><span class="check-body"><strong>Bindless resources (SM6)</strong> — large descriptor heaps; avoid per-draw binding changes on DX12 / Vulkan</span></div><div class="check-item" data-tags="Desktop"><span class="check-icon ok">✓</span><span class="check-body"><strong><m>16×16</m> thread groups safe</strong> — desktop GPUs have ≥<m>32KB</m> shared memory and high register files</span></div><div class="check-item" data-tags="SM6"><span class="check-icon warn">!</span><span class="check-body"><strong>RayQuery (SM6)</strong> — only available in compute/pixel shaders with DXR-enabled hardware and feature level SM6</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — play and compare continuous vs burst cost</div>
+<div class="viz viz-burst" data-viz-burst>
+  <div class="viz-header"><span class="viz-num">I2</span><span class="viz-title">Spawn Rate vs Burst</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-t>t = 0.0 s</span><span class="viz-chip"><span class="viz-dot b"></span>rate <b data-chip-rate style="color:var(--accent3)">0</b> alive</span><span class="viz-chip"><span class="viz-dot t"></span>burst <b data-chip-burst style="color:var(--accent2)">0</b> alive</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">Continuous rate emits particles every frame; burst fires all at once. Press PLAY to see how particle count diverges over time — and how burst pierces the frame budget in a single spike.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-toggle" data-play type="button">▶ PLAY</button>
+      <button class="viz-toggle" data-reset type="button">RESET</button>
+    </div>
+  </div>
+</div>
+</div>
 <div class="card orange">
-<div class="card-title"><span class="dot"></span> Mobile (ES3.1)</div>
-<div class="checklist"><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon ok">✓</span><span class="check-body"><strong>Use <code>half</code> precision</strong> — mobile GPUs process 16-bit at <m>2×</m> the throughput of 32-bit</span></div><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon no">✗</span><span class="check-body"><strong>No compute / UAV</strong> on ES3.1 — compute shaders require at minimum Feature Level SM5; mobile = vertex + pixel only</span></div><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon no">✗</span><span class="check-body"><strong>No <code>ddx</code> / <code>ddy</code></strong> — derivatives are unavailable in ES3.1 pixel shaders too; approximate with explicit UV derivatives</span></div><div class="check-item" data-tags="Mobile ES3.1"><span class="check-icon warn">!</span><span class="check-body"><strong><m>16</m> sampler cap</strong> — total texture samples (all stages) must stay under <m>16</m> on most mobile GPUs</span></div><div class="check-item" data-tags="Mobile"><span class="check-icon warn">!</span><span class="check-body"><strong>Test with Mobile Preview</strong> — Editor viewport mode that simulates ES3.1 constraints without a device</span></div></div></div>
-<div class="card yellow">
-<div class="card-title"><span class="dot"></span> Vulkan / Metal Specifics</div>
-<div class="checklist"><div class="check-item" data-tags="Vulkan"><span class="check-icon ok">✓</span><span class="check-body"><strong><code>VULKAN_PROFILE</code> guard</strong> — use for Vulkan-specific workarounds (different NDC, subpass load, etc.)</span></div><div class="check-item" data-tags="Vulkan"><span class="check-icon warn">!</span><span class="check-body"><strong>Explicit memory barriers on Vulkan</strong> — RDG handles these automatically; avoid raw <code>RHICmdList</code> transitions</span></div><div class="check-item" data-tags="Metal"><span class="check-icon warn">!</span><span class="check-body"><strong>Metal tile shaders</strong> — available on Apple Silicon; no direct HLSL equivalent; use UE5 RHI abstraction</span></div><div class="check-item" data-tags="Vulkan"><span class="check-icon ok">✓</span><span class="check-body"><strong>Vulkan subpass inputs</strong> — allows reading previous render pass output without a full texture read; great for deferred passes</span></div></div></div>
+<div class="card-title"><span class="dot"></span> Rate vs burst in Niagara</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><strong>Spawn Rate</strong> emitter: particles enter the pool continuously. Steady CPU/GPU cost, predictable budget impact.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><strong>Spawn Burst Instantaneous</strong>: all particles fire in one frame. Particle count is capped but frame-N has a spike.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">For explosions / one-shot FX, prefer burst — fewer live particles across the effect's lifetime. For ambient smoke / rain, use rate.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>High burst count on a looping emitter.</strong> If the emitter restarts, the burst fires every loop — turns into an unbounded rate spike.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Ignoring Lifetime vs Rate interaction.</strong> <code>ActiveCount ≈ Rate × Lifetime</code>. Doubling lifetime doubles GPU cost for a rate emitter — tune both.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Benchmarking burst FX at frame 0.</strong> The spike is invisible in average profiling; check GPU frame time in the Niagara Debugger on the burst frame.</span></div></div></div>
+</div>
+
+<div id="sortorder" class="section-label">Sort Order Artifacts</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — toggle draw order to see popping</div>
+<div class="viz viz-sortorder" data-viz-sortorder>
+  <div class="viz-header"><span class="viz-num">I3</span><span class="viz-title">Translucent Sort Order Artifacts</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-order>BACK-TO-FRONT</span><span class="viz-chip" data-chip-result style="color:var(--accent3)">✓ CORRECT</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">Three overlapping translucent quads. Toggle draw order to see how back-to-front compositing produces correct blending — and how wrong order causes color popping and ghosting.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-step active" data-order="btf" type="button">BACK-TO-FRONT</button>
+      <button class="viz-step" data-order="ftb" type="button">FRONT-TO-BACK</button>
+      <button class="viz-step" data-order="unsorted" type="button">UNSORTED</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Sort order in UE5</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">UE5 sorts translucent objects by <strong>TranslucencySortPriority</strong> (integer, set per-component) then by camera distance. Same priority → camera-distance sort.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Niagara particle systems have a <strong>Sort Mode</strong> per-emitter: None, View Depth, View Distance, Custom Ascending/Descending.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">For overlapping emitters (e.g. smoke inside fire), set explicit priorities — the further emitter gets a lower priority integer.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Forgetting sort on GPU emitters.</strong> GPU sort adds ALU cost; it's opt-in. Without it, GPU particles draw in spawn order, not depth order.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Mixing Additive and Translucent in one emitter.</strong> Additive ignores sort (it's commutative). If some quads are translucent and some additive, split them into separate emitters.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Per-particle priority via material.</strong> You cannot change sort key per-particle inside a material — sort granularity is per-emitter (or per-component for meshes).</span></div></div></div>
+</div>
+
+<div id="precision" class="section-label">float vs half Precision</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — zoom in to see fp16 banding</div>
+<div class="viz viz-precision" data-viz-precision>
+  <div class="viz-header"><span class="viz-num">I4</span><span class="viz-title">float (fp32) vs half (fp16) Precision</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-range>0.000 → 1.000</span><span class="viz-chip"><span class="viz-dot b"></span>fp32 — smooth</span><span class="viz-chip"><span class="viz-dot t"></span>fp16 — 10-bit mantissa</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">The same gradient rendered at full 32-bit and quantized to 16-bit. Zoom in to reveal where fp16 step boundaries appear — this is the banding you see in dark gradients on mobile.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-step active" data-zoom="full" type="button">0 → 1</button>
+      <button class="viz-step" data-zoom="near" type="button">NEAR ZERO</button>
+      <button class="viz-step" data-zoom="mid" type="button">MID RANGE</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Precision in UE5 shaders</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>float</code> = fp32 (24-bit mantissa). Safe everywhere. Use for positions, depth, anything that varies over a wide range.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>half</code> = fp16 (10-bit mantissa). ~3× cheaper on mobile/console ALU. Use for colors, UV offsets, normalised values in [0,1].</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">UE5 Material nodes default to fp32 on desktop, fp16 on mobile unless you use <strong>Precision</strong> node overrides. Check Shader Complexity with mobile preview.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Common mistakes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Using half for world-space positions.</strong> fp16 range is ±65504. A position at 10 000 UU overflows — use <code>float3</code> for anything in world space.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Banding in dark gradients.</strong> A 0→0.1 ramp only has ~100 representable fp16 steps vs ~1 600 in fp32. Dithering or a LUT can hide this on mobile.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Assuming desktop == mobile precision.</strong> PC GPUs promote half to float silently. Always validate in a mobile preview or on device — the banding may not appear on PC at all.</span></div></div></div>
+</div>
+
+</div>
+</section>
+<section class="subpage" data-subpage="advanced" role="tabpanel">
+<div class="area area-advanced">
+<div class="area-heading">🌳 Advanced</div>
+<div id="advanced-coming" class="section-label">More demos on the way</div>
+<div class="grid">
+<div class="card yellow grid-full">
+<div class="card-title"><span class="dot"></span> Roadmap</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Queued advanced-tier visualizers: drag-coefficient integration, wave intrinsics / thread group sharing, and bounds culling cost. The existing demos below are the visual counterparts — open them now to see the patterns in action before the step-by-step breakdowns arrive.
+</p><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+  <a class="viz-ref" href="visuals.html#threadgroups">
+    <span class="viz-ref-badge">03</span>
+    Threadgroup dispatch · 65,535 X→Y remap
+  </a>
+  <a class="viz-ref" href="visuals.html#bounds">
+    <span class="viz-ref-badge">05</span>
+    Fixed vs dynamic bounds
+  </a>
+  <a class="viz-ref" href="visuals.html#noise-strip">
+    <span class="viz-ref-badge">06</span>
+    Noise fields · Value / Worley / fBm
+  </a>
+</div>
+</div>
 </div>
 
 </div>
@@ -388,7 +434,7 @@ GraphBuilder.<span class="fn">AddPass</span>(
   <!-- Footer -->
   <div class="footer">
     <span>UE5 Shader Conversion Cheatsheet · <a href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">GitHub</a></span>
-    <span><a href="index.html">Home</a> · <a href="materials.html">Materials</a> · <a href="niagara.html">Niagara</a> · <a href="visuals.html">Visuals</a> · <a href="fundamentals.html">Fundamentals</a></span>
+    <span><a href="index.html">Home</a> · <a href="materials.html">Materials</a> · <a href="niagara.html">Niagara</a> · <a href="shaders.html">Shaders</a> · <a href="visuals.html">Visuals</a></span>
     <span>MIT License · Community Edition</span>
   </div>
 

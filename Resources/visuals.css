@@ -1,0 +1,355 @@
+/* ══ SHADER VISUALS PAGE ══════════════════════════════════════════════════════
+   Styles scoped to shader-visuals.html. All visuals sit inside .viz-card,
+   which extends .card with a fixed-aspect media region + caption.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.viz-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.viz-card .viz-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--code-bg);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.viz-card.viz-tall .viz-media { aspect-ratio: 4 / 3; }
+.viz-card.viz-wide .viz-media { aspect-ratio: 21 / 9; }
+.viz-card .viz-media canvas,
+.viz-card .viz-media svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.viz-body { padding: 16px 18px 18px; }
+.viz-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.viz-card.orange-tag .viz-tag { color: var(--accent2); }
+.viz-card.green-tag .viz-tag { color: var(--accent3); }
+.viz-card.warn-tag .viz-tag  { color: var(--warn); }
+
+.viz-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.viz-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.viz-desc code { font-size: 12.5px; }
+
+/* Inline parameter readout (e.g. particle count) */
+.viz-readout {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  background: rgba(8,10,14,0.72);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 4px 8px;
+  pointer-events: none;
+  text-transform: uppercase;
+  z-index: 2;
+}
+.viz-readout b { color: var(--accent); font-weight: 700; }
+.viz-readout.warn b { color: var(--warn); }
+.viz-readout.bad b { color: var(--bad); }
+.viz-readout.good b { color: var(--accent3); }
+
+.viz-legend {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 2;
+}
+.viz-legend .swatch {
+  display: inline-block;
+  width: 10px; height: 10px;
+  vertical-align: -1px;
+  margin-right: 5px;
+  border-radius: 1px;
+}
+
+/* Interactive control strip at bottom of a viz */
+.viz-controls {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 3;
+}
+.viz-ctrl-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 0 2px 0 4px;
+  opacity: 0.75;
+}
+.viz-ctrl-sep {
+  color: var(--border);
+  font-size: 12px;
+  padding: 0 2px;
+}
+/* Legend variant: top-left, stacked above controls, non-overlapping */
+.viz-legend.viz-legend-top {
+  top: 42px;
+  bottom: auto;
+  right: auto;
+  left: 12px;
+  background: rgba(8,10,14,0.72);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 5px 10px;
+  gap: 12px;
+  color: #cdd6e0;
+  z-index: 2;
+  width: auto;
+  display: inline-flex;
+}
+.viz-btn {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(8,10,14,0.72);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.viz-btn:hover { color: var(--accent); border-color: var(--accent); }
+.viz-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0,229,255,0.08);
+}
+.viz-btn.warn.active {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: rgba(255,179,71,0.08);
+}
+
+.viz-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.viz-slider-wrap input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  background: transparent;
+}
+.viz-slider-wrap b {
+  color: var(--accent);
+  font-weight: 700;
+  min-width: 80px;
+  text-align: right;
+}
+
+/* ── HERO STRIP ── */
+.viz-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 21 / 6;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.viz-hero canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+}
+.viz-hero-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px 22px;
+  pointer-events: none;
+}
+.viz-hero-overlay .corner {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(205, 214, 224, 0.72);
+  text-shadow: 0 0 12px rgba(0,0,0,0.8);
+}
+.viz-hero-overlay .corner b { color: var(--accent); }
+.viz-hero-overlay .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+/* ── GRID ── */
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.viz-grid .grid-full { grid-column: 1 / -1; }
+@media (max-width: 900px) {
+  .viz-grid { grid-template-columns: 1fr; }
+}
+
+/* ── TWEAKS PANEL ── */
+.tweaks-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 240px;
+  background: rgba(15, 19, 24, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 14px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  z-index: 180;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  display: none;
+}
+body.tweaks-on .tweaks-panel { display: block; }
+.tweaks-panel h4 {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tweaks-panel .tweak-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.tweaks-panel label {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+}
+.tweaks-panel label b { color: var(--accent); font-weight: 700; }
+.tweaks-panel .seg {
+  display: flex;
+  gap: 4px;
+}
+.tweaks-panel .seg button {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 5px 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.tweaks-panel .seg button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0,229,255,0.08);
+}
+.tweaks-panel input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* ── STYLE VARIANTS ── */
+/* Default (match): use existing palette, nothing changes. */
+
+/* Schematic — blueprint-ish, thin lines, restrained color */
+body.viz-style-schematic {
+  --accent:  #7ecbff;
+  --accent2: #ffb347;
+  --accent3: #d5f0ff;
+}
+body.viz-style-schematic .viz-card .viz-media {
+  background-image:
+    repeating-linear-gradient(0deg,   transparent, transparent 23px, rgba(126,203,255,0.06) 23px, rgba(126,203,255,0.06) 24px),
+    repeating-linear-gradient(90deg,  transparent, transparent 23px, rgba(126,203,255,0.06) 23px, rgba(126,203,255,0.06) 24px);
+}
+
+/* CRT / scanlines */
+body.viz-style-crt .viz-card .viz-media::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg,
+    rgba(0,0,0,0) 0px,
+    rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.25) 2px,
+    rgba(0,0,0,0.25) 3px);
+  pointer-events: none;
+  z-index: 4;
+  mix-blend-mode: multiply;
+}
+body.viz-style-crt .viz-hero::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg,
+    rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.25) 2px, rgba(0,0,0,0.25) 3px);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Labels toggle */
+body.viz-labels-off .viz-readout,
+body.viz-labels-off .viz-legend,
+body.viz-labels-off .viz-hero-overlay { display: none !important; }

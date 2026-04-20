@@ -56,6 +56,17 @@
                 InBuffer[Base + 2], InBuffer[Base + 3]);
             }
 
+    - color: orange
+      span: grid-full
+      title: "See it in action"
+      content:
+        - type: raw
+          html: |
+            <a class="viz-ref" href="visuals.html#stateless">
+              <span class="viz-ref-badge">04</span>
+              Stateless particles · Every frame recomputed from (Age, UniqueID) alone
+            </a>
+
     - color: blue
       title: "Indexing Strategies"
       content:

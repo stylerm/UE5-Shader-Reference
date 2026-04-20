@@ -14,6 +14,8 @@ A practical, community-maintained reference for converting **GLSL/HLSL shaders**
 | [**Materials**](materials.html) | Custom node rules, full intrinsic table, Shadertoy porting guide, WPO/vertex patterns, prompt templates |
 | [**Niagara**](niagara.html) | Scratch Pad HLSL, attribute namespaces, Stateless module patterns, GPU sim restrictions, compute buffer access |
 | [**Shaders**](shaders.html) | `.usf`/`.ush` file rules, compute shader patterns, TGSM, feature level matrix, platform guards, texture sampling |
+| [**Visuals**](visuals.html) | Interactive visualizers for overdraw, bounds, thread groups, stateless particles, and other engine concepts |
+| [**Fundamentals**](fundamentals.html) | Skill-tiered walkthroughs — beginner / intermediate / advanced interactive demos, one concept per card |
 
 ---
 

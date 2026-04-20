@@ -14,6 +14,7 @@ meta:
     - {id: syntax,      label: Syntax}
     - {id: custom-node, label: Custom Node}
     - {id: shadertoy,   label: Shadertoy}
+    - {id: coord-spaces, label: Coord Spaces}
     - {id: wpo,         label: WPO}
     - {id: errors,      label: Errors}
     - {id: templates,   label: Templates}
@@ -206,6 +207,44 @@ section_groups:
                   - {icon: warn, html: "<strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong"}
                   - {icon: ok,   html: "<strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node"}
                   - {icon: ok,   html: "<strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint"}
+              - type: raw
+                html: |
+                  <a class="viz-ref" href="visuals.html#noise-strip">
+                    <span class="viz-ref-badge">06</span>
+                    Noise fields (Value / Worley / fBm) · a typical single-pass Shadertoy port in motion
+                  </a>
+
+      # ── SECTION 4.5: COORDINATE SPACES (VISUALIZER) ────────────────────────
+      - id: coord-spaces
+        label: "Coordinate Spaces — TBN → World → View"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "What the Visualizer Shows"
+            content:
+              - type: viz-tbn
+                number: "07"
+                title: "Coord Spaces · TBN → World → View"
+                caption: >
+                  <strong>T</strong> tangent, <strong>B</strong> bitangent,
+                  <strong>N</strong> normal. Step through the transforms a
+                  surface point goes through between a normal-map sample and
+                  the final lit pixel. Flip <code>HANDED</code> to see the
+                  camera-space Z sign flip, and toggle <code>Y-FLIP</code> to
+                  see why Shadertoy UVs port inverted.
+              - type: prose
+                text: "Each button swaps the rendered basis to a different space. Auto-play cycles through all five so you can watch the TBN frame follow the mesh, the world, the camera, then collapse to 2D UVs."
+
+          - color: red
+            title: "Bugs This Prevents"
+            content:
+              - type: checklist
+                items:
+                  - {icon: no,   html: "<strong>Normal-map sample applied in world space</strong> — you skipped the TBN→World step; lighting looks baked to the ground plane instead of the surface."}
+                  - {icon: no,   html: "<strong>Ported Shadertoy looks upside-down</strong> — you didn't apply <code>uv.y = 1.0 - uv.y</code>; toggle <code>Y-FLIP</code> above to see the exact difference."}
+                  - {icon: no,   html: "<strong>Specular wrong on one axis after a Blender import</strong> — your engine is right-handed but the mesh's tangent basis was baked left-handed. Handedness flip toggle above shows the Z-column sign flip."}
+                  - {icon: warn, html: "<strong>TBN warps under non-uniform scale</strong> — the <code>WORLD</code> step is when the damage enters; rebuild TBN post-skinning or avoid non-uniform scale on normal-mapped meshes."}
 
       # ── SECTION 5: WPO ─────────────────────────────────────────────────────
       - id: wpo

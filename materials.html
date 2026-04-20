@@ -31,6 +31,7 @@
 <a href="niagara.html">NIAGARA</a>
 <a href="shaders.html">SHADERS</a>
 <a href="visuals.html">VISUALS</a>
+<a href="fundamentals.html">FUNDAMENTALS</a>
 
 <div class="sidenav-divider"></div>
 <span class="sidenav-section">VIEW</span>
@@ -46,6 +47,7 @@
 <a href="#syntax" data-area="ref">Syntax</a>
 <a href="#custom-node" data-area="ref">Custom Node</a>
 <a href="#shadertoy" data-area="ref">Shadertoy</a>
+<a href="#coord-spaces" data-area="ref">Coord Spaces</a>
 <a href="#wpo" data-area="ref">WPO</a>
 <a href="#errors" data-area="ref">Errors</a>
 <a href="#templates" data-area="ref">Templates</a>
@@ -56,7 +58,7 @@
 <a href="#mat-blend" data-area="optim">Blend Modes</a>
 <div class="sidenav-divider area-engine"></div>
 <span class="sidenav-section area-engine">ENGINE INTERNALS</span>
-<a href="#mat-gotchas" data-area="ref">Engine Gotchas</a>
+<a href="#mat-gotchas" data-area="engine">Engine Gotchas</a>
   </div>
 </nav>
 
@@ -152,7 +154,78 @@ Helpers H;
 <div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Y-axis flip</strong> — Shadertoy is Y-up (0 at bottom); UE UVs are Y-down (0 at top). Apply <code>uv.y = 1.0 - uv.y</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>UV range</strong> — Shadertoy <code>fragCoord</code> is in pixels; UE ScreenPosition is 0–1 normalized</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Aspect ratio</strong> — Shadertoy divides by <code>iResolution.y</code>; in UE pass resolution and do the same</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>NDC differences</strong> — Shadertoy clip space is -1 to 1; UE uses 0 to 1 in many contexts</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Depth</strong> — Shadertoy has no depth buffer access; UE can sample <code>SceneDepth</code> via pin</span></div></div></div>
 <div class="card yellow">
 <div class="card-title"><span class="dot"></span> Multi-Pass &amp; Buffer Limitations</div>
-<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div></div></div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Buffer A/B/C/D cannot be ported</strong> to a single Custom node — each buffer is a separate render pass</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Feedback loops</strong> (reading own output) require <strong>Render Targets</strong> + Blueprint tick logic</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Persistent state</strong> — use Material Parameter Collections or render-target ping-pong</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Single-pass shaders</strong> (Image tab only, no buffers) port cleanly to one Custom node</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Workaround</strong> — split multi-pass into separate materials, chain via render targets in Blueprint</span></div></div><a class="viz-ref" href="visuals.html#noise-strip">
+  <span class="viz-ref-badge">06</span>
+  Noise fields (Value / Worley / fBm) · a typical single-pass Shadertoy port in motion
+</a>
+</div>
+</div>
+
+<div id="coord-spaces" class="section-label">Coordinate Spaces — TBN → World → View</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> What the Visualizer Shows</div>
+<div class="viz viz-tbn" data-viz-tbn>
+  <div class="viz-header"><span class="viz-num">07</span><span class="viz-title">Coord Spaces · TBN → World → View</span></div>
+  <div class="viz-chips" data-viz-chips><span class="viz-chip viz-chip-state" data-chip-state>TANGENT</span><span class="viz-chip"><span class="viz-dot t"></span>T tangent</span><span class="viz-chip"><span class="viz-dot b"></span>B bitangent</span><span class="viz-chip"><span class="viz-dot n"></span>N normal</span><span class="viz-chip viz-chip-meta" data-chip-meta>BASIS T↦B↦N · HANDED RIGHT</span></div>
+  <div class="viz-body">
+    <svg class="viz-svg" viewBox="0 0 560 320" preserveAspectRatio="xMidYMid meet" aria-label="Coordinate-space basis vectors">
+      <defs>
+        <marker id="viz-arrow-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6b35"/></marker>
+        <marker id="viz-arrow-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#b8ff57"/></marker>
+        <marker id="viz-arrow-n" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#00e5ff"/></marker>
+      </defs>
+      <g data-viz-grid></g>
+      <g data-viz-patch></g>
+      <g data-viz-vectors>
+        <line data-vec="t" x1="280" y1="200" x2="280" y2="200" stroke="#ff6b35" stroke-width="3" marker-end="url(#viz-arrow-t)"/>
+        <line data-vec="b" x1="280" y1="200" x2="280" y2="200" stroke="#b8ff57" stroke-width="3" marker-end="url(#viz-arrow-b)"/>
+        <line data-vec="n" x1="280" y1="200" x2="280" y2="200" stroke="#00e5ff" stroke-width="3" marker-end="url(#viz-arrow-n)"/>
+        <text data-lbl="t" fill="#ff6b35" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">T</text>
+        <text data-lbl="b" fill="#b8ff57" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">B</text>
+        <text data-lbl="n" fill="#00e5ff" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">N</text>
+      </g>
+      <g data-viz-uv style="display:none">
+        <rect x="180" y="60" width="160" height="160" fill="none" stroke="#1e2530" stroke-width="1"/>
+        <rect x="180" y="60" width="160" height="160" fill="url(#viz-uv-pat)"/>
+        <text x="170" y="64" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11" data-uv-top>1</text>
+        <text x="170" y="224" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11" data-uv-bot>0</text>
+        <text x="180" y="245" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11">u 0</text>
+        <text x="340" y="245" text-anchor="end" fill="#6b7a8d" font-family="JetBrains Mono, monospace" font-size="11">u 1</text>
+        <text x="260" y="150" text-anchor="middle" fill="#cdd6e0" font-family="JetBrains Mono, monospace" font-size="14" data-uv-label>Shadertoy (Y-up)</text>
+      </g>
+      <defs>
+        <pattern id="viz-uv-pat" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+          <rect width="40" height="40" fill="#0e131a"/>
+          <path d="M 0 0 H 40 M 0 0 V 40" stroke="#1e2530" stroke-width="1"/>
+        </pattern>
+      </defs>
+    </svg>
+    <div class="viz-caption"><strong>T</strong> tangent, <strong>B</strong> bitangent, <strong>N</strong> normal. Step through the transforms a surface point goes through between a normal-map sample and the final lit pixel. Flip <code>HANDED</code> to see the camera-space Z sign flip, and toggle <code>Y-FLIP</code> to see why Shadertoy UVs port inverted.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps" role="tablist">
+      <button class="viz-step active" data-step="0" type="button">1 · TANGENT</button>
+      <button class="viz-step" data-step="1" type="button">2 · OBJECT</button>
+      <button class="viz-step" data-step="2" type="button">3 · WORLD</button>
+      <button class="viz-step" data-step="3" type="button">4 · VIEW</button>
+      <button class="viz-step" data-step="4" type="button">5 · UV (Shadertoy)</button>
+    </div>
+    <div class="viz-toggles">
+      <button class="viz-toggle" data-play type="button">▶ PLAY</button>
+      <button class="viz-toggle" data-toggle-handed type="button">HANDED: RIGHT</button>
+      <button class="viz-toggle" data-toggle-yflip type="button">Y-FLIP: OFF</button>
+    </div>
+  </div>
+</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Each button swaps the rendered basis to a different space. Auto-play cycles through all five so you can watch the TBN frame follow the mesh, the world, the camera, then collapse to 2D UVs.</p></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> Bugs This Prevents</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Normal-map sample applied in world space</strong> — you skipped the TBN→World step; lighting looks baked to the ground plane instead of the surface.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Ported Shadertoy looks upside-down</strong> — you didn't apply <code>uv.y = 1.0 - uv.y</code>; toggle <code>Y-FLIP</code> above to see the exact difference.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Specular wrong on one axis after a Blender import</strong> — your engine is right-handed but the mesh's tangent basis was baked left-handed. Handedness flip toggle above shows the Z-column sign flip.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>TBN warps under non-uniform scale</strong> — the <code>WORLD</code> step is when the damage enters; rebuild TBN post-skinning or avoid non-uniform scale on normal-mapped meshes.</span></div></div></div>
 </div>
 
 <div id="wpo" class="section-label">World Position Offset / Vertex Shader</div>
@@ -297,7 +370,7 @@ Helpers H;
   <!-- Footer -->
   <div class="footer">
     <span>UE5 Shader Conversion Cheatsheet · <a href="https://github.com/stylerm/UE5-HLSL-Cheatsheet" target="_blank" rel="noopener">GitHub</a></span>
-    <span><a href="index.html">Home</a> · <a href="niagara.html">Niagara</a> · <a href="shaders.html">Shaders</a> · <a href="visuals.html">Visuals</a></span>
+    <span><a href="index.html">Home</a> · <a href="niagara.html">Niagara</a> · <a href="shaders.html">Shaders</a> · <a href="visuals.html">Visuals</a> · <a href="fundamentals.html">Fundamentals</a></span>
     <span>MIT License · Community Edition</span>
   </div>
 
@@ -541,6 +614,1063 @@ Helpers H;
     tbl.parentNode.insertBefore(wrap, tbl);
     wrap.appendChild(tbl);
   });
+})();
+
+// ── VIZ-TBN — coordinate-space basis visualizer ──
+// Hydrates any [data-viz-tbn] element. Each state is a target 3x3 rotation
+// matrix applied to three canonical basis vectors (T,B,N); we lerp between
+// matrices element-wise and re-project every frame. Pure ortho/iso
+// projection — no WebGL. The math is intentionally readable.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-tbn]');
+  if (!roots.length) return;
+
+  // Orthographic iso projection (3D → 2D SVG coords). Y flipped for SVG.
+  var CX = 280, CY = 180, SCALE = 72;
+  var ISO_COS = Math.cos(0.52), ISO_SIN = Math.sin(0.52); // ~30°
+  function project(v) {
+    return {
+      x: CX + (v[0] - v[2]) * ISO_COS * SCALE,
+      y: CY - (v[1] * SCALE - (v[0] + v[2]) * ISO_SIN * SCALE * 0.5)
+    };
+  }
+
+  function mulMV(m, v) {
+    return [
+      m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+      m[3]*v[0] + m[4]*v[1] + m[5]*v[2],
+      m[6]*v[0] + m[7]*v[1] + m[8]*v[2]
+    ];
+  }
+  function lerpM(a, b, t) {
+    var out = new Array(9);
+    for (var i = 0; i < 9; i++) out[i] = a[i] + (b[i] - a[i]) * t;
+    return out;
+  }
+  function rotY(th) {
+    var c = Math.cos(th), s = Math.sin(th);
+    return [c,0,s, 0,1,0, -s,0,c];
+  }
+  function rotX(th) {
+    var c = Math.cos(th), s = Math.sin(th);
+    return [1,0,0, 0,c,-s, 0,s,c];
+  }
+  function mulM(a, b) {
+    var o = new Array(9);
+    for (var r = 0; r < 3; r++) for (var col = 0; col < 3; col++) {
+      o[r*3+col] = a[r*3]*b[col] + a[r*3+1]*b[3+col] + a[r*3+2]*b[6+col];
+    }
+    return o;
+  }
+
+  var IDENT = [1,0,0, 0,1,0, 0,0,1];
+  var STATES = [
+    { name: 'TANGENT', meta: 'BASIS T↦B↦N · HANDED RIGHT',   M: IDENT },
+    { name: 'OBJECT',  meta: 'MESH ROT · T B N ROTATE TOGETHER', M: mulM(rotY(0.44), rotX(-0.22)) },
+    { name: 'WORLD',   meta: 'LOCALTOWORLD APPLIED · NON-UNIFORM SCALE WARPS TBN', M: mulM(rotY(1.0), rotX(-0.35)) },
+    { name: 'VIEW',    meta: 'CAMERA BASIS · Z SIGN = HANDEDNESS', M: mulM(rotY(-0.6), rotX(-0.15)) },
+    { name: 'UV',      meta: 'SHADERTOY Y-UP · UE UVS Y-DOWN',     M: IDENT } // UV handled specially
+  ];
+
+  function hydrate(root) {
+    var vecEls = {
+      t: root.querySelector('[data-vec="t"]'),
+      b: root.querySelector('[data-vec="b"]'),
+      n: root.querySelector('[data-vec="n"]')
+    };
+    var lblEls = {
+      t: root.querySelector('[data-lbl="t"]'),
+      b: root.querySelector('[data-lbl="b"]'),
+      n: root.querySelector('[data-lbl="n"]')
+    };
+    var chipState = root.querySelector('[data-chip-state]');
+    var chipMeta  = root.querySelector('[data-chip-meta]');
+    var patchG    = root.querySelector('[data-viz-patch]');
+    var gridG     = root.querySelector('[data-viz-grid]');
+    var vectorsG  = root.querySelector('[data-viz-vectors]');
+    var uvG       = root.querySelector('[data-viz-uv]');
+    var uvTop     = root.querySelector('[data-uv-top]');
+    var uvBot     = root.querySelector('[data-uv-bot]');
+    var uvLabel   = root.querySelector('[data-uv-label]');
+    var playBtn   = root.querySelector('[data-play]');
+    var handedBtn = root.querySelector('[data-toggle-handed]');
+    var yflipBtn  = root.querySelector('[data-toggle-yflip]');
+    var stepBtns  = root.querySelectorAll('[data-step]');
+
+    // Static grid lines (XZ plane)
+    (function() {
+      var out = '';
+      for (var i = -2; i <= 2; i++) {
+        var a = project([i*0.5, 0, -1]);
+        var c = project([i*0.5, 0,  1]);
+        var d = project([-1, 0, i*0.5]);
+        var e = project([ 1, 0, i*0.5]);
+        out += '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+c.x+'" y2="'+c.y+'" stroke="#1e2530" stroke-width="1"/>';
+        out += '<line x1="'+d.x+'" y1="'+d.y+'" x2="'+e.x+'" y2="'+e.y+'" stroke="#1e2530" stroke-width="1"/>';
+      }
+      gridG.innerHTML = out;
+    })();
+
+    var state = {
+      target: 0,
+      prevM: IDENT.slice(),
+      curM:  IDENT.slice(),
+      nextM: IDENT.slice(),
+      anim: 0,   // 0..1
+      animDur: 600,
+      animStart: 0,
+      playing: false,
+      handed: 1,    // +1 right-handed, -1 left-handed (flip Z)
+      yflip: 0,     // 0 or 1 (only matters in UV state)
+      raf: 0
+    };
+
+    function applyHanded(M) {
+      if (state.handed > 0) return M;
+      var m = M.slice();
+      m[2] = -m[2]; m[5] = -m[5]; m[8] = -m[8]; // flip Z column
+      return m;
+    }
+
+    function drawPatch(M) {
+      // Surface patch — unit square in tangent plane (T/B), centered at origin
+      var corners = [[-0.5,0,-0.5],[0.5,0,-0.5],[0.5,0,0.5],[-0.5,0,0.5]];
+      var pts = corners.map(function(c) {
+        var w = mulMV(M, c);
+        var p = project(w);
+        return p.x + ',' + p.y;
+      });
+      patchG.innerHTML =
+        '<polygon points="' + pts.join(' ') + '" fill="rgba(0,229,255,0.06)" stroke="#2a3441" stroke-width="1"/>';
+    }
+
+    function drawVectors(M) {
+      var origin = project([0, 0, 0]);
+      var basis = [[1,0,0],[0,0,1],[0,1,0]]; // T along x, B along z (in-plane), N along y
+      var keys = ['t','b','n'];
+      keys.forEach(function(k, i) {
+        var v = mulMV(M, basis[i]);
+        var p = project([v[0]*0.9, v[1]*0.9, v[2]*0.9]);
+        vecEls[k].setAttribute('x1', origin.x);
+        vecEls[k].setAttribute('y1', origin.y);
+        vecEls[k].setAttribute('x2', p.x);
+        vecEls[k].setAttribute('y2', p.y);
+        lblEls[k].setAttribute('x', p.x + (p.x > origin.x ? 8 : -14));
+        lblEls[k].setAttribute('y', p.y + (p.y > origin.y ? 14 : -6));
+      });
+    }
+
+    function render() {
+      // UV state: swap scene for 2D grid
+      var isUV = (state.target === 4);
+      if (isUV) {
+        vectorsG.style.display = 'none';
+        patchG.style.display = 'none';
+        gridG.style.display = 'none';
+        uvG.style.display = '';
+        uvTop.textContent = state.yflip ? '0' : '1';
+        uvBot.textContent = state.yflip ? '1' : '0';
+        uvLabel.textContent = state.yflip ? 'UE UV (Y-down)' : 'Shadertoy (Y-up)';
+      } else {
+        vectorsG.style.display = '';
+        patchG.style.display = '';
+        gridG.style.display = '';
+        uvG.style.display = 'none';
+        drawPatch(state.curM);
+        drawVectors(state.curM);
+      }
+    }
+
+    function setTarget(i, fromClick) {
+      if (i === state.target && !fromClick) return;
+      state.target = i;
+      var targetM = applyHanded(STATES[i].M);
+      state.prevM = state.curM.slice();
+      state.nextM = targetM;
+      state.animStart = performance.now();
+      state.anim = 0;
+      // Update chips + buttons
+      chipState.textContent = STATES[i].name;
+      var meta = STATES[i].meta;
+      if (i !== 4) meta = meta.replace('HANDED RIGHT', state.handed > 0 ? 'HANDED RIGHT' : 'HANDED LEFT');
+      chipMeta.textContent = meta;
+      stepBtns.forEach(function(b) {
+        b.classList.toggle('active', +b.dataset.step === i);
+      });
+      startAnim();
+    }
+
+    function tick(now) {
+      var t = Math.min(1, (now - state.animStart) / state.animDur);
+      // ease-in-out
+      var e = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+      state.curM = lerpM(state.prevM, state.nextM, e);
+      render();
+      if (t < 1) {
+        state.raf = requestAnimationFrame(tick);
+      } else {
+        state.curM = state.nextM.slice();
+        render();
+        state.raf = 0;
+        if (state.playing) {
+          setTimeout(function() {
+            if (!state.playing) return;
+            setTarget((state.target + 1) % STATES.length, true);
+          }, 700);
+        }
+      }
+    }
+    function startAnim() {
+      if (state.raf) cancelAnimationFrame(state.raf);
+      state.animStart = performance.now();
+      state.raf = requestAnimationFrame(tick);
+    }
+
+    stepBtns.forEach(function(b) {
+      b.addEventListener('click', function() {
+        state.playing = false;
+        playBtn.textContent = '▶ PLAY';
+        setTarget(+b.dataset.step, true);
+      });
+    });
+    playBtn.addEventListener('click', function() {
+      state.playing = !state.playing;
+      playBtn.textContent = state.playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (state.playing && !state.raf) {
+        setTarget((state.target + 1) % STATES.length, true);
+      }
+    });
+    handedBtn.addEventListener('click', function() {
+      state.handed = -state.handed;
+      handedBtn.textContent = 'HANDED: ' + (state.handed > 0 ? 'RIGHT' : 'LEFT');
+      setTarget(state.target, true);
+    });
+    yflipBtn.addEventListener('click', function() {
+      state.yflip = 1 - state.yflip;
+      yflipBtn.textContent = 'Y-FLIP: ' + (state.yflip ? 'ON' : 'OFF');
+      if (state.target === 4) render();
+    });
+
+    // Initial paint
+    state.curM = STATES[0].M.slice();
+    render();
+  }
+
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-CANVAS-COMMON — shared canvas fit helper ──
+// Used by all canvas-based fundamentals visualizers below. Reads
+// canvas.offsetWidth/Height (set by CSS aspect-ratio) and syncs the
+// backing pixel buffer to device pixel ratio. Returns dpr.
+window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
+  var dpr = window.devicePixelRatio || 1;
+  var w = canvas.offsetWidth;
+  var h = canvas.offsetHeight;
+  if (!h) h = Math.round(w * 8 / 21);
+  var pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+  if (canvas.width !== pw || canvas.height !== ph) {
+    canvas.width = pw; canvas.height = ph;
+  }
+  return dpr;
+};
+
+// ── VIZ-DEPTH — depth fade / soft particles ──
+// Particle quad (glowing blob) bobs up and down, crossing a horizontal scene
+// geometry wall. HARD mode: pixel abruptly clips at intersection. SOFT mode:
+// alpha fades as the particle approaches the wall, driven by the FADE slider.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-depth]');
+  if (!roots.length) return;
+  /* Depth fade works PER PIXEL: each fragment of the particle quad samples
+     SceneDepth at its own screen position and fades based on the difference
+     between scene depth and particle depth at THAT pixel.
+     We simulate this with an offscreen canvas + destination-out masking:
+     the mask gradient erases only the pixels close to the floor, leaving
+     the rest of the blob fully opaque. */
+  function hydrate(root) {
+    var canvas     = root.querySelector('[data-canvas]');
+    var modeBtns   = root.querySelectorAll('[data-mode]');
+    var fadeSlider = root.querySelector('[data-fade-dist]');
+    var fadeValEl  = root.querySelector('[data-fade-val]');
+    var chipMode   = root.querySelector('[data-chip-mode]');
+    var chipDiff   = root.querySelector('[data-chip-diff]');
+    var chipAlpha  = root.querySelector('[data-chip-alpha]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    /* offscreen canvas — particle is drawn here so destination-out masking
+       only affects the blob pixels, never the already-composited background */
+    var off = document.createElement('canvas');
+    var offCtx = off.getContext('2d');
+    var mode = 'hard';
+    modeBtns.forEach(function(b) {
+      b.addEventListener('click', function() {
+        mode = b.getAttribute('data-mode');
+        modeBtns.forEach(function(x) { x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+    if (fadeSlider) fadeSlider.addEventListener('input', function() {
+      if (fadeValEl) fadeValEl.textContent = fadeSlider.value;
+    });
+    function smoothstep(e0, e1, x) {
+      var t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+      return t * t * (3 - 2 * t);
+    }
+    function frame(ts) {
+      requestAnimationFrame(frame);
+      var t  = ts * 0.001;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      /* sync offscreen size */
+      if (off.width !== W || off.height !== H) { off.width = W; off.height = H; }
+      ctx.clearRect(0, 0, W, H);
+
+      /* ── background ── */
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#060910'); bg.addColorStop(1, '#0e1825');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      /* ── subtle grid ── */
+      ctx.strokeStyle = 'rgba(30,37,48,0.55)'; ctx.lineWidth = dpr;
+      for (var gx = 0; gx < W; gx += 48*dpr) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+      for (var gy = 0; gy < H; gy += 36*dpr) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+      /* ── floor / scene geometry ── */
+      var wallY = H * 0.60;
+      var floorG = ctx.createLinearGradient(0, wallY, 0, H);
+      floorG.addColorStop(0,   'rgba(0,229,255,0.10)');
+      floorG.addColorStop(0.18,'rgba(8,14,26,0.97)');
+      floorG.addColorStop(1,   'rgba(5,9,18,1)');
+      ctx.fillStyle = floorG; ctx.fillRect(0, wallY, W, H - wallY);
+      ctx.strokeStyle = 'rgba(0,229,255,0.70)'; ctx.lineWidth = 1.5*dpr;
+      ctx.beginPath(); ctx.moveTo(0, wallY); ctx.lineTo(W, wallY); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,229,255,0.50)';
+      ctx.font = Math.round(9*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText('SCENE DEPTH  (floor)', Math.round(10*dpr), Math.round(wallY + 14*dpr));
+
+      /* ── particle — animates slowly through the floor ── */
+      var radius = H * 0.20;
+      var cx = W * 0.50;
+      /* centre travels: fully above → halfway through floor → back */
+      var cy = wallY - radius * 0.20 + Math.sin(t * 0.55) * radius * 0.80;
+
+      /* fade distance in pixels: slider 1-100 maps to 0.1-1.2 × radius */
+      var fadePx = (parseFloat(fadeSlider ? fadeSlider.value : 30) / 100) * radius * 1.2 + radius * 0.1;
+
+      /* ── draw particle to offscreen ── */
+      offCtx.clearRect(0, 0, W, H);
+      var blob = offCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      blob.addColorStop(0,    'rgba(255,200,80,0.96)');
+      blob.addColorStop(0.28, 'rgba(255,120,40,0.88)');
+      blob.addColorStop(0.60, 'rgba(220,60,12,0.55)');
+      blob.addColorStop(0.85, 'rgba(180,25,0,0.20)');
+      blob.addColorStop(1,    'rgba(150,10,0,0)');
+      offCtx.fillStyle = blob;
+      offCtx.beginPath(); offCtx.arc(cx, cy, radius, 0, Math.PI * 2); offCtx.fill();
+
+      /* ── apply depth-fade mask (destination-out erases painted pixels) ── */
+      offCtx.globalCompositeOperation = 'destination-out';
+      if (mode === 'hard') {
+        /* hard clip: erase everything at or below the floor line */
+        offCtx.fillStyle = 'rgba(0,0,0,1)';
+        offCtx.fillRect(0, wallY, W, H - wallY);
+      } else {
+        /* soft fade: gradient erases progressively starting at wallY-fadePx
+           and reaching full erasure at wallY.  This replicates the GPU
+           smoothstep(0, FadeDist, SceneDepth - PixelDepth) per-fragment op.
+           We approximate the smoothstep S-curve with 5 colour stops. */
+        var y0 = wallY - fadePx, y1 = wallY;
+        var fadeM = offCtx.createLinearGradient(0, y0, 0, y1 + radius * 0.15);
+        fadeM.addColorStop(0,    'rgba(0,0,0,0)');    /* above fade zone: untouched */
+        fadeM.addColorStop(0.25, 'rgba(0,0,0,0.15)'); /* smoothstep curve points */
+        fadeM.addColorStop(0.50, 'rgba(0,0,0,0.50)');
+        fadeM.addColorStop(0.75, 'rgba(0,0,0,0.85)');
+        fadeM.addColorStop(1,    'rgba(0,0,0,1)');    /* at/below floor: fully erased */
+        offCtx.fillStyle = fadeM;
+        /* draw over the entire particle bounding area */
+        offCtx.fillRect(0, Math.max(0, y0 - 4), W, H - Math.max(0, y0 - 4));
+      }
+      offCtx.globalCompositeOperation = 'source-over';
+
+      /* ── composite particle onto main canvas ── */
+      ctx.drawImage(off, 0, 0);
+
+      /* ── fade zone bracket (soft only) ── */
+      if (mode === 'soft' && fadePx > 2) {
+        var bx = W * 0.82;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(184,255,87,0.60)'; ctx.lineWidth = dpr;
+        ctx.setLineDash([4*dpr, 3*dpr]);
+        ctx.beginPath(); ctx.moveTo(bx, wallY - fadePx); ctx.lineTo(W * 0.95, wallY - fadePx); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(184,255,87,0.40)';
+        ctx.beginPath(); ctx.moveTo(W * 0.94, wallY - fadePx); ctx.lineTo(W * 0.94, wallY); ctx.stroke();
+        ctx.fillStyle = 'rgba(184,255,87,0.70)';
+        ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('FADE', Math.round(bx + 2*dpr), Math.round(wallY - fadePx - 5*dpr));
+        ctx.restore();
+      }
+
+      /* ── readout chips ── */
+      var centreDepthDiff = wallY - cy;
+      var centreAlpha = mode === 'hard'
+        ? (centreDepthDiff >= 0 ? 1 : 0)
+        : smoothstep(0, fadePx, centreDepthDiff);
+      if (chipMode)  chipMode.textContent  = mode === 'hard' ? 'HARD EDGE' : 'SOFT FADE';
+      if (chipDiff)  chipDiff.textContent  = (centreDepthDiff / H * 100).toFixed(1) + ' u';
+      if (chipAlpha) chipAlpha.textContent = centreAlpha.toFixed(2);
+    }
+    requestAnimationFrame(frame);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-FLIPBOOK — sub-UV flipbook timing ──
+// Shows a 4×4 atlas grid (16 frames). An animated cursor advances at FPS rate.
+// With INTERP ON the next frame is shown as a ghost overlay, illustrating why
+// low-FPS flipbooks look smoother with bilinear blending than without.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-flipbook]');
+  if (!roots.length) return;
+  function hydrate(root) {
+    var canvas      = root.querySelector('[data-canvas]');
+    var fpsSlider   = root.querySelector('[data-fps]');
+    var fpsValEl    = root.querySelector('[data-fps-val]');
+    var interpBtns  = root.querySelectorAll('[data-interp]');
+    var chipFrame   = root.querySelector('[data-chip-frame]');
+    var chipFps     = root.querySelector('[data-chip-fps]');
+    var chipInterp  = root.querySelector('[data-chip-interp]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var COLS = 4, ROWS = 4, TOTAL = 16;
+    var interp = false;
+    var lastTs = 0, accumulator = 0, currentFrame = 0;
+    interpBtns.forEach(function(b) {
+      b.addEventListener('click', function() {
+        interp = b.getAttribute('data-interp') === 'on';
+        interpBtns.forEach(function(x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        if (chipInterp) chipInterp.textContent = interp ? 'INTERP ON' : 'INTERP OFF';
+      });
+    });
+    if (fpsSlider) fpsSlider.addEventListener('input', function() {
+      if (fpsValEl)  fpsValEl.textContent  = fpsSlider.value;
+      if (chipFps)   chipFps.textContent   = 'FPS ' + fpsSlider.value;
+    });
+    // per-frame shape lookup (angle + side-count gives distinct icons for each frame)
+    var SHAPES = (function() {
+      var out = [];
+      for (var i = 0; i < TOTAL; i++) {
+        out.push({
+          angle: i / TOTAL * Math.PI * 2,
+          sides: 3 + (i % 4),        // 3,4,5,6 — triangle → hexagon
+          col:   ['#ff6b35','#b8ff57','#00e5ff','#ffb347'][i % 4],
+          scale: 0.5 + 0.5 * Math.abs(Math.sin(i * 0.8 + 1))
+        });
+      }
+      return out;
+    })();
+    function drawShape(cx, cy, r, sh, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(cx, cy); ctx.rotate(sh.angle);
+      ctx.beginPath();
+      for (var k = 0; k < sh.sides; k++) {
+        var a = k / sh.sides * Math.PI * 2 - Math.PI / 2;
+        var ri = r * sh.scale;
+        k === 0 ? ctx.moveTo(Math.cos(a)*ri, Math.sin(a)*ri)
+                : ctx.lineTo(Math.cos(a)*ri, Math.sin(a)*ri);
+      }
+      ctx.closePath();
+      ctx.fillStyle   = sh.col.replace(')', ',0.5)').replace('rgb', 'rgba');
+      ctx.strokeStyle = sh.col;
+      ctx.lineWidth   = 1.5;
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    function frame(ts) {
+      requestAnimationFrame(frame);
+      var fps = Math.max(1, parseFloat(fpsSlider ? fpsSlider.value : 8));
+      var dt = Math.min((ts - lastTs) * 0.001, 0.1);
+      lastTs = ts;
+      accumulator += dt * fps;
+      if (accumulator >= 1) { currentFrame = (currentFrame + Math.floor(accumulator)) % TOTAL; accumulator %= 1; }
+      var blend = accumulator;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      var cw = W / COLS, ch = H / ROWS;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#070a0f'; ctx.fillRect(0, 0, W, H);
+      for (var row = 0; row < ROWS; row++) {
+        for (var col = 0; col < COLS; col++) {
+          var fi = row * COLS + col;
+          var fx = col * cw, fy = row * ch;
+          var active = fi === currentFrame;
+          ctx.fillStyle = active ? 'rgba(0,229,255,0.07)' : 'rgba(255,255,255,0.01)';
+          ctx.fillRect(fx, fy, cw, ch);
+          ctx.strokeStyle = active ? 'rgba(0,229,255,0.6)' : 'rgba(25,33,46,0.8)';
+          ctx.lineWidth   = active ? 2*dpr : dpr;
+          ctx.strokeRect(fx + dpr*0.5, fy + dpr*0.5, cw - dpr, ch - dpr);
+          drawShape(fx + cw*0.5, fy + ch*0.5, Math.min(cw, ch) * 0.3, SHAPES[fi], 0.8);
+          ctx.fillStyle = active ? 'rgba(0,229,255,0.9)' : 'rgba(50,65,80,0.7)';
+          ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+          ctx.fillText(fi + 1, Math.round(fx + 4*dpr), Math.round(fy + 12*dpr));
+        }
+      }
+      // ghost next frame
+      if (interp && blend > 0) {
+        var nf = (currentFrame + 1) % TOTAL;
+        var nCol = nf % COLS, nRow = Math.floor(nf / COLS);
+        var nfx = nCol * cw, nfy = nRow * ch;
+        ctx.fillStyle = 'rgba(255,107,53,0.10)'; ctx.fillRect(nfx, nfy, cw, ch);
+        ctx.strokeStyle = 'rgba(255,107,53,0.55)'; ctx.lineWidth = 1.5*dpr;
+        ctx.setLineDash([4*dpr, 3*dpr]);
+        ctx.strokeRect(nfx + dpr, nfy + dpr, cw - 2*dpr, ch - 2*dpr);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,107,53,0.75)';
+        ctx.font = Math.round(7*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('blend ' + blend.toFixed(2), Math.round(nfx + 4*dpr), Math.round(nfy + 12*dpr));
+      }
+      if (chipFrame) chipFrame.textContent = 'FRAME ' + (currentFrame + 1) + ' / ' + TOTAL;
+    }
+    requestAnimationFrame(frame);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-CHANNELS — RGBA channel packing ──
+// Draws four procedural patterns (roughness radial, height bands, AO vignette,
+// emissive spots) representing what each RGBA channel typically carries in a
+// packed texture. Buttons isolate one channel against the RGB composite.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-channels]');
+  if (!roots.length) return;
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var chBtns = root.querySelectorAll('[data-ch]');
+    var chipCh = root.querySelector('[data-chip-ch]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var activeCh = 'rgb';
+    var LABELS = { rgb:'RGB COMPOSITE', r:'R — ROUGHNESS', g:'G — HEIGHT MAP', b:'B — AMBIENT OCCLUSION', a:'A — EMISSIVE MASK' };
+    var TINTS  = { r:[255,87,87], g:[184,255,87], b:[0,229,255], a:[255,179,71] };
+    chBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        activeCh = btn.getAttribute('data-ch');
+        chBtns.forEach(function(x) { x.classList.remove('active'); });
+        btn.classList.add('active');
+        if (chipCh) chipCh.textContent = LABELS[activeCh] || activeCh.toUpperCase();
+        draw();
+      });
+    });
+    function drawCh(ch, x, y, w, h) {
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      var cx = x + w*0.5, cy = y + h*0.5;
+      if (ch === 'r') {
+        var g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w,h)*0.62);
+        g1.addColorStop(0, '#ff5757'); g1.addColorStop(0.5, '#8a1a1a'); g1.addColorStop(1, '#1a0505');
+        ctx.fillStyle = g1; ctx.fillRect(x, y, w, h);
+        for (var ri = 1; ri <= 3; ri++) {
+          ctx.strokeStyle = 'rgba(255,120,120,0.2)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(cx, cy, ri * Math.min(w,h)*0.16, 0, Math.PI*2); ctx.stroke();
+        }
+      } else if (ch === 'g') {
+        ctx.fillStyle = '#070a0f'; ctx.fillRect(x, y, w, h);
+        for (var band = 0; band < h; band++) {
+          var t = (band) / h;
+          var v = Math.sin(t * Math.PI * 5) * 0.5 + 0.5;
+          ctx.fillStyle = 'rgba(184,255,87,' + (v * 0.85) + ')';
+          ctx.fillRect(x, y + band, w, 1);
+        }
+      } else if (ch === 'b') {
+        var g2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w,h)*0.65);
+        g2.addColorStop(0, 'rgba(180,220,255,0.9)'); g2.addColorStop(0.5, 'rgba(40,80,130,0.7)'); g2.addColorStop(1, 'rgba(4,8,14,0.95)');
+        ctx.fillStyle = g2; ctx.fillRect(x, y, w, h);
+      } else if (ch === 'a') {
+        ctx.fillStyle = '#05070c'; ctx.fillRect(x, y, w, h);
+        [[0.25,0.30,0.12],[0.70,0.62,0.10],[0.50,0.76,0.08],[0.15,0.66,0.07],[0.80,0.24,0.09]].forEach(function(s) {
+          var g3 = ctx.createRadialGradient(x+w*s[0], y+h*s[1], 0, x+w*s[0], y+h*s[1], w*s[2]);
+          g3.addColorStop(0, 'rgba(255,200,80,0.95)'); g3.addColorStop(0.5, 'rgba(255,130,40,0.5)'); g3.addColorStop(1, 'rgba(200,80,0,0)');
+          ctx.fillStyle = g3; ctx.fillRect(x, y, w, h);
+        });
+      }
+      ctx.restore();
+    }
+    function draw() {
+      var dpr = _vizFitCanvas(canvas);
+      var CW = canvas.width, CH = canvas.height;
+      ctx.clearRect(0, 0, CW, CH);
+      ctx.fillStyle = '#07090e'; ctx.fillRect(0, 0, CW, CH);
+      var LH = Math.round(20*dpr), drawH = CH - LH;
+      if (activeCh === 'rgb') {
+        var pw = Math.floor(CW / 4);
+        ['r','g','b','a'].forEach(function(ch, i) {
+          var px2 = i * pw, pw2 = i === 3 ? CW - i*pw : pw;
+          drawCh(ch, px2, 0, pw2, drawH);
+          ctx.fillStyle = '#070a0e'; ctx.fillRect(px2, drawH, pw2, LH);
+          var tc = TINTS[ch];
+          ctx.fillStyle = 'rgba(' + tc[0] + ',' + tc[1] + ',' + tc[2] + ',0.8)';
+          ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+          ctx.fillText(['R','G','B','A'][i] + ' — ' + ['ROUGHNESS','HEIGHT','AO','EMISSIVE'][i], px2 + Math.round(5*dpr), drawH + Math.round(14*dpr));
+          if (i > 0) { ctx.strokeStyle = 'rgba(15,20,30,0.9)'; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(px2,0); ctx.lineTo(px2,CH); ctx.stroke(); }
+        });
+      } else {
+        var half = Math.floor(CW / 2);
+        ['r','g','b','a'].forEach(function(ch) { drawCh(ch, 0, 0, half, drawH); });
+        // tint overlay to distinguish composite
+        ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, 0, half, drawH);
+        ctx.fillStyle = '#070a0e'; ctx.fillRect(0, drawH, half, LH);
+        ctx.fillStyle = 'rgba(200,210,220,0.55)'; ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('RGB COMPOSITE', Math.round(5*dpr), drawH + Math.round(14*dpr));
+        drawCh(activeCh, half, 0, CW - half, drawH);
+        var tc2 = TINTS[activeCh];
+        ctx.fillStyle = '#070a0e'; ctx.fillRect(half, drawH, CW - half, LH);
+        ctx.fillStyle = 'rgba(' + tc2[0] + ',' + tc2[1] + ',' + tc2[2] + ',0.85)';
+        ctx.fillText(LABELS[activeCh], half + Math.round(5*dpr), drawH + Math.round(14*dpr));
+        ctx.strokeStyle = 'rgba(0,229,255,0.35)'; ctx.lineWidth = dpr;
+        ctx.beginPath(); ctx.moveTo(half, 0); ctx.lineTo(half, CH); ctx.stroke();
+      }
+    }
+    window.addEventListener('resize', draw); draw();
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-UVFLOW — UV flow / distortion ──
+// Animated UV grid with panning offset (constant scroll). The DISTORT slider
+// adds sinusoidal warp — simulating a FlowMap texture distorting the UVs.
+// Shows the visual effect of AddOffset + scale in real time.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-uvflow]');
+  if (!roots.length) return;
+  function hydrate(root) {
+    var canvas    = root.querySelector('[data-canvas]');
+    var strSlider = root.querySelector('[data-strength]');
+    var strValEl  = root.querySelector('[data-strength-val]');
+    var chipMode  = root.querySelector('[data-chip-mode]');
+    var chipStr   = root.querySelector('[data-chip-str]');
+    var chipTime  = root.querySelector('[data-chip-time]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if (strSlider) strSlider.addEventListener('input', function() {
+      var v = (parseFloat(strSlider.value) / 100).toFixed(2);
+      if (strValEl) strValEl.textContent = v;
+      if (chipStr)  chipStr.textContent  = 'distortion ' + v;
+      if (chipMode) chipMode.textContent = parseFloat(strSlider.value) < 1 ? 'PANNER ONLY' : 'PANNER + DISTORT';
+    });
+    function frame(ts) {
+      requestAnimationFrame(frame);
+      var time = ts * 0.001;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#070a10'; ctx.fillRect(0, 0, W, H);
+      var COLS = 12, ROWS = 7;
+      var cw = W / COLS, ch = H / ROWS;
+      var strength = parseFloat(strSlider ? strSlider.value : 0) / 100;
+      var panX = (time * 0.12) % 1;
+      var panY = (time * 0.07) % 1;
+      // draw distorted grid lines
+      ctx.strokeStyle = 'rgba(0,229,255,0.45)'; ctx.lineWidth = dpr;
+      for (var col = 0; col <= COLS; col++) {
+        ctx.beginPath();
+        for (var row = 0; row <= ROWS; row++) {
+          var u = col / COLS + panX, v = row / ROWS + panY;
+          var dx = Math.sin(u * Math.PI * 3.2 + time * 0.5) * strength * W * 0.06;
+          var dy = Math.cos(v * Math.PI * 2.4 + time * 0.38) * strength * H * 0.10;
+          var px = col * cw + dx, py = row * ch + dy;
+          row === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      for (var row2 = 0; row2 <= ROWS; row2++) {
+        ctx.beginPath();
+        for (var col2 = 0; col2 <= COLS; col2++) {
+          var u2 = col2 / COLS + panX, v2 = row2 / ROWS + panY;
+          var dx2 = Math.sin(u2 * Math.PI * 3.2 + time * 0.5) * strength * W * 0.06;
+          var dy2 = Math.cos(v2 * Math.PI * 2.4 + time * 0.38) * strength * H * 0.10;
+          col2 === 0 ? ctx.moveTo(col2 * cw + dx2, row2 * ch + dy2)
+                     : ctx.lineTo(col2 * cw + dx2, row2 * ch + dy2);
+        }
+        ctx.stroke();
+      }
+      // UV(0,0) origin dot
+      var ox = (panX % 1) * W, oy = (panY % 1) * H;
+      ctx.fillStyle = 'rgba(255,107,53,0.85)';
+      ctx.beginPath(); ctx.arc(ox, oy, 4*dpr, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,107,53,0.65)';
+      ctx.font = Math.round(9*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText('UV(0,0)', Math.round(ox + 7*dpr), Math.round(oy + 4*dpr));
+      if (chipTime) chipTime.textContent = 't = ' + time.toFixed(2);
+    }
+    requestAnimationFrame(frame);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-BURST — spawn rate vs burst ──
+// Draws a timeline (0..8s) with two animated particle-count lines: steady-rate
+// spawn (lime, ramps to steady state) and burst spawn (orange, instant spike
+// then decay). A red budget threshold line shows when burst breaks the budget.
+// PLAY advances a cursor; RESET rewinds.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-burst]');
+  if (!roots.length) return;
+  function hydrate(root) {
+    var canvas    = root.querySelector('[data-canvas]');
+    var playBtn   = root.querySelector('[data-play]');
+    var resetBtn  = root.querySelector('[data-reset]');
+    var chipT     = root.querySelector('[data-chip-t]');
+    var chipRate  = root.querySelector('[data-chip-rate]');
+    var chipBurst = root.querySelector('[data-chip-burst]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var playing = false, simTime = 0, lastTs = 0;
+    var DUR = 8, RATE_SPAWN = 40, RATE_LIFE = 3, BURST = 120, BURST_LIFE = 2.5, BUDGET = 80, MAX_Y = 140;
+    function rateAlive(t)  { return Math.round(RATE_SPAWN * RATE_LIFE * Math.min(t / RATE_LIFE, 1) * Math.min(t * 3, 1)); }
+    function burstAlive(t) { return t < 0.12 ? 0 : Math.round(BURST * Math.max(0, 1 - (t - 0.12) / BURST_LIFE)); }
+    function draw() {
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#070a0f'; ctx.fillRect(0, 0, W, H);
+      var PL = 44*dpr, PR = 16*dpr, PT = 20*dpr, PB = 28*dpr;
+      var gW = W - PL - PR, gH = H - PT - PB;
+      function xt(t) { return PL + (t / DUR) * gW; }
+      function yc(c) { return PT + gH - (c / MAX_Y) * gH; }
+      // grid
+      ctx.strokeStyle = 'rgba(25,35,50,0.8)'; ctx.lineWidth = dpr;
+      for (var yi = 0; yi <= 4; yi++) {
+        var yy = PT + gH * yi / 4;
+        ctx.beginPath(); ctx.moveTo(PL, yy); ctx.lineTo(W-PR, yy); ctx.stroke();
+        ctx.fillStyle = 'rgba(80,100,120,0.6)'; ctx.textAlign = 'right';
+        ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText(Math.round(MAX_Y*(4-yi)/4), PL-4*dpr, yy+3*dpr);
+      }
+      ctx.textAlign = 'left';
+      for (var xi = 0; xi <= DUR; xi++) {
+        var xx = xt(xi); ctx.strokeStyle = 'rgba(25,35,50,0.8)'; ctx.lineWidth = dpr;
+        ctx.beginPath(); ctx.moveTo(xx, PT); ctx.lineTo(xx, PT+gH); ctx.stroke();
+        ctx.fillStyle = 'rgba(80,100,120,0.6)';
+        ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText(xi+'s', xx - 4*dpr, PT+gH+16*dpr);
+      }
+      // budget line
+      var bY = yc(BUDGET);
+      ctx.strokeStyle = 'rgba(255,87,87,0.55)'; ctx.lineWidth = 1.5*dpr;
+      ctx.setLineDash([6*dpr, 4*dpr]);
+      ctx.beginPath(); ctx.moveTo(PL, bY); ctx.lineTo(W-PR, bY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,87,87,0.6)'; ctx.textAlign = 'right';
+      ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText('BUDGET LIMIT', W-PR-4*dpr, bY-5*dpr); ctx.textAlign = 'left';
+      // draw curves
+      function drawCurve(fn, color, fill) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2*dpr; ctx.setLineDash([]);
+        ctx.beginPath();
+        for (var i = 0; i <= 80; i++) { var t = i/80*DUR; i===0?ctx.moveTo(xt(t),yc(fn(t))):ctx.lineTo(xt(t),yc(fn(t))); }
+        ctx.stroke();
+        ctx.save(); ctx.beginPath();
+        for (var i2 = 0; i2 <= 80; i2++) { var t2 = i2/80*DUR; i2===0?ctx.moveTo(xt(t2),yc(fn(t2))):ctx.lineTo(xt(t2),yc(fn(t2))); }
+        ctx.lineTo(W-PR, PT+gH); ctx.lineTo(PL, PT+gH); ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+      }
+      drawCurve(rateAlive,  'rgba(184,255,87,0.85)', 'rgba(184,255,87,0.07)');
+      drawCurve(burstAlive, 'rgba(255,107,53,0.85)', 'rgba(255,107,53,0.07)');
+      // playhead
+      if (simTime > 0) {
+        var tx = xt(simTime);
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = dpr; ctx.setLineDash([3*dpr,3*dpr]);
+        ctx.beginPath(); ctx.moveTo(tx, PT); ctx.lineTo(tx, PT+gH); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(184,255,87,0.9)'; ctx.beginPath(); ctx.arc(tx, yc(rateAlive(simTime)),  4*dpr, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,107,53,0.9)'; ctx.beginPath(); ctx.arc(tx, yc(burstAlive(simTime)), 4*dpr, 0, Math.PI*2); ctx.fill();
+        if (chipT)     chipT.textContent     = 't = ' + simTime.toFixed(1) + ' s';
+        if (chipRate)  chipRate.textContent  = rateAlive(simTime);
+        if (chipBurst) chipBurst.textContent = burstAlive(simTime);
+      }
+      // legend
+      ctx.fillStyle = 'rgba(184,255,87,0.8)'; ctx.font = Math.round(9*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText('● RATE spawn',  PL+4*dpr,   PT+14*dpr);
+      ctx.fillStyle = 'rgba(255,107,53,0.8)';
+      ctx.fillText('● BURST spawn', PL+88*dpr,  PT+14*dpr);
+    }
+    function tick(ts) {
+      if (!playing) return;
+      var dt = Math.min((ts - lastTs)*0.001, 0.1); lastTs = ts;
+      simTime = Math.min(simTime + dt * 1.5, DUR);
+      draw();
+      if (simTime < DUR) { requestAnimationFrame(tick); }
+      else { playing = false; if (playBtn) { playBtn.textContent='▶ PLAY'; playBtn.classList.remove('active'); } }
+    }
+    if (playBtn) playBtn.addEventListener('click', function() {
+      if (simTime >= DUR) simTime = 0;
+      playing = !playing;
+      playBtn.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      playBtn.classList.toggle('active', playing);
+      if (playing) { lastTs = performance.now(); requestAnimationFrame(tick); }
+    });
+    if (resetBtn) resetBtn.addEventListener('click', function() {
+      playing = false; simTime = 0;
+      if (playBtn) { playBtn.textContent = '▶ PLAY'; playBtn.classList.remove('active'); }
+      if (chipT)     chipT.textContent     = 't = 0.0 s';
+      if (chipRate)  chipRate.textContent  = '0';
+      if (chipBurst) chipBurst.textContent = '0';
+      draw();
+    });
+    window.addEventListener('resize', draw); draw();
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-SORTORDER — sort order artifacts (alpha blending) ──
+// Three overlapping translucent quads. Correct draw order (back-to-front) gives
+// accurate compositing. Front-to-back or unsorted order produces wrong colours.
+// This is specific to alpha blend — additive particles don't care about order.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-sortorder]');
+  if (!roots.length) return;
+  function hydrate(root) {
+    var canvas     = root.querySelector('[data-canvas]');
+    var orderBtns  = root.querySelectorAll('[data-order]');
+    var chipOrder  = root.querySelector('[data-chip-order]');
+    var chipResult = root.querySelector('[data-chip-result]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var order = 'btf';
+    var INFO = {
+      btf:      { label:'BACK-TO-FRONT',   result:'✓ CORRECT',        ok:true  },
+      ftb:      { label:'FRONT-TO-BACK',   result:'✗ WRONG BLEND',    ok:false },
+      unsorted: { label:'UNSORTED',        result:'? UNPREDICTABLE',   ok:null  }
+    };
+    var QUADS = [
+      { id:'A', depth:3, col:[0,229,255],   label:'A (BACK)',  a:0.55 },
+      { id:'B', depth:2, col:[255,107,53],  label:'B (MID)',   a:0.55 },
+      { id:'C', depth:1, col:[184,255,87],  label:'C (FRONT)', a:0.55 }
+    ];
+    orderBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        order = btn.getAttribute('data-order');
+        orderBtns.forEach(function(x) { x.classList.remove('active'); });
+        btn.classList.add('active');
+        var info = INFO[order];
+        if (chipOrder)  chipOrder.textContent  = info.label;
+        if (chipResult) {
+          chipResult.textContent = info.result;
+          chipResult.style.color = info.ok === true ? 'var(--accent3)' : info.ok === false ? 'var(--bad)' : 'var(--warn)';
+        }
+        draw();
+      });
+    });
+    function draw() {
+      var dpr = _vizFitCanvas(canvas);
+      var CW = canvas.width, CH = canvas.height;
+      ctx.clearRect(0, 0, CW, CH);
+      ctx.fillStyle = '#08090e'; ctx.fillRect(0, 0, CW, CH);
+      // subtle grid
+      ctx.strokeStyle = 'rgba(20,26,38,0.7)'; ctx.lineWidth = dpr;
+      for (var gx = 0; gx < CW; gx += 28*dpr) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,CH); ctx.stroke(); }
+      for (var gy = 0; gy < CH; gy += 28*dpr) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(CW,gy); ctx.stroke(); }
+      // determine draw order
+      var seq;
+      if (order === 'btf')      seq = QUADS.slice().sort(function(a,b) { return b.depth - a.depth; });
+      else if (order === 'ftb') seq = QUADS.slice().sort(function(a,b) { return a.depth - b.depth; });
+      else                      seq = [QUADS[1], QUADS[0], QUADS[2]];
+      // quad layout: staggered overlap
+      var qw = CW * 0.28, qh = CH * 0.62;
+      var sp = CW * 0.20;
+      var baseX = CW * 0.5, baseY = CH * 0.44;
+      var posMap = { A: baseX - sp - qw*0.5,  B: baseX - qw*0.5,  C: baseX + sp - qw*0.5 };
+      seq.forEach(function(q) {
+        var x = posMap[q.id], y = baseY - qh*0.5;
+        ctx.fillStyle = 'rgba(' + q.col[0] + ',' + q.col[1] + ',' + q.col[2] + ',' + q.a + ')';
+        ctx.fillRect(x, y, qw, qh);
+        ctx.strokeStyle = 'rgba(' + q.col[0] + ',' + q.col[1] + ',' + q.col[2] + ',0.8)';
+        ctx.lineWidth = 1.5*dpr; ctx.strokeRect(x, y, qw, qh);
+        ctx.fillStyle = 'rgba(' + q.col[0] + ',' + q.col[1] + ',' + q.col[2] + ',0.9)';
+        ctx.font = Math.round(9*dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText(q.label, Math.round(x + 6*dpr), Math.round(y + 15*dpr));
+      });
+      // order label
+      ctx.fillStyle = 'rgba(80,100,120,0.6)';
+      ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText('DRAW ORDER: ' + seq.map(function(q){return q.id;}).join(' → '), Math.round(6*dpr), Math.round(14*dpr));
+      ctx.fillText('← CAMERA', Math.round(6*dpr), Math.round(CH - 7*dpr));
+    }
+    window.addEventListener('resize', draw); draw();
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-PRECISION — float vs half precision ──
+// Draws two horizontal gradient strips covering the same value range.
+// fp32 strip is smooth (23-bit mantissa). fp16 strip is quantised (10-bit
+// mantissa), producing visible banding especially near zero or mid range.
+// NEAR ZERO / MID RANGE zoom buttons reveal the step boundaries as red ticks.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-precision]');
+  if (!roots.length) return;
+  function hydrate(root) {
+    var canvas    = root.querySelector('[data-canvas]');
+    var zoomBtns  = root.querySelectorAll('[data-zoom]');
+    var chipRange = root.querySelector('[data-chip-range]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var zoom = 'full';
+    var RANGES = { full:[0,1], near:[0,0.02], mid:[0.48,0.52] };
+    var RLABELS = { full:'0.000 → 1.000', near:'0.000 → 0.020', mid:'0.480 → 0.520' };
+    zoomBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        zoom = btn.getAttribute('data-zoom');
+        zoomBtns.forEach(function(x) { x.classList.remove('active'); });
+        btn.classList.add('active');
+        if (chipRange) chipRange.textContent = RLABELS[zoom];
+        draw();
+      });
+    });
+    // Simulate fp16 quantisation: 10-bit mantissa, step size varies by exponent
+    function toHalf(v) {
+      if (v <= 0) return 0; if (v >= 1) return 1;
+      var e = Math.floor(Math.log2(v));
+      var step = Math.pow(2, e) / 1024;
+      return Math.round(v / step) * step;
+    }
+    function draw() {
+      var dpr = _vizFitCanvas(canvas);
+      var CW = canvas.width, CH = canvas.height;
+      ctx.clearRect(0, 0, CW, CH);
+      ctx.fillStyle = '#07090e'; ctx.fillRect(0, 0, CW, CH);
+      var rng = RANGES[zoom], rMin = rng[0], rMax = rng[1];
+      var LBL = Math.round(18*dpr), GAP = Math.round(6*dpr);
+      var stripH = Math.round((CH - LBL*2 - GAP*3) / 2);
+      var y32 = LBL + GAP;
+      var y16 = y32 + stripH + GAP + LBL;
+      // draw pixel-by-pixel strips
+      for (var px2 = 0; px2 < CW; px2++) {
+        var t = rMin + (px2 / CW) * (rMax - rMin);
+        var b32 = Math.round(t * 255);
+        ctx.fillStyle = 'rgb(' + b32 + ',' + b32 + ',' + b32 + ')';
+        ctx.fillRect(px2, y32, 1, stripH);
+        var b16 = Math.round(toHalf(t) * 255);
+        ctx.fillStyle = 'rgb(' + b16 + ',' + b16 + ',' + b16 + ')';
+        ctx.fillRect(px2, y16, 1, stripH);
+      }
+      // borders
+      ctx.strokeStyle = 'rgba(184,255,87,0.4)'; ctx.lineWidth = dpr;
+      ctx.strokeRect(0, y32, CW, stripH);
+      ctx.strokeStyle = 'rgba(255,107,53,0.4)';
+      ctx.strokeRect(0, y16, CW, stripH);
+      // strip labels
+      ctx.font = Math.round(9*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillStyle = 'rgba(184,255,87,0.8)'; ctx.fillText('fp32 — float  (23-bit mantissa, smooth)', Math.round(5*dpr), y32-5*dpr);
+      ctx.fillStyle = 'rgba(255,107,53,0.8)'; ctx.fillText('fp16 — half   (10-bit mantissa, quantised)', Math.round(5*dpr), y16-5*dpr);
+      // for zoom modes, mark fp16 step boundaries
+      if (zoom !== 'full') {
+        ctx.strokeStyle = 'rgba(255,87,87,0.55)'; ctx.lineWidth = dpr; ctx.setLineDash([2*dpr,2*dpr]);
+        var prevH = -1;
+        for (var px3 = 1; px3 < CW; px3++) {
+          var t3 = rMin + (px3 / CW) * (rMax - rMin);
+          var h3 = toHalf(t3);
+          if (Math.abs(h3 - prevH) > 1e-9) {
+            ctx.beginPath(); ctx.moveTo(px3, y16); ctx.lineTo(px3, y16+stripH); ctx.stroke();
+          }
+          prevH = h3;
+        }
+        ctx.setLineDash([]);
+      }
+      // axis
+      ctx.fillStyle = 'rgba(70,90,110,0.65)'; ctx.textAlign = 'left';
+      ctx.font = Math.round(8*dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText(rMin.toFixed(3), Math.round(4*dpr), Math.round(CH - 5*dpr));
+      ctx.textAlign = 'right';
+      ctx.fillText(rMax.toFixed(3), CW - Math.round(4*dpr), Math.round(CH - 5*dpr));
+      ctx.textAlign = 'left';
+    }
+    window.addEventListener('resize', draw); draw();
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-INTERP — lerp / smoothstep / step visualizer ──
+// Hydrates any [data-viz-interp] element. One slider drives three SVG plots
+// (step, lerp, smoothstep) and a readout chip row. The math is plain HLSL
+// semantics: step = x >= edge, lerp = a+(b-a)t, smoothstep = 3t²-2t³.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-interp]');
+  if (!roots.length) return;
+
+  // Plot viewport: x ∈ [16,152] maps to t ∈ [0,1]; y ∈ [108,12] maps to [0,1].
+  var PX0 = 16, PX1 = 152, PY0 = 108, PY1 = 12;
+  function xAt(t) { return PX0 + (PX1 - PX0) * t; }
+  function yAt(v) { return PY0 + (PY1 - PY0) * v; }
+
+  function curvePath(fn) {
+    var d = '';
+    for (var i = 0; i <= 64; i++) {
+      var t = i / 64;
+      var v = Math.max(0, Math.min(1, fn(t)));
+      d += (i === 0 ? 'M' : 'L') + xAt(t).toFixed(2) + ' ' + yAt(v).toFixed(2) + ' ';
+    }
+    return d.trim();
+  }
+
+  var FNS = {
+    'STEP':       function(t) { return t >= 0.5 ? 1 : 0; },
+    'LERP':       function(t) { return t; },
+    'SMOOTHSTEP': function(t) { return t*t*(3 - 2*t); }
+  };
+
+  function hydrate(root) {
+    var slider    = root.querySelector('[data-slider]');
+    var sliderVal = root.querySelector('[data-slider-val]');
+    var chipT     = root.querySelector('[data-chip-t]');
+    var chips     = root.querySelectorAll('.viz-chip');
+    var plots     = root.querySelectorAll('[data-plot]');
+    if (!slider || !plots.length) return;
+
+    // Draw static curves + cache per-plot handles
+    var plotRefs = [];
+    plots.forEach(function(p) {
+      var kind   = p.getAttribute('data-plot');
+      var fn     = FNS[kind];
+      var curve  = p.querySelector('[data-curve]');
+      var marker = p.querySelector('[data-marker]');
+      var dot    = p.querySelector('[data-dot]');
+      var out    = p.querySelector('[data-out]');
+      var stroke = kind === 'STEP' ? '#ff6b35'
+                 : kind === 'LERP' ? '#b8ff57'
+                 : '#00e5ff';
+      curve.setAttribute('d', curvePath(fn));
+      curve.setAttribute('stroke', stroke);
+      plotRefs.push({ kind: kind, fn: fn, marker: marker, dot: dot, out: out });
+    });
+
+    function update() {
+      var t = Math.max(0, Math.min(1, +slider.value / 1000));
+      sliderVal.textContent = t.toFixed(3);
+      if (chipT) chipT.textContent = 't = ' + t.toFixed(2);
+      plotRefs.forEach(function(r, i) {
+        var v = r.fn(t);
+        var x = xAt(t), y = yAt(v);
+        r.marker.setAttribute('x1', x); r.marker.setAttribute('x2', x);
+        r.dot.setAttribute('cx', x);    r.dot.setAttribute('cy', y);
+        r.out.textContent = v.toFixed(2);
+        // chips: [0]=state, [1]=step, [2]=lerp, [3]=smoothstep
+        var chip = chips[i + 1];
+        if (chip) {
+          var label = r.kind === 'STEP' ? 'step' : r.kind === 'LERP' ? 'lerp' : 'smoothstep';
+          chip.innerHTML = '<span class="viz-dot ' +
+            (r.kind === 'STEP' ? 't' : r.kind === 'LERP' ? 'b' : 'n') +
+            '"></span>' + label + ' = ' + v.toFixed(2);
+        }
+      });
+    }
+
+    slider.addEventListener('input', update);
+    update();
+  }
+
+  roots.forEach(hydrate);
 })();
 </script>
 </body>

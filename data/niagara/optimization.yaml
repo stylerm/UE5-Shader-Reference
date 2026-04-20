@@ -41,6 +41,12 @@
             - {icon: no, cost: expensive, html: "<strong>Use cutout masks for translucency</strong> — <m>5-10×</m> overdraw = <m>5-10×</m> material cost"}
             - {icon: no, cost: expensive, html: "<strong>&gt;<m>10</m> active emitters per actor</strong> — each allocates its own dataset + tick entry + dispatch"}
             - {icon: no, cost: expensive, difficulty: advanced, html: "<strong>Complex simulation on mobile</strong> — GPU sim is ES3.1-limited; test on lowest target early"}
+        - type: raw
+          html: |
+            <a class="viz-ref" href="visuals.html#bounds">
+              <span class="viz-ref-badge">05</span>
+              Fixed vs dynamic bounds · watch the GPU readback disappear
+            </a>
 
 # ── SECTION 7: GPU VS CPU ──────────────────────────────────────────────
 - id: gpu-vs-cpu
@@ -51,6 +57,12 @@
       span: grid-full
       title: "When to Use GPU vs CPU"
       content:
+        - type: raw
+          html: |
+            <a class="viz-ref" href="visuals.html#scaling">
+              <span class="viz-ref-badge">02</span>
+              GPU vs CPU scaling curve · watch where they cross
+            </a>
         - type: table
           style: default
           cols: ["Decision Factor", "CPU Simulation", "GPU Simulation"]
@@ -112,6 +124,12 @@
             - {icon: ok,   html: "<strong>Reduce particle size</strong> — smaller screen footprint = less fill; pair with higher emitter count if needed"}
             - {icon: ok,   html: "<strong>Distance-based transparency fade</strong> — fade particles out before they're too small to be meaningful"}
             - {icon: warn, html: "<strong>Use Unlit for small particles</strong> — Lit translucency is far more expensive; reserve for hero VFX"}
+        - type: raw
+          html: |
+            <a class="viz-ref" href="visuals.html#overdraw">
+              <span class="viz-ref-badge">01</span>
+              Overdraw stacking · toggle DISC vs SQUARE to see the difference
+            </a>
 
 # ── SECTION 9: SCALABILITY ─────────────────────────────────────────────
 - id: scalability

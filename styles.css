@@ -1433,3 +1433,421 @@ details.check-detail > .check-detail-body {
   display: inline;
   min-width: 0;
 }
+
+/* ── VIZ-TBN — coordinate-space visualizer ──────────────────────────────── */
+.viz {
+  background: #0e131a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 12px 0 16px;
+  overflow: hidden;
+}
+.viz-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.viz-num {
+  color: var(--accent3);
+  font-weight: 600;
+  font-size: 13px;
+}
+.viz-title {
+  color: var(--text);
+  text-transform: uppercase;
+}
+.viz-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.viz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.viz-chip-state {
+  color: var(--accent3);
+  border-color: rgba(184,255,87,0.3);
+  background: rgba(184,255,87,0.05);
+  font-weight: 600;
+}
+.viz-chip-meta {
+  color: var(--accent);
+  border-color: rgba(0,229,255,0.2);
+}
+.viz-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.viz-dot.t { background: var(--accent2); }
+.viz-dot.b { background: var(--accent3); }
+.viz-dot.n { background: var(--accent); }
+.viz-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 0;
+}
+.viz-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #0a0c10;
+  border-right: 1px solid var(--border);
+}
+.viz-caption {
+  padding: 14px 16px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.viz-caption code {
+  color: var(--accent);
+  background: rgba(0,229,255,0.06);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+.viz-caption strong { color: var(--text); }
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+  justify-content: space-between;
+}
+.viz-steps, .viz-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.viz-step, .viz-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 5px 9px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.viz-step:hover, .viz-toggle:hover {
+  color: var(--accent);
+  border-color: rgba(0,229,255,0.4);
+}
+.viz-step.active {
+  color: var(--accent3);
+  border-color: rgba(184,255,87,0.5);
+  background: rgba(184,255,87,0.08);
+}
+@media (max-width: 700px) {
+  .viz-body { grid-template-columns: 1fr; }
+  .viz-svg { border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+/* ── VIZ-INTERP — lerp/smoothstep/step visualizer ───────────────────────── */
+/* Reuses .viz / .viz-header / .viz-chip / .viz-dot from the viz-tbn styles
+   above. Adds a 3-column plot row, shared slider, per-plot formula + readout. */
+.viz-interp .viz-body {
+  display: block;          /* override the 2-col tbn layout */
+}
+.viz-plots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+.viz-plot {
+  padding: 12px 14px 10px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #0a0d12;
+}
+.viz-plot:last-child { border-right: none; }
+.viz-plot-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.viz-plot-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #0a0d12;
+}
+.viz-plot-formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+.viz-plot-formula code {
+  color: var(--accent);
+  background: rgba(0,229,255,0.06);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+.viz-plot-out {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent3);
+  letter-spacing: 0.5px;
+}
+.viz-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.viz-slider-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  min-width: 14px;
+}
+.viz-slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent3);
+}
+.viz-slider-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent3);
+  min-width: 54px;
+  text-align: right;
+}
+@media (max-width: 700px) {
+  .viz-plots { grid-template-columns: 1fr; }
+  .viz-plot { border-right: none; border-bottom: 1px solid var(--border); }
+  .viz-plot:last-child { border-bottom: none; }
+}
+
+/* ══ SKILL-LEVEL AREAS (fundamentals.html) ═══════════════════════════════════
+   Three parallel themes — beginner (lime), intermediate (orange), advanced
+   (cyan). Mirrors the ref/optim/engine pattern at lines 218-396 but targets
+   a new page. Existing subpage JS picks these up via dynamic tab discovery.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.area.area-beginner {
+  --surface: #0a1210;
+  --border:  #1a2a22;
+  --code-bg: #05090a;
+  margin-top: 8px;
+  padding: 24px 20px 4px;
+  border: 1px solid rgba(184,255,87,0.15);
+  border-radius: 6px;
+  background: rgba(184,255,87,0.02);
+  position: relative;
+}
+.area.area-beginner::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(to bottom, var(--accent3), rgba(184,255,87,0.2));
+}
+.area.area-beginner .area-heading {
+  color: var(--accent3);
+  border-bottom-color: rgba(184,255,87,0.3);
+}
+.area.area-beginner .section-label        { color: rgba(184,255,87,0.55); }
+.area.area-beginner .section-label::after { background: rgba(184,255,87,0.18); }
+
+.area.area-intermediate {
+  --surface:  #120e0a;
+  --border:   #2c1d0f;
+  --code-bg:  #0c0906;
+  margin-top: 8px;
+  padding: 24px 20px 4px;
+  border: 1px solid rgba(255,107,53,0.15);
+  border-radius: 6px;
+  background: rgba(255,107,53,0.025);
+  position: relative;
+}
+.area.area-intermediate::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(to bottom, var(--accent2), rgba(255,107,53,0.2));
+}
+.area.area-intermediate .area-heading {
+  color: var(--accent2);
+  border-bottom-color: rgba(255,107,53,0.3);
+}
+.area.area-intermediate .section-label        { color: rgba(255, 150, 80, 0.55); }
+.area.area-intermediate .section-label::after { background: rgba(255,107,53,0.18); }
+
+.area.area-advanced {
+  margin-top: 8px;
+  padding: 24px 20px 4px;
+  border: 1px solid rgba(0,229,255,0.15);
+  border-radius: 6px;
+  background: rgba(0,229,255,0.02);
+  position: relative;
+}
+.area.area-advanced::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(to bottom, var(--accent), rgba(0,229,255,0.2));
+}
+.area.area-advanced .area-heading {
+  color: var(--accent);
+  border-bottom-color: rgba(0,229,255,0.3);
+}
+.area.area-advanced .section-label        { color: rgba(0,229,255,0.55); }
+.area.area-advanced .section-label::after { background: rgba(0,229,255,0.18); }
+
+/* Subpage tab highlights */
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="beginner"] {
+  color: var(--accent3); border-left-color: var(--accent3); background: rgba(184,255,87,0.06);
+}
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="beginner"]     .subpage-tab-icon { opacity: 1; }
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="intermediate"] {
+  color: var(--accent2); border-left-color: var(--accent2); background: rgba(255,107,53,0.06);
+}
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="intermediate"] .subpage-tab-icon { opacity: 1; }
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="advanced"] {
+  color: var(--accent);  border-left-color: var(--accent);  background: rgba(0,229,255,0.06);
+}
+.sidenav-subpage-tabs .subpage-tab.active[data-subpage="advanced"]     .subpage-tab-icon { opacity: 1; }
+
+/* Panel visibility — show only the active level's subpage section */
+body.subpage-beginner     .subpage[data-subpage="beginner"],
+body.subpage-intermediate .subpage[data-subpage="intermediate"],
+body.subpage-advanced     .subpage[data-subpage="advanced"] { display: block; }
+
+/* Sidenav filtering — hide anchors, dividers, and "ON THIS PAGE" sections
+   that belong to the other two levels. On fundamentals.html only these three
+   area tags are in play, so these rules are sufficient. */
+body.subpage-beginner .sidenav-links a[data-area="intermediate"],
+body.subpage-beginner .sidenav-links .sidenav-divider.area-intermediate,
+body.subpage-beginner .sidenav-links .sidenav-section.area-intermediate,
+body.subpage-beginner .sidenav-links a[data-area="advanced"],
+body.subpage-beginner .sidenav-links .sidenav-divider.area-advanced,
+body.subpage-beginner .sidenav-links .sidenav-section.area-advanced {
+  display: none;
+}
+body.subpage-intermediate .sidenav-links a[data-area="beginner"],
+body.subpage-intermediate .sidenav-links .sidenav-divider.area-beginner,
+body.subpage-intermediate .sidenav-links .sidenav-section.area-beginner,
+body.subpage-intermediate .sidenav-links a[data-area="advanced"],
+body.subpage-intermediate .sidenav-links .sidenav-divider.area-advanced,
+body.subpage-intermediate .sidenav-links .sidenav-section.area-advanced {
+  display: none;
+}
+body.subpage-advanced .sidenav-links a[data-area="beginner"],
+body.subpage-advanced .sidenav-links .sidenav-divider.area-beginner,
+body.subpage-advanced .sidenav-links .sidenav-section.area-beginner,
+body.subpage-advanced .sidenav-links a[data-area="intermediate"],
+body.subpage-advanced .sidenav-links .sidenav-divider.area-intermediate,
+body.subpage-advanced .sidenav-links .sidenav-section.area-intermediate {
+  display: none;
+}
+
+/* ── VIZ-REF — cross-reference chip linking to a demo in visuals.html ────── */
+/* Appears at the bottom of a card when the topic has a live interactive demo.
+   Orange accent signals "this is an example link" per the color vocabulary. */
+.viz-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 5px 10px 5px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  border: 1px solid rgba(255,107,53,0.35);
+  border-radius: 3px;
+  background: rgba(255,107,53,0.06);
+  text-decoration: none;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.viz-ref:hover {
+  color: #fff;
+  border-color: var(--accent2);
+  background: rgba(255,107,53,0.12);
+}
+.viz-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 2px;
+  background: rgba(255,107,53,0.18);
+  color: var(--accent2);
+}
+.viz-ref::after { content: ' →'; }
+
+/* ── VIZ CANVAS — base + per-type aspect ratios ─────────────────────────── */
+/* All canvas-based visualizers share a common base. Each viz type gets an
+   aspect-ratio override so the canvas is sized declaratively by CSS and the
+   JS simply reads offsetWidth/offsetHeight. */
+.viz-canvas {
+  width: 100%;
+  display: block;
+  background: #080b0f;
+  border-radius: 2px;
+}
+
+/* viz-body must be display:block for canvas-based vizes (SVG-based vizes use
+   the default flex layout; canvas ones need block so width=100% resolves). */
+.viz-depth .viz-body,
+.viz-flipbook .viz-body,
+.viz-channels .viz-body,
+.viz-uvflow .viz-body,
+.viz-burst .viz-body,
+.viz-sortorder .viz-body,
+.viz-precision .viz-body { display: block; }
+
+.viz-depth     .viz-canvas { aspect-ratio: 21/8;  }
+.viz-flipbook  .viz-canvas { aspect-ratio: 16/10; }
+.viz-channels  .viz-canvas { aspect-ratio: 16/7;  }
+.viz-uvflow    .viz-canvas { aspect-ratio: 21/9;  }
+.viz-burst     .viz-canvas { aspect-ratio: 16/8;  }
+.viz-sortorder .viz-canvas { aspect-ratio: 21/8;  }
+.viz-precision .viz-canvas { aspect-ratio: 16/7;  }

@@ -48,6 +48,7 @@
 <a href="#tgsm" data-area="ref">TGSM</a>
 <a href="#reference" data-area="ref">Reference</a>
 <a href="#sampling" data-area="ref">Sampling</a>
+<a href="#orbital-rings" data-area="ref">Orbital Rings</a>
 <div class="sidenav-divider area-optim"></div>
 <span class="sidenav-section area-optim">OPTIMIZATION</span>
 <a href="#compute-perf" data-area="optim">Perf Rules</a>
@@ -306,6 +307,187 @@ OutputRT[Pixel] = <span class="kw">float4</span>(
   <span class="kw">float</span>  t  = <span class="fn">saturate</span>(<span class="fn">dot</span>(P - A, AB) / <span class="fn">dot</span>(AB, AB));
   <span class="kw">return</span> <span class="fn">length</span>(P - A - AB * t) - R;
 }</pre></div>
+</div>
+
+<div id="orbital-rings" class="section-label">Example: Orbital Rings</div>
+<div class="grid grid-2">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Orbital Rings — Procedural SDF Effect</div>
+<div class="viz viz-orbit" data-viz-orbit>
+  <div class="viz-header"><span class="viz-num">EX</span><span class="viz-title">Orbital Rings — Live WebGL Preview</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-state>● LIVE</span><span class="viz-chip">WebGL fragment shader</span><span class="viz-chip">SDF ellipse orbits × 3</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">Three tilted orbits rendered as approximate SDF ellipses with exponential glow. Near arc brighter; far arc dimmer.</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps">
+      <button class="viz-toggle active" data-pause type="button">PAUSE</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> GLSL — WebGL / ShaderToy</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Fragment shader — paste at shadertoy.com or wrap in any WebGL boilerplate. ShaderToy mainImage signature.</p><pre><span class="c">// ── Orbital Rings ── GLSL / ShaderToy ──────────────────────────────────</span>
+<span class="c">// iResolution, iTime provided by ShaderToy; supply as uniforms otherwise.</span>
+<span class="c">// Each ring has its own radius, inclination, precession speed,</span>
+<span class="c">// and body-dot angular speed.</span>
+
+<span class="kw">void</span> <span class="fn">mainImage</span>(<span class="kw">out</span> <span class="kw">vec4</span> fragColor, <span class="kw">in</span> <span class="kw">vec2</span> fragCoord) {
+    <span class="kw">vec2</span> uv = (fragCoord - 0.5 * iResolution.xy)
+              / <span class="fn">min</span>(iResolution.x, iResolution.y);
+    <span class="kw">float</span> T = iTime;
+
+    <span class="c">// Deep warm background with soft vignette</span>
+    <span class="kw">vec3</span> col = <span class="kw">vec3</span>(0.055, 0.028, 0.014) * (1.0 - 0.45 * <span class="fn">length</span>(uv));
+
+    <span class="c">// Warm pedestal glow (bottom pool)</span>
+    col += <span class="kw">vec3</span>(0.98, 0.42, 0.08)
+           * <span class="fn">exp</span>(-<span class="fn">length</span>(uv - <span class="kw">vec2</span>(0.0, -0.55)) * 2.8) * 0.9;
+    col += <span class="kw">vec3</span>(0.55, 0.18, 0.03)
+           * <span class="fn">exp</span>(-<span class="fn">length</span>(uv - <span class="kw">vec2</span>(0.0, -0.85)) * 1.3) * 0.55;
+
+    <span class="c">// Central sun / planet</span>
+    <span class="kw">float</span> r = <span class="fn">length</span>(uv);
+    col += <span class="kw">vec3</span>(1.00, 0.95, 0.82) * <span class="fn">smoothstep</span>(0.040, 0.024, r);
+    col += <span class="kw">vec3</span>(0.90, 0.55, 0.22) * <span class="fn">exp</span>(-r * 11.0) * 0.35;
+    col += <span class="kw">vec3</span>(0.40, 0.20, 0.06) * <span class="fn">exp</span>(-r *  3.5) * 0.28;
+
+    <span class="c">// Three rings — each with its own tilt, speed, and orbital body</span>
+    <span class="kw">for</span> (<span class="kw">int</span> i = 0; i &lt; 3; i++) {
+        <span class="kw">float</span> rad, incl, oSpeed, bSpeed, phO, phB;
+        <span class="kw">if</span> (i == 0)      { rad=0.27; incl=0.38; oSpeed= 0.180;
+                           bSpeed= 1.30; phO= 0.2; phB=0.0; }
+        <span class="kw">else</span> <span class="kw">if</span> (i == 1) { rad=0.42; incl=0.98; oSpeed=-0.110;
+                           bSpeed= 0.85; phO= 1.8; phB=1.7; }
+        <span class="kw">else</span>             { rad=0.58; incl=1.24; oSpeed= 0.065;
+                           bSpeed=-0.55; phO=-0.6; phB=3.2; }
+
+        <span class="kw">float</span> O   = oSpeed * T + phO;   <span class="c">// precession angle (Ω)</span>
+        <span class="kw">float</span> thB = bSpeed * T + phB;   <span class="c">// body angle along ring</span>
+
+        <span class="c">// Rotate pixel into ring-local frame (major axis → X)</span>
+        <span class="kw">float</span> co = <span class="fn">cos</span>(O), so = <span class="fn">sin</span>(O);
+        <span class="kw">vec2</span> p = <span class="kw">vec2</span>(uv.x*co + uv.y*so, -uv.x*so + uv.y*co);
+
+        <span class="c">// Tilted circle → ellipse on screen</span>
+        <span class="kw">float</span> ci = <span class="fn">cos</span>(incl);
+        <span class="kw">vec2</span> radii = <span class="kw">vec2</span>(rad, rad * <span class="fn">abs</span>(ci));
+        <span class="kw">vec2</span> pn = p / radii;
+        <span class="kw">float</span> d = <span class="fn">abs</span>(<span class="fn">length</span>(pn) - 1.0) * <span class="fn">min</span>(radii.x, radii.y);
+
+        <span class="c">// Near/far-of-sun shading (using parametric angle&#x27;s 3D z)</span>
+        <span class="kw">float</span> alpha_s = <span class="fn">clamp</span>(p.y / <span class="fn">max</span>(radii.y, 1e-4), -1.0, 1.0);
+        <span class="kw">float</span> depth   = alpha_s * <span class="fn">sin</span>(incl);
+        <span class="kw">float</span> nearT   = <span class="fn">smoothstep</span>(-0.7, 0.7, depth);
+
+        <span class="kw">float</span> core = <span class="fn">exp</span>(-d * 420.0);           <span class="c">// sharp line</span>
+        <span class="kw">float</span> glow = <span class="fn">exp</span>(-d *  55.0) * 0.35;    <span class="c">// soft aura</span>
+        <span class="kw">float</span> aura = <span class="fn">exp</span>(-d *  16.0) * 0.08;    <span class="c">// wide halo</span>
+        <span class="kw">vec3</span> rc = <span class="fn">mix</span>(<span class="kw">vec3</span>(0.22, 0.38, 0.72),   <span class="c">// far-side: cool</span>
+                      <span class="kw">vec3</span>(1.00, 0.98, 0.92),   <span class="c">// near-side: warm-white</span>
+                      nearT);
+        col += rc * (core + glow + aura) * (0.35 + 0.65 * nearT);
+
+        <span class="c">// Orbital body (small bright dot on the ring)</span>
+        <span class="kw">float</span> bc = <span class="fn">cos</span>(thB), bs = <span class="fn">sin</span>(thB);
+        <span class="kw">vec2</span>  bodyLocal = <span class="kw">vec2</span>(rad * bc, rad * bs * ci);
+        <span class="kw">float</span> bDepth = bs * <span class="fn">sin</span>(incl);
+        <span class="kw">float</span> bDist  = <span class="fn">length</span>(p - bodyLocal);
+        <span class="kw">float</span> front  = <span class="fn">smoothstep</span>(-0.05, 0.05, bDepth);
+        <span class="kw">float</span> bCore  = <span class="fn">smoothstep</span>(0.022, 0.009, bDist);
+        <span class="kw">float</span> bGlow  = <span class="fn">exp</span>(-bDist * 22.0) * 0.32;
+        <span class="kw">vec3</span>  bCol   = <span class="fn">mix</span>(<span class="kw">vec3</span>(0.45, 0.60, 0.90),
+                           <span class="kw">vec3</span>(1.00, 0.95, 0.80), front);
+        col += bCol * (bCore + bGlow) * (0.30 + 0.70 * front);
+    }
+
+    col = <span class="fn">pow</span>(<span class="fn">clamp</span>(col, 0.0, 1.0), <span class="kw">vec3</span>(0.45));
+    fragColor = <span class="kw">vec4</span>(col, 1.0);
+}</pre></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> HLSL — Unreal Custom Material Node</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Paste into a Custom node (return type float3). Wire TexCoord[0] → UV, a Time node → T. Connect output to Emissive Color.</p><pre><span class="c">// ── Orbital Rings ── HLSL / Unreal Custom Node ─────────────────────────</span>
+<span class="c">// Inputs:</span>
+<span class="c">//   UV  (float2) ← TexCoord[0]</span>
+<span class="c">//   T   (float)  ← Time node</span>
+<span class="c">// Output type: CMOT Float 3 — wire to Emissive Color</span>
+
+<span class="kw">float2</span> uv = UV * 2.0 - 1.0;  <span class="c">// assumes square; divide x by aspect if not</span>
+
+<span class="c">// Deep warm background + vignette</span>
+<span class="kw">float3</span> col = <span class="kw">float3</span>(0.055, 0.028, 0.014) * (1.0 - 0.45 * <span class="fn">length</span>(uv));
+
+<span class="c">// Warm pedestal glow (bottom)</span>
+col += <span class="kw">float3</span>(0.98, 0.42, 0.08)
+       * <span class="fn">exp</span>(-<span class="fn">length</span>(uv - <span class="kw">float2</span>(0.0, -0.55)) * 2.8) * 0.9;
+col += <span class="kw">float3</span>(0.55, 0.18, 0.03)
+       * <span class="fn">exp</span>(-<span class="fn">length</span>(uv - <span class="kw">float2</span>(0.0, -0.85)) * 1.3) * 0.55;
+
+<span class="c">// Central sun / planet</span>
+<span class="kw">float</span> r = <span class="fn">length</span>(uv);
+col += <span class="kw">float3</span>(1.00, 0.95, 0.82) * <span class="fn">smoothstep</span>(0.040, 0.024, r);
+col += <span class="kw">float3</span>(0.90, 0.55, 0.22) * <span class="fn">exp</span>(-r * 11.0) * 0.35;
+col += <span class="kw">float3</span>(0.40, 0.20, 0.06) * <span class="fn">exp</span>(-r *  3.5) * 0.28;
+
+<span class="c">// Three rings — each with its own tilt, precession, and body speed</span>
+<span class="kw">for</span> (<span class="kw">int</span> i = 0; i &lt; 3; i++) {
+    <span class="kw">float</span> rad, incl, oSpeed, bSpeed, phO, phB;
+    <span class="kw">if</span> (i == 0)      { rad=0.27; incl=0.38; oSpeed= 0.180;
+                       bSpeed= 1.30; phO= 0.2; phB=0.0; }
+    <span class="kw">else</span> <span class="kw">if</span> (i == 1) { rad=0.42; incl=0.98; oSpeed=-0.110;
+                       bSpeed= 0.85; phO= 1.8; phB=1.7; }
+    <span class="kw">else</span>             { rad=0.58; incl=1.24; oSpeed= 0.065;
+                       bSpeed=-0.55; phO=-0.6; phB=3.2; }
+
+    <span class="kw">float</span> O   = oSpeed * T + phO;
+    <span class="kw">float</span> thB = bSpeed * T + phB;
+
+    <span class="c">// Rotate pixel into ring-local frame</span>
+    <span class="kw">float</span> co = <span class="fn">cos</span>(O), so = <span class="fn">sin</span>(O);
+    <span class="kw">float2</span> p = <span class="kw">float2</span>(uv.x*co + uv.y*so, -uv.x*so + uv.y*co);
+
+    <span class="c">// Tilted circle → ellipse</span>
+    <span class="kw">float</span>  ci    = <span class="fn">cos</span>(incl);
+    <span class="kw">float2</span> radii = <span class="kw">float2</span>(rad, rad * <span class="fn">abs</span>(ci));
+    <span class="kw">float2</span> pn    = p / radii;
+    <span class="kw">float</span>  d     = <span class="fn">abs</span>(<span class="fn">length</span>(pn) - 1.0) * <span class="fn">min</span>(radii.x, radii.y);
+
+    <span class="c">// Near/far shading via parametric angle → 3D depth</span>
+    <span class="kw">float</span> alpha_s = <span class="fn">clamp</span>(p.y / <span class="fn">max</span>(radii.y, 1e-4), -1.0, 1.0);
+    <span class="kw">float</span> depth   = alpha_s * <span class="fn">sin</span>(incl);
+    <span class="kw">float</span> nearT   = <span class="fn">smoothstep</span>(-0.7, 0.7, depth);
+
+    <span class="kw">float</span> core = <span class="fn">exp</span>(-d * 420.0);
+    <span class="kw">float</span> glow = <span class="fn">exp</span>(-d *  55.0) * 0.35;
+    <span class="kw">float</span> aura = <span class="fn">exp</span>(-d *  16.0) * 0.08;
+    <span class="kw">float3</span> rc  = <span class="fn">lerp</span>(<span class="kw">float3</span>(0.22, 0.38, 0.72),
+                      <span class="kw">float3</span>(1.00, 0.98, 0.92), nearT);
+    col += rc * (core + glow + aura) * (0.35 + 0.65 * nearT);
+
+    <span class="c">// Orbital body dot</span>
+    <span class="kw">float</span>  bc = <span class="fn">cos</span>(thB), bs = <span class="fn">sin</span>(thB);
+    <span class="kw">float2</span> bodyLocal = <span class="kw">float2</span>(rad * bc, rad * bs * ci);
+    <span class="kw">float</span>  bDepth    = bs * <span class="fn">sin</span>(incl);
+    <span class="kw">float</span>  bDist     = <span class="fn">length</span>(p - bodyLocal);
+    <span class="kw">float</span>  front     = <span class="fn">smoothstep</span>(-0.05, 0.05, bDepth);
+    <span class="kw">float</span>  bCore     = <span class="fn">smoothstep</span>(0.022, 0.009, bDist);
+    <span class="kw">float</span>  bGlow     = <span class="fn">exp</span>(-bDist * 22.0) * 0.32;
+    <span class="kw">float3</span> bCol      = <span class="fn">lerp</span>(<span class="kw">float3</span>(0.45, 0.60, 0.90),
+                            <span class="kw">float3</span>(1.00, 0.95, 0.80), front);
+    col += bCol * (bCore + bGlow) * (0.30 + 0.70 * front);
+}
+
+<span class="kw">return</span> <span class="fn">pow</span>(<span class="fn">clamp</span>(col, 0.0, 1.0), 0.45);</pre><figure class="example-img">
+  <img src="Resources/orbital-rings-ue5.png"
+       alt="Orbital rings effect running in the Unreal Engine 5 material editor">
+  <figcaption>The same shader pasted into an Unreal Custom material node — wired to Emissive Color.</figcaption>
+</figure>
+</div>
+<div class="card yellow grid-full">
+<div class="card-title"><span class="dot"></span> GLSL → HLSL Translation Notes</div>
+<div class="checklist"><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>vec2 / vec3 / vec4</code> &rarr; <code>float2 / float3 / float4</code> — identical layout, different keyword</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>mix(a, b, t)</code> &rarr; <code>lerp(a, b, t)</code> — same argument order</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>fract(x)</code> &rarr; <code>frac(x)</code></span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>mod(x, y)</code> &rarr; <code>fmod(x, y)</code></span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>iTime</code> / <code>iResolution</code> removed — use a <strong>Time</strong> node input; UV is already 0&ndash;1 in Unreal</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>void mainImage(out vec4 fragColor, ...)</code> &rarr; <code>return float3</code>; set Custom node output type to <strong>CMOT Float3</strong></span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body"><code>float(i)</code> &rarr; <code>(float)i</code> — C-style cast; both compile fine in SM5</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body">UV aspect ratio: GLSL divides by <code>min(res.x, res.y)</code> to keep orbits circular. The HLSL version uses <code>UV*2-1</code> which is square-only — divide <code>uv.x</code> by the aspect ratio for non-square plane meshes</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body">Loops in Custom nodes require <strong>SM5+</strong> — not available on ES3.1 (mobile). For mobile, unroll manually or use a Material Function per ring</span></div></div></div>
 </div>
 
 </div>
@@ -1793,6 +1975,156 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
   }
 
   roots.forEach(hydrate);
+})();
+
+/* ── VIZ-ORBIT — WebGL orbital rings SDF ──────────────────────────────────── */
+(function() {
+  var roots = document.querySelectorAll('[data-viz-orbit]');
+  if (!roots.length) return;
+
+  var VERT = [
+    'attribute vec2 a_pos;',
+    'void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }'
+  ].join('\n');
+
+  var FRAG = [
+    'precision mediump float;',
+    'uniform vec2  u_res;',
+    'uniform float u_time;',
+    'void main() {',
+    '  vec2 uv = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y);',
+    '  float T = u_time;',
+    '',
+    '  // Deep warm background + soft vignette',
+    '  vec3 col = vec3(0.055, 0.028, 0.014) * (1.0 - 0.45 * length(uv));',
+    '',
+    '  // Warm pedestal glow (bottom pool)',
+    '  col += vec3(0.98, 0.42, 0.08)',
+    '         * exp(-length(uv - vec2(0.0, -0.55)) * 2.8) * 0.9;',
+    '  col += vec3(0.55, 0.18, 0.03)',
+    '         * exp(-length(uv - vec2(0.0, -0.85)) * 1.3) * 0.55;',
+    '',
+    '  // Central sun / planet',
+    '  float r = length(uv);',
+    '  col += vec3(1.00, 0.95, 0.82) * smoothstep(0.040, 0.024, r);',
+    '  col += vec3(0.90, 0.55, 0.22) * exp(-r * 11.0) * 0.35;',
+    '  col += vec3(0.40, 0.20, 0.06) * exp(-r * 3.5)  * 0.28;',
+    '',
+    '  // Per-ring precessing orbits with own speed + body dot',
+    '  for (int i = 0; i < 3; i++) {',
+    '    float rad, incl, oSpeed, bSpeed, phO, phB;',
+    '    if (i == 0)      { rad=0.27; incl=0.38; oSpeed= 0.180; bSpeed= 1.30; phO= 0.2; phB=0.0; }',
+    '    else if (i == 1) { rad=0.42; incl=0.98; oSpeed=-0.110; bSpeed= 0.85; phO= 1.8; phB=1.7; }',
+    '    else             { rad=0.58; incl=1.24; oSpeed= 0.065; bSpeed=-0.55; phO=-0.6; phB=3.2; }',
+    '',
+    '    float O   = oSpeed * T + phO;   // precession (orbit plane rotation)',
+    '    float thB = bSpeed * T + phB;   // body angle on ring',
+    '',
+    '    // Pixel -> ring local frame (major axis along X)',
+    '    float co = cos(O), so = sin(O);',
+    '    vec2 p = vec2(uv.x*co + uv.y*so, -uv.x*so + uv.y*co);',
+    '',
+    '    // Ellipse SDF (approx)',
+    '    float ci = cos(incl);',
+    '    vec2 radii = vec2(rad, rad * abs(ci));',
+    '    vec2 pn = p / radii;',
+    '    float d = abs(length(pn) - 1.0) * min(radii.x, radii.y);',
+    '',
+    '    // Parametric angle on ellipse -> 3D depth (near/far of sun)',
+    '    float alpha_s = clamp(p.y / max(radii.y, 0.0001), -1.0, 1.0);',
+    '    float depth = alpha_s * sin(incl);',
+    '    float nearT = smoothstep(-0.7, 0.7, depth);',
+    '',
+    '    float core = exp(-d * 420.0);',
+    '    float glow = exp(-d * 55.0)  * 0.35;',
+    '    float aura = exp(-d * 16.0)  * 0.08;',
+    '    vec3 rc = mix(vec3(0.22, 0.38, 0.72), vec3(1.00, 0.98, 0.92), nearT);',
+    '    col += rc * (core + glow + aura) * (0.35 + 0.65 * nearT);',
+    '',
+    '    // Orbital body (small bright dot riding on the ring)',
+    '    float bc = cos(thB), bs = sin(thB);',
+    '    vec2 bodyLocal = vec2(rad * bc, rad * bs * ci);',
+    '    float bDepth = bs * sin(incl);',
+    '    float bDist  = length(p - bodyLocal);',
+    '    float front  = smoothstep(-0.05, 0.05, bDepth);',
+    '    float bCore  = smoothstep(0.022, 0.009, bDist);',
+    '    float bGlow  = exp(-bDist * 22.0) * 0.32;',
+    '    vec3  bCol   = mix(vec3(0.45, 0.60, 0.90), vec3(1.00, 0.95, 0.80), front);',
+    '    col += bCol * (bCore + bGlow) * (0.30 + 0.70 * front);',
+    '  }',
+    '',
+    '  col = pow(clamp(col, 0.0, 1.0), vec3(0.45));',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '}'
+  ].join('\n');
+
+  function mkGL(canvas) {
+    var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return null;
+    function compile(type, src) {
+      var sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      return gl.getShaderParameter(sh, gl.COMPILE_STATUS) ? sh : null;
+    }
+    var vs = compile(gl.VERTEX_SHADER,   VERT);
+    var fs = compile(gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) return null;
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+    gl.useProgram(prog);
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER,
+      new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    return {
+      gl:    gl,
+      uRes:  gl.getUniformLocation(prog, 'u_res'),
+      uTime: gl.getUniformLocation(prog, 'u_time')
+    };
+  }
+
+  roots.forEach(function(root) {
+    var canvas    = root.querySelector('[data-canvas]');
+    var stateChip = root.querySelector('[data-chip-state]');
+    var pauseBtn  = root.querySelector('[data-pause]');
+    if (!canvas) return;
+    var ctx = mkGL(canvas);
+    if (!ctx) {
+      if (stateChip) stateChip.textContent = '✗ NO WEBGL';
+      return;
+    }
+    var paused = false;
+    var t0 = performance.now();
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', function() {
+        paused = !paused;
+        pauseBtn.textContent = paused ? '▶ PLAY' : 'PAUSE';
+        if (stateChip) stateChip.textContent = paused ? '● PAUSED' : '● LIVE';
+      });
+    }
+    (function loop() {
+      if (!paused) {
+        var dpr = window.devicePixelRatio || 1;
+        var W = Math.round(canvas.offsetWidth  * dpr);
+        var H = Math.round(canvas.offsetHeight * dpr);
+        if (canvas.width !== W || canvas.height !== H) {
+          canvas.width = W; canvas.height = H;
+          ctx.gl.viewport(0, 0, W, H);
+        }
+        ctx.gl.uniform2f(ctx.uRes,  W, H);
+        ctx.gl.uniform1f(ctx.uTime, (performance.now() - t0) * 0.001);
+        ctx.gl.drawArrays(ctx.gl.TRIANGLE_STRIP, 0, 4);
+      }
+      requestAnimationFrame(loop);
+    }());
+  });
 })();
 </script>
 </body>

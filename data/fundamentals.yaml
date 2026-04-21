@@ -1,0 +1,413 @@
+meta:
+  title: "Fundamentals — UE5 Shader Cheatsheet"
+  description: "Skill-tiered walkthroughs for HLSL and Niagara — beginner concepts, intermediate patterns, and advanced engine plumbing, each with an interactive visualizer."
+  active: fundamentals
+  favicon: "🎓"
+  header_tag: "● Fundamentals · Learn by Level · Interactive Demos"
+  header_h1: 'Shader <span>Fundamentals</span> by Skill Level'
+  header_right: |
+    Audience: <strong>Beginner → Advanced</strong>
+    Mode: <strong>Interactive SVG demos</strong>
+    Approach: <strong>One concept per demo</strong>
+  anchors:
+    - {divider: "BEGINNER", area: beginner}
+    - {id: interp, label: "Lerp / Smoothstep / Step"}
+    - {id: depth-fade, label: "Depth Fade / Soft Particles"}
+    - {id: flipbook, label: "Sub-UV Flipbook Timing"}
+    - {id: channels, label: "Channel Packing (RGBA)"}
+    - {divider: "INTERMEDIATE", area: intermediate}
+    - {id: uvflow, label: "UV Flow / Distortion"}
+    - {id: burst, label: "Spawn Rate vs Burst"}
+    - {id: sortorder, label: "Sort Order Artifacts"}
+    - {id: precision, label: "float vs half Precision"}
+    - {divider: "ADVANCED", area: advanced}
+    - {id: advanced-coming, label: "Coming soon"}
+
+section_groups:
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  BEGINNER — one-concept visualizers, no engine knowledge assumed
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "Beginner"
+    icon: "🌱"
+    theme: beginner
+    sections:
+
+      - id: interp
+        label: "Interpolation — Lerp vs Smoothstep vs Step"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — drag the slider"
+            content:
+              - type: viz-interp
+                title: "Lerp vs Smoothstep vs Step"
+                number: "01"
+                caption: >
+                  Three interpolants that look similar on paper behave very
+                  differently at the edges. Drag the marker to see when each
+                  produces a hard seam, a linear ramp, or a smooth falloff.
+
+          - color: orange
+            title: "When to reach for each"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<strong>step(edge, x)</strong> — binary cutoff. Use for hard masks, opacity cutouts, or debug visualizations."
+                  - icon: arrow
+                    html: "<strong>lerp(a, b, t)</strong> — straight-line blend. The workhorse for fades, blends, and mixing two textures."
+                  - icon: arrow
+                    html: "<strong>smoothstep(e0, e1, x)</strong> — S-curve between two edges. Use for feathered masks, soft transitions, anti-aliased edges."
+
+          - color: orange
+            title: "See smoothstep in a real shader"
+            content:
+              - type: raw
+                html: |
+                  <a class="viz-ref" href="visuals.html#noise-strip">
+                    <span class="viz-ref-badge">06</span>
+                    Noise fields (Value / Worley / fBm) · smoothstep drives the colour ramp on all three
+                  </a>
+
+          - color: red
+            title: "Common beginner mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Hard seams everywhere.</strong> <code>step()</code> leaves aliased edges. For anti-aliased masks, <code>smoothstep(x-d, x+d, t)</code> gives you a filtered edge with width <code>2d</code>."
+                  - icon: "no"
+                    html: "<strong>Using lerp as a mask.</strong> <code>lerp(a, b, t)</code> is not clamped — if <code>t &gt; 1</code> you overshoot. Use <code>saturate(t)</code> first, or reach for <code>smoothstep</code> which clamps for you."
+                  - icon: "no"
+                    html: "<strong>Smoothstep argument order.</strong> HLSL is <code>smoothstep(edge0, edge1, x)</code> — edges first, then the value. GLSL matches. Getting it backwards silently gives a flat zero."
+
+      - id: depth-fade
+        label: "Depth Fade / Soft Particles"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — toggle hard vs soft, drag fade distance"
+            content:
+              - type: viz-depth
+                title: "Depth Fade / Soft Particles"
+                number: "B2"
+                caption: >
+                  A particle quad intersecting scene geometry. Toggle between
+                  hard-clip and soft-fade modes, then drag the fade distance
+                  slider to see how the contact edge changes.
+
+          - color: orange
+            title: "How depth fade works in UE5"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "The <strong>Depth Fade</strong> material node samples <code>SceneDepth</code> and compares it to the particle's own depth. The difference drives a 0→1 mask."
+                  - icon: arrow
+                    html: "Pass the mask through <code>smoothstep(0, FadeDistance, diff)</code> for a feathered edge, or <code>step(0, diff)</code> for hard-clip."
+                  - icon: arrow
+                    html: "In Niagara, pair with <strong>Sprite Facing</strong> and make sure <em>Translucency Sort Priority</em> is set, or sort artifacts can swallow the fade."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Fade distance too large.</strong> A fade zone larger than the particle radius makes the particle disappear before it fully intersects geometry."
+                  - icon: "no"
+                    html: "<strong>Depth Fade on opaque materials.</strong> The node only works in translucent/additive blend modes; on opaque it silently returns 1."
+                  - icon: "no"
+                    html: "<strong>Using PixelDepth instead of SceneDepth.</strong> <code>PixelDepth</code> is the fragment's own depth — you need <code>SceneDepth</code> (the background) for the comparison."
+
+      - id: flipbook
+        label: "Sub-UV Flipbook Timing"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — adjust FPS and toggle frame interpolation"
+            content:
+              - type: viz-flipbook
+                title: "Sub-UV Flipbook Timing"
+                number: "B3"
+                caption: >
+                  A 4×4 atlas grid ticks through frames at the chosen FPS.
+                  Toggle linear interpolation to see how the ghost overlay
+                  smooths the transition — and why low-FPS atlases pop without it.
+
+          - color: orange
+            title: "Sub-UV in UE5 materials"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "Use the <strong>SubUV</strong> texture sampler or the <strong>SubUV Motion Blur</strong> node in the material to handle atlas tiling automatically."
+                  - icon: arrow
+                    html: "Drive the frame index from a Niagara <code>SubImageIndex</code> parameter, or compute it as <code>Time * FPS % FrameCount</code> in HLSL."
+                  - icon: arrow
+                    html: "Linear interpolation (<strong>SubUV Blend Enabled</strong>) blends two consecutive frames. Costs one extra texture sample but eliminates popping at ≤ 24fps."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Frame count mismatch.</strong> If the material's <em>Sub Image Size</em> (e.g. 4,4) doesn't match the atlas layout, frames wrap incorrectly or show seams."
+                  - icon: "no"
+                    html: "<strong>Driving index from world time directly.</strong> <code>Time * FPS</code> is not particle-relative; two particles spawned 1 s apart will be in sync instead of staggered."
+                  - icon: "no"
+                    html: "<strong>Interpolation on a flipbook with alpha.</strong> Linear blending two semi-transparent frames doubles coverage — use <em>premultiplied alpha</em> or disable blend."
+
+      - id: channels
+        label: "Channel Packing (RGBA)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — click channels to isolate each mask"
+            content:
+              - type: viz-channels
+                title: "Channel Packing — RGBA as 4 Independent Masks"
+                number: "B4"
+                caption: >
+                  A single texture stores four unrelated grayscale masks in R, G,
+                  B, and A. Click the channel buttons to reveal each one.
+                  One texture sample, four uses — half your sampler budget.
+
+          - color: orange
+            title: "How to read packed channels in HLSL"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "Sample once: <code>float4 packed = Texture2DSample(Tex, Smp, UV);</code>"
+                  - icon: arrow
+                    html: "Then unpack: <code>packed.r</code> = roughness, <code>packed.g</code> = height, <code>packed.b</code> = AO, <code>packed.a</code> = emissive mask."
+                  - icon: arrow
+                    html: "UE5 convention for ORM textures: <strong>R</strong> = Ambient Occlusion, <strong>G</strong> = Roughness, <strong>B</strong> = Metallic. Check your art pipeline — conventions vary."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Packing data with different compression needs.</strong> BC4 compresses one channel optimally; BC7 handles correlated RGB. A roughness map packed with an RGB normal loses quality — keep normals separate."
+                  - icon: "no"
+                    html: "<strong>Forgetting sRGB on packed textures.</strong> Packing maps (roughness, AO, height) should use <em>Linear</em> color space in the Texture Editor. sRGB gamma-corrects the data and breaks your values."
+                  - icon: "no"
+                    html: "<strong>Treating alpha as free storage.</strong> Alpha adds memory overhead on some platforms (BC1 has no alpha; you'd need BC3). Audit compression before packing alpha."
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  INTERMEDIATE — interactive demos for mid-level concepts
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "Intermediate"
+    icon: "🌿"
+    theme: intermediate
+    sections:
+
+      - id: uvflow
+        label: "UV Flow / Distortion"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — drag distortion strength"
+            content:
+              - type: viz-uvflow
+                title: "UV Flow / Distortion"
+                number: "I1"
+                caption: >
+                  A panning UV grid with sinusoidal distortion. Drag the
+                  strength slider to see how the warp grows — and notice
+                  the point where tiling seams become visible.
+
+          - color: orange
+            title: "UV flow in UE5 materials"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "The classic two-layer trick: sample a <strong>flow map</strong> texture (stored in RG as -1…+1 offsets), add to UV, then sample your detail texture twice at half-phase and blend."
+                  - icon: arrow
+                    html: "In HLSL: <code>float2 flow = FlowTex.Sample(S, uv).rg * 2 - 1;</code> then <code>uv0 = uv + flow * frac(Time * Speed);</code>"
+                  - icon: arrow
+
+                    html: "The <strong>Panner</strong> node handles simple linear flow. For turbulent flow use the <strong>FlowMap</strong> material function shipped with the engine."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Single-layer flow.</strong> Without the two half-phase layers, the texture snaps visibly when it wraps. Use two samples at <code>frac(t)</code> and <code>frac(t + 0.5)</code> and crossfade."
+                  - icon: "no"
+                    html: "<strong>Flow strength too high.</strong> Beyond ~0.3 units the warp tears tiling textures. Clamp with <code>saturate</code> or scale the flow map's contribution."
+                  - icon: "no"
+                    html: "<strong>Non-tiling flow map.</strong> The flow texture itself must tile, or the UV offsets will jump at the seam — use a seamlessly-tiled noise export."
+
+      - id: burst
+        label: "Spawn Rate vs Burst"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — play and compare continuous vs burst cost"
+            content:
+              - type: viz-burst
+                title: "Spawn Rate vs Burst"
+                number: "I2"
+                caption: >
+                  Continuous rate emits particles every frame; burst fires all at
+                  once. Press PLAY to see how particle count diverges over time —
+                  and how burst pierces the frame budget in a single spike.
+
+          - color: orange
+            title: "Rate vs burst in Niagara"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<strong>Spawn Rate</strong> emitter: particles enter the pool continuously. Steady CPU/GPU cost, predictable budget impact."
+                  - icon: arrow
+                    html: "<strong>Spawn Burst Instantaneous</strong>: all particles fire in one frame. Particle count is capped but frame-N has a spike."
+                  - icon: arrow
+                    html: "For explosions / one-shot FX, prefer burst — fewer live particles across the effect's lifetime. For ambient smoke / rain, use rate."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>High burst count on a looping emitter.</strong> If the emitter restarts, the burst fires every loop — turns into an unbounded rate spike."
+                  - icon: "no"
+                    html: "<strong>Ignoring Lifetime vs Rate interaction.</strong> <code>ActiveCount ≈ Rate × Lifetime</code>. Doubling lifetime doubles GPU cost for a rate emitter — tune both."
+                  - icon: "no"
+                    html: "<strong>Benchmarking burst FX at frame 0.</strong> The spike is invisible in average profiling; check GPU frame time in the Niagara Debugger on the burst frame."
+
+      - id: sortorder
+        label: "Sort Order Artifacts"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — toggle draw order to see popping"
+            content:
+              - type: viz-sortorder
+                title: "Translucent Sort Order Artifacts"
+                number: "I3"
+                caption: >
+                  Three overlapping translucent quads. Toggle draw order to see
+                  how back-to-front compositing produces correct blending — and
+                  how wrong order causes color popping and ghosting.
+
+          - color: orange
+            title: "Sort order in UE5"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "UE5 sorts translucent objects by <strong>TranslucencySortPriority</strong> (integer, set per-component) then by camera distance. Same priority → camera-distance sort."
+                  - icon: arrow
+                    html: "Niagara particle systems have a <strong>Sort Mode</strong> per-emitter: None, View Depth, View Distance, Custom Ascending/Descending."
+                  - icon: arrow
+                    html: "For overlapping emitters (e.g. smoke inside fire), set explicit priorities — the further emitter gets a lower priority integer."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Forgetting sort on GPU emitters.</strong> GPU sort adds ALU cost; it's opt-in. Without it, GPU particles draw in spawn order, not depth order."
+                  - icon: "no"
+                    html: "<strong>Mixing Additive and Translucent in one emitter.</strong> Additive ignores sort (it's commutative). If some quads are translucent and some additive, split them into separate emitters."
+                  - icon: "no"
+                    html: "<strong>Per-particle priority via material.</strong> You cannot change sort key per-particle inside a material — sort granularity is per-emitter (or per-component for meshes)."
+
+      - id: precision
+        label: "float vs half Precision"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — zoom in to see fp16 banding"
+            content:
+              - type: viz-precision
+                title: "float (fp32) vs half (fp16) Precision"
+                number: "I4"
+                caption: >
+                  The same gradient rendered at full 32-bit and quantized to
+                  16-bit. Zoom in to reveal where fp16 step boundaries appear —
+                  this is the banding you see in dark gradients on mobile.
+
+          - color: orange
+            title: "Precision in UE5 shaders"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>float</code> = fp32 (24-bit mantissa). Safe everywhere. Use for positions, depth, anything that varies over a wide range."
+                  - icon: arrow
+                    html: "<code>half</code> = fp16 (10-bit mantissa). ~3× cheaper on mobile/console ALU. Use for colors, UV offsets, normalised values in [0,1]."
+                  - icon: arrow
+                    html: "UE5 Material nodes default to fp32 on desktop, fp16 on mobile unless you use <strong>Precision</strong> node overrides. Check Shader Complexity with mobile preview."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Using half for world-space positions.</strong> fp16 range is ±65504. A position at 10 000 UU overflows — use <code>float3</code> for anything in world space."
+                  - icon: "no"
+                    html: "<strong>Banding in dark gradients.</strong> A 0→0.1 ramp only has ~100 representable fp16 steps vs ~1 600 in fp32. Dithering or a LUT can hide this on mobile."
+                  - icon: "no"
+                    html: "<strong>Assuming desktop == mobile precision.</strong> PC GPUs promote half to float silently. Always validate in a mobile preview or on device — the banding may not appear on PC at all."
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  ADVANCED — placeholder, populated in later PRs
+  # ════════════════════════════════════════════════════════════════════════════
+  - title: "Advanced"
+    icon: "🌳"
+    theme: advanced
+    sections:
+
+      - id: advanced-coming
+        label: "More demos on the way"
+        cards:
+
+          - color: yellow
+            span: grid-full
+            title: "Roadmap"
+            content:
+              - type: prose
+                text: >
+                  Queued advanced-tier visualizers: drag-coefficient integration,
+                  wave intrinsics / thread group sharing, and bounds culling cost.
+                  The existing demos below are the visual counterparts — open them
+                  now to see the patterns in action before the step-by-step
+                  breakdowns arrive.
+              - type: raw
+                html: |
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+                    <a class="viz-ref" href="visuals.html#threadgroups">
+                      <span class="viz-ref-badge">03</span>
+                      Threadgroup dispatch · 65,535 X→Y remap
+                    </a>
+                    <a class="viz-ref" href="visuals.html#bounds">
+                      <span class="viz-ref-badge">05</span>
+                      Fixed vs dynamic bounds
+                    </a>
+                    <a class="viz-ref" href="visuals.html#noise-strip">
+                      <span class="viz-ref-badge">06</span>
+                      Noise fields · Value / Worley / fBm
+                    </a>
+                  </div>

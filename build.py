@@ -36,6 +36,8 @@ _TYPES = frozenset({
     "bool",  "bool2",  "bool3",  "bool4",
     "void",  "double", "min16float", "min16float3", "min16float4",
     "int3",  "uint3",  "int32",
+    # GLSL types (used in cross-language examples)
+    "vec2",  "vec3",   "vec4",
 })
 
 _KEYWORDS = frozenset({
@@ -727,6 +729,20 @@ def render_viz_precision(block: dict) -> str:
     return _viz_canvas_shell(block, "viz-precision", "04", "float vs half Precision", chips, controls)
 
 
+def render_viz_orbit(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>● LIVE</span>'
+        '<span class="viz-chip">WebGL fragment shader</span>'
+        '<span class="viz-chip">SDF ellipse orbits × 3</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-toggle active" data-pause type="button">PAUSE</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-orbit", "EX", "Orbital Rings — Live Preview", chips, controls)
+
+
 def render_block(block: dict) -> str:
     t = block.get("type")
     dispatch = {
@@ -747,6 +763,7 @@ def render_block(block: dict) -> str:
         "viz-burst":      lambda: render_viz_burst(block),
         "viz-sortorder":  lambda: render_viz_sortorder(block),
         "viz-precision":  lambda: render_viz_precision(block),
+        "viz-orbit":      lambda: render_viz_orbit(block),
         "raw":         lambda: block.get("html", ""),
     }
     fn = dispatch.get(t)

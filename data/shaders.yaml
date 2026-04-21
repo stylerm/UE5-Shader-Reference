@@ -15,6 +15,7 @@ meta:
     - {id: tgsm,          label: TGSM}
     - {id: reference,     label: Reference}
     - {id: sampling,      label: Sampling}
+    - {id: orbital-rings, label: Orbital Rings}
     - {divider: "OPTIMIZATION", area: optim}
     - {id: compute-perf,  label: Perf Rules}
     - {divider: "ENGINE INTERNALS", area: engine}
@@ -371,6 +372,209 @@ section_groups:
                     return length(P - A - AB * t) - R;
                   }
 
+
+      # ── SECTION: ORBITAL RINGS EXAMPLE ────────────────────────────────────
+      - id: orbital-rings
+        label: "Example: Orbital Rings"
+        grid: "grid grid-2"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Orbital Rings — Procedural SDF Effect"
+            content:
+              - type: viz-orbit
+                number: "EX"
+                title: "Orbital Rings — Live WebGL Preview"
+                caption: "Three tilted orbits rendered as approximate SDF ellipses with exponential glow. Near arc brighter; far arc dimmer."
+
+          - color: orange
+            title: "GLSL — WebGL / ShaderToy"
+            content:
+              - type: prose
+                text: "Fragment shader — paste at shadertoy.com or wrap in any WebGL boilerplate. ShaderToy mainImage signature."
+              - type: code
+                src: |
+                  // ── Orbital Rings ── GLSL / ShaderToy ──────────────────────────────────
+                  // iResolution, iTime provided by ShaderToy; supply as uniforms otherwise.
+                  // Each ring has its own radius, inclination, precession speed,
+                  // and body-dot angular speed.
+
+                  void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+                      vec2 uv = (fragCoord - 0.5 * iResolution.xy)
+                                / min(iResolution.x, iResolution.y);
+                      float T = iTime;
+
+                      // Deep warm background with soft vignette
+                      vec3 col = vec3(0.055, 0.028, 0.014) * (1.0 - 0.45 * length(uv));
+
+                      // Warm pedestal glow (bottom pool)
+                      col += vec3(0.98, 0.42, 0.08)
+                             * exp(-length(uv - vec2(0.0, -0.55)) * 2.8) * 0.9;
+                      col += vec3(0.55, 0.18, 0.03)
+                             * exp(-length(uv - vec2(0.0, -0.85)) * 1.3) * 0.55;
+
+                      // Central sun / planet
+                      float r = length(uv);
+                      col += vec3(1.00, 0.95, 0.82) * smoothstep(0.040, 0.024, r);
+                      col += vec3(0.90, 0.55, 0.22) * exp(-r * 11.0) * 0.35;
+                      col += vec3(0.40, 0.20, 0.06) * exp(-r *  3.5) * 0.28;
+
+                      // Three rings — each with its own tilt, speed, and orbital body
+                      for (int i = 0; i < 3; i++) {
+                          float rad, incl, oSpeed, bSpeed, phO, phB;
+                          if (i == 0)      { rad=0.27; incl=0.38; oSpeed= 0.180;
+                                             bSpeed= 1.30; phO= 0.2; phB=0.0; }
+                          else if (i == 1) { rad=0.42; incl=0.98; oSpeed=-0.110;
+                                             bSpeed= 0.85; phO= 1.8; phB=1.7; }
+                          else             { rad=0.58; incl=1.24; oSpeed= 0.065;
+                                             bSpeed=-0.55; phO=-0.6; phB=3.2; }
+
+                          float O   = oSpeed * T + phO;   // precession angle (Ω)
+                          float thB = bSpeed * T + phB;   // body angle along ring
+
+                          // Rotate pixel into ring-local frame (major axis → X)
+                          float co = cos(O), so = sin(O);
+                          vec2 p = vec2(uv.x*co + uv.y*so, -uv.x*so + uv.y*co);
+
+                          // Tilted circle → ellipse on screen
+                          float ci = cos(incl);
+                          vec2 radii = vec2(rad, rad * abs(ci));
+                          vec2 pn = p / radii;
+                          float d = abs(length(pn) - 1.0) * min(radii.x, radii.y);
+
+                          // Near/far-of-sun shading (using parametric angle's 3D z)
+                          float alpha_s = clamp(p.y / max(radii.y, 1e-4), -1.0, 1.0);
+                          float depth   = alpha_s * sin(incl);
+                          float nearT   = smoothstep(-0.7, 0.7, depth);
+
+                          float core = exp(-d * 420.0);           // sharp line
+                          float glow = exp(-d *  55.0) * 0.35;    // soft aura
+                          float aura = exp(-d *  16.0) * 0.08;    // wide halo
+                          vec3 rc = mix(vec3(0.22, 0.38, 0.72),   // far-side: cool
+                                        vec3(1.00, 0.98, 0.92),   // near-side: warm-white
+                                        nearT);
+                          col += rc * (core + glow + aura) * (0.35 + 0.65 * nearT);
+
+                          // Orbital body (small bright dot on the ring)
+                          float bc = cos(thB), bs = sin(thB);
+                          vec2  bodyLocal = vec2(rad * bc, rad * bs * ci);
+                          float bDepth = bs * sin(incl);
+                          float bDist  = length(p - bodyLocal);
+                          float front  = smoothstep(-0.05, 0.05, bDepth);
+                          float bCore  = smoothstep(0.022, 0.009, bDist);
+                          float bGlow  = exp(-bDist * 22.0) * 0.32;
+                          vec3  bCol   = mix(vec3(0.45, 0.60, 0.90),
+                                             vec3(1.00, 0.95, 0.80), front);
+                          col += bCol * (bCore + bGlow) * (0.30 + 0.70 * front);
+                      }
+
+                      col = pow(clamp(col, 0.0, 1.0), vec3(0.45));
+                      fragColor = vec4(col, 1.0);
+                  }
+
+          - color: green
+            title: "HLSL — Unreal Custom Material Node"
+            content:
+              - type: prose
+                text: "Paste into a Custom node (return type float3). Wire TexCoord[0] → UV, a Time node → T. Connect output to Emissive Color."
+              - type: code
+                src: |
+                  // ── Orbital Rings ── HLSL / Unreal Custom Node ─────────────────────────
+                  // Inputs:
+                  //   UV  (float2) ← TexCoord[0]
+                  //   T   (float)  ← Time node
+                  // Output type: CMOT Float 3 — wire to Emissive Color
+
+                  float2 uv = UV * 2.0 - 1.0;  // assumes square; divide x by aspect if not
+
+                  // Deep warm background + vignette
+                  float3 col = float3(0.055, 0.028, 0.014) * (1.0 - 0.45 * length(uv));
+
+                  // Warm pedestal glow (bottom)
+                  col += float3(0.98, 0.42, 0.08)
+                         * exp(-length(uv - float2(0.0, -0.55)) * 2.8) * 0.9;
+                  col += float3(0.55, 0.18, 0.03)
+                         * exp(-length(uv - float2(0.0, -0.85)) * 1.3) * 0.55;
+
+                  // Central sun / planet
+                  float r = length(uv);
+                  col += float3(1.00, 0.95, 0.82) * smoothstep(0.040, 0.024, r);
+                  col += float3(0.90, 0.55, 0.22) * exp(-r * 11.0) * 0.35;
+                  col += float3(0.40, 0.20, 0.06) * exp(-r *  3.5) * 0.28;
+
+                  // Three rings — each with its own tilt, precession, and body speed
+                  for (int i = 0; i < 3; i++) {
+                      float rad, incl, oSpeed, bSpeed, phO, phB;
+                      if (i == 0)      { rad=0.27; incl=0.38; oSpeed= 0.180;
+                                         bSpeed= 1.30; phO= 0.2; phB=0.0; }
+                      else if (i == 1) { rad=0.42; incl=0.98; oSpeed=-0.110;
+                                         bSpeed= 0.85; phO= 1.8; phB=1.7; }
+                      else             { rad=0.58; incl=1.24; oSpeed= 0.065;
+                                         bSpeed=-0.55; phO=-0.6; phB=3.2; }
+
+                      float O   = oSpeed * T + phO;
+                      float thB = bSpeed * T + phB;
+
+                      // Rotate pixel into ring-local frame
+                      float co = cos(O), so = sin(O);
+                      float2 p = float2(uv.x*co + uv.y*so, -uv.x*so + uv.y*co);
+
+                      // Tilted circle → ellipse
+                      float  ci    = cos(incl);
+                      float2 radii = float2(rad, rad * abs(ci));
+                      float2 pn    = p / radii;
+                      float  d     = abs(length(pn) - 1.0) * min(radii.x, radii.y);
+
+                      // Near/far shading via parametric angle → 3D depth
+                      float alpha_s = clamp(p.y / max(radii.y, 1e-4), -1.0, 1.0);
+                      float depth   = alpha_s * sin(incl);
+                      float nearT   = smoothstep(-0.7, 0.7, depth);
+
+                      float core = exp(-d * 420.0);
+                      float glow = exp(-d *  55.0) * 0.35;
+                      float aura = exp(-d *  16.0) * 0.08;
+                      float3 rc  = lerp(float3(0.22, 0.38, 0.72),
+                                        float3(1.00, 0.98, 0.92), nearT);
+                      col += rc * (core + glow + aura) * (0.35 + 0.65 * nearT);
+
+                      // Orbital body dot
+                      float  bc = cos(thB), bs = sin(thB);
+                      float2 bodyLocal = float2(rad * bc, rad * bs * ci);
+                      float  bDepth    = bs * sin(incl);
+                      float  bDist     = length(p - bodyLocal);
+                      float  front     = smoothstep(-0.05, 0.05, bDepth);
+                      float  bCore     = smoothstep(0.022, 0.009, bDist);
+                      float  bGlow     = exp(-bDist * 22.0) * 0.32;
+                      float3 bCol      = lerp(float3(0.45, 0.60, 0.90),
+                                              float3(1.00, 0.95, 0.80), front);
+                      col += bCol * (bCore + bGlow) * (0.30 + 0.70 * front);
+                  }
+
+                  return pow(clamp(col, 0.0, 1.0), 0.45);
+              - type: raw
+                html: |
+                  <figure class="example-img">
+                    <img src="Resources/orbital-rings-ue5.png"
+                         alt="Orbital rings effect running in the Unreal Engine 5 material editor">
+                    <figcaption>The same shader pasted into an Unreal Custom material node — wired to Emissive Color.</figcaption>
+                  </figure>
+
+          - color: yellow
+            span: grid-full
+            title: "GLSL → HLSL Translation Notes"
+            content:
+              - type: checklist
+                items:
+                  - {icon: arrow, html: "<code>vec2 / vec3 / vec4</code> &rarr; <code>float2 / float3 / float4</code> — identical layout, different keyword"}
+                  - {icon: arrow, html: "<code>mix(a, b, t)</code> &rarr; <code>lerp(a, b, t)</code> — same argument order"}
+                  - {icon: arrow, html: "<code>fract(x)</code> &rarr; <code>frac(x)</code>"}
+                  - {icon: arrow, html: "<code>mod(x, y)</code> &rarr; <code>fmod(x, y)</code>"}
+                  - {icon: arrow, html: "<code>iTime</code> / <code>iResolution</code> removed — use a <strong>Time</strong> node input; UV is already 0&ndash;1 in Unreal"}
+                  - {icon: arrow, html: "<code>void mainImage(out vec4 fragColor, ...)</code> &rarr; <code>return float3</code>; set Custom node output type to <strong>CMOT Float3</strong>"}
+                  - {icon: arrow, html: "<code>float(i)</code> &rarr; <code>(float)i</code> — C-style cast; both compile fine in SM5"}
+                  - {icon: warn, html: "UV aspect ratio: GLSL divides by <code>min(res.x, res.y)</code> to keep orbits circular. The HLSL version uses <code>UV*2-1</code> which is square-only — divide <code>uv.x</code> by the aspect ratio for non-square plane meshes"}
+                  - {icon: warn, html: "Loops in Custom nodes require <strong>SM5+</strong> — not available on ES3.1 (mobile). For mobile, unroll manually or use a Material Function per ring"}
 
   # ════════════════════════════════════════════════════════════════════════════
   #  AREA 2 — IN-ENGINE OPTIMIZATION

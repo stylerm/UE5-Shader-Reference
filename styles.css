@@ -1851,3 +1851,27 @@ body.subpage-advanced .sidenav-links .sidenav-section.area-intermediate {
 .viz-burst     .viz-canvas { aspect-ratio: 16/8;  }
 .viz-sortorder .viz-canvas { aspect-ratio: 21/8;  }
 .viz-precision .viz-canvas { aspect-ratio: 16/7;  }
+.viz-orbit     .viz-canvas { aspect-ratio: 1/1; max-height: 420px; }
+.viz-orbit     .viz-body   { display: block; }
+
+/* ── Inline example images (figure + caption) ───────────────────────────── */
+figure.example-img {
+  margin: 12px 0 4px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0a0d12;
+}
+figure.example-img img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+figure.example-img figcaption {
+  padding: 8px 12px;
+  font: 11px/1.4 'JetBrains Mono', monospace;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: #0e131a;
+}

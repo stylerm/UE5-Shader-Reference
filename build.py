@@ -743,6 +743,393 @@ def render_viz_orbit(block: dict) -> str:
     return _viz_canvas_shell(block, "viz-orbit", "EX", "Orbital Rings — Live Preview", chips, controls)
 
 
+# ── BEGINNER VISUALIZERS ──────────────────────────────────────────────────────
+
+def render_viz_saturate(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-raw>in = 0.50</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>saturate = 0.50</span>'
+        '<span class="viz-chip" data-chip-clamped style="color:var(--accent3)">in range</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:200px;">\n'
+        '      <span class="viz-slider-label">INPUT</span>\n'
+        '      <input type="range" min="-50" max="150" value="50" data-input-val aria-label="input value">\n'
+        '      <span class="viz-slider-val" data-in-label>0.50</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-saturate", "B1", "Saturate / Clamp", chips, controls)
+
+
+def render_viz_abs(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>● LIVE</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>sin(x)</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>abs(sin(x))</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:200px;">\n'
+        '      <span class="viz-slider-label">FREQ</span>\n'
+        '      <input type="range" min="1" max="8" value="2" data-freq aria-label="frequency">\n'
+        '      <span class="viz-slider-val" data-freq-val>2</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-abs", "B2", "Absolute Value — abs()", chips, controls)
+
+
+def render_viz_frac(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-mode>RAMP + FRAC</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>input ramp</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>frac() output</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-mode="ramp" type="button">RAMP</button>\n'
+        '      <button class="viz-step" data-mode="wave" type="button">FRAC + SIN</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">SPEED</span>\n'
+        '      <input type="range" min="1" max="5" value="2" data-speed aria-label="speed">\n'
+        '      <span class="viz-slider-val" data-speed-val>2</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-frac", "B3", "Frac — Fractional Part", chips, controls)
+
+
+def render_viz_sincos(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>● LIVE</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>sin</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>cos</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>circle trace</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-panel="curves" type="button">CURVES</button>\n'
+        '      <button class="viz-step" data-panel="circle" type="button">CIRCLE</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:140px;">\n'
+        '      <span class="viz-slider-label">FREQ</span>\n'
+        '      <input type="range" min="1" max="6" value="1" data-freq aria-label="frequency">\n'
+        '      <span class="viz-slider-val" data-freq-val>1</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:140px;">\n'
+        '      <span class="viz-slider-label">AMP</span>\n'
+        '      <input type="range" min="20" max="100" value="60" data-amp aria-label="amplitude">\n'
+        '      <span class="viz-slider-val" data-amp-val>1.0</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-sincos", "B4", "Sine & Cosine", chips, controls)
+
+
+def render_viz_uv_tile(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-tile>TILE 2×2</span>'
+        '<span class="viz-chip" data-chip-offset>OFFSET 0.00, 0.00</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:120px;">\n'
+        '      <span class="viz-slider-label">TILE U</span>\n'
+        '      <input type="range" min="1" max="8" value="2" data-tile-u aria-label="tile U">\n'
+        '      <span class="viz-slider-val" data-tile-u-val>2</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:120px;">\n'
+        '      <span class="viz-slider-label">TILE V</span>\n'
+        '      <input type="range" min="1" max="8" value="2" data-tile-v aria-label="tile V">\n'
+        '      <span class="viz-slider-val" data-tile-v-val>2</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:120px;">\n'
+        '      <span class="viz-slider-label">OFF U</span>\n'
+        '      <input type="range" min="0" max="100" value="0" data-off-u aria-label="offset U">\n'
+        '      <span class="viz-slider-val" data-off-u-val>0.00</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:120px;">\n'
+        '      <span class="viz-slider-label">OFF V</span>\n'
+        '      <input type="range" min="0" max="100" value="0" data-off-v aria-label="offset V">\n'
+        '      <span class="viz-slider-val" data-off-v-val>0.00</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-uv-tile", "B5", "UV Tiling & Offset", chips, controls)
+
+
+# ── INTERMEDIATE VISUALIZERS ─────────────────────────────────────────────────
+
+def render_viz_dot(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-val>dot = 1.00</span>'
+        '<span class="viz-chip" data-chip-desc style="color:var(--accent3)">facing light</span>'
+    )
+    controls = (
+        '    <div class="viz-toggles">\n'
+        '      <span style="color:var(--dim);font-size:11px;line-height:2">DRAG LIGHT DIRECTION ON CANVAS</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-dot", "I1", "Dot Product — Surface Lighting", chips, controls)
+
+
+def render_viz_cross(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>RIGHT HAND</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>A</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>B</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>A×B</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-toggle" data-flip type="button">FLIP WINDING</button>\n'
+        '    </div>\n'
+        '    <div class="viz-toggles">\n'
+        '      <span style="color:var(--dim);font-size:11px;line-height:2">DRAG VECTOR TIPS ON CANVAS</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-cross", "I2", "Cross Product — Tangent Frame", chips, controls)
+
+
+def render_viz_power(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-pow>power = 1.0</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>linear input</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>pow() output</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:240px;">\n'
+        '      <span class="viz-slider-label">POW</span>\n'
+        '      <input type="range" min="1" max="100" value="10" data-power aria-label="power exponent">\n'
+        '      <span class="viz-slider-val" data-power-val>1.0</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-power", "I3", "Power / Contrast Shaping", chips, controls)
+
+
+def render_viz_polar(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-mode>BOTH</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>angle channel</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>radius channel</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-ch="both" type="button">BOTH</button>\n'
+        '      <button class="viz-step" data-ch="angle" type="button">ANGLE</button>\n'
+        '      <button class="viz-step" data-ch="radius" type="button">RADIUS</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-polar", "I4", "Polar Coordinates", chips, controls)
+
+
+def render_viz_uv_rotate(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-angle>angle = 0°</span>'
+        '<span class="viz-chip" data-chip-pivot>pivot 0.50, 0.50</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:220px;">\n'
+        '      <span class="viz-slider-label">ANGLE</span>\n'
+        '      <input type="range" min="0" max="360" value="0" data-angle aria-label="rotation angle">\n'
+        '      <span class="viz-slider-val" data-angle-val>0°</span>\n'
+        '    </div>\n'
+        '    <div class="viz-toggles">\n'
+        '      <span style="color:var(--dim);font-size:11px;line-height:2">DRAG PIVOT POINT ON CANVAS</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-uv-rotate", "I5", "UV Rotation & Pivot", chips, controls)
+
+
+def render_viz_gradient_noise(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-ntype>VALUE</span>'
+        '<span class="viz-chip" data-chip-nscale>scale 4</span>'
+        '<span class="viz-chip" data-chip-noct>1 octave</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-ntype="value" type="button">VALUE</button>\n'
+        '      <button class="viz-step" data-ntype="gradient" type="button">GRADIENT</button>\n'
+        '      <button class="viz-step" data-ntype="voronoi" type="button">VORONOI</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:140px;">\n'
+        '      <span class="viz-slider-label">SCALE</span>\n'
+        '      <input type="range" min="1" max="12" value="4" data-nscale aria-label="noise scale">\n'
+        '      <span class="viz-slider-val" data-nscale-val>4</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:140px;">\n'
+        '      <span class="viz-slider-label">OCTAVES</span>\n'
+        '      <input type="range" min="1" max="6" value="1" data-octaves aria-label="octave count">\n'
+        '      <span class="viz-slider-val" data-octaves-val>1</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-gradient-noise", "I6", "Noise — Value / Gradient / Voronoi", chips, controls)
+
+
+def render_viz_pan(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-layers>1 LAYER</span>'
+        '<span class="viz-chip" data-chip-panx>pan X 0.10</span>'
+        '<span class="viz-chip" data-chip-pany>pan Y 0.00</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-layers="1" type="button">1 LAYER</button>\n'
+        '      <button class="viz-step" data-layers="2" type="button">2 LAYERS</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:130px;">\n'
+        '      <span class="viz-slider-label">PAN X</span>\n'
+        '      <input type="range" min="-50" max="50" value="10" data-pan-x aria-label="pan speed X">\n'
+        '      <span class="viz-slider-val" data-pan-x-val>0.10</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:130px;">\n'
+        '      <span class="viz-slider-label">PAN Y</span>\n'
+        '      <input type="range" min="-50" max="50" value="0" data-pan-y aria-label="pan speed Y">\n'
+        '      <span class="viz-slider-val" data-pan-y-val>0.00</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-pan", "I7", "Panning & Flow Animation", chips, controls)
+
+
+def render_viz_fresnel(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-exp>exp = 2.0</span>'
+        '<span class="viz-chip" data-chip-rim style="color:var(--accent3)">rim width: medium</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:220px;">\n'
+        '      <span class="viz-slider-label">EXPONENT</span>\n'
+        '      <input type="range" min="1" max="80" value="20" data-exp aria-label="fresnel exponent">\n'
+        '      <span class="viz-slider-val" data-exp-val>2.0</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-fresnel", "I8", "Fresnel Effect", chips, controls)
+
+
+def render_viz_normal_space(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>● ROTATING</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>world-space</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>local-space</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-toggle" data-pause type="button">PAUSE</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-normal-space", "I9", "World vs Local Normal", chips, controls)
+
+
+# ── ADVANCED VISUALIZERS ──────────────────────────────────────────────────────
+
+def render_viz_sdf(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-shape>CIRCLE</span>'
+        '<span class="viz-chip" style="color:#00e5ff">■ inside (d&lt;0)</span>'
+        '<span class="viz-chip" style="color:#b8ff57">— edge (d=0)</span>'
+        '<span class="viz-chip" style="color:#ff6b35">■ outside (d&gt;0)</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-shape="circle" type="button">CIRCLE</button>\n'
+        '      <button class="viz-step" data-shape="box" type="button">BOX</button>\n'
+        '      <button class="viz-step" data-shape="ring" type="button">RING</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-sdf", "A1", "Signed Distance Fields", chips, controls)
+
+
+def render_viz_triplanar(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-sharp>SHARPNESS 1.0</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>XY face</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>XZ face</span>'
+        '<span class="viz-chip"><span class="viz-dot n"></span>YZ face</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:220px;">\n'
+        '      <span class="viz-slider-label">SHARPNESS</span>\n'
+        '      <input type="range" min="1" max="50" value="10" data-sharp aria-label="blend sharpness">\n'
+        '      <span class="viz-slider-val" data-sharp-val>1.0</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-triplanar", "A2", "Triplanar Projection", chips, controls)
+
+
+def render_viz_parallax(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-angle>angle = 0°</span>'
+        '<span class="viz-chip" data-chip-depth>depth = 0.10</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:170px;">\n'
+        '      <span class="viz-slider-label">VIEW ANGLE</span>\n'
+        '      <input type="range" min="-70" max="70" value="0" data-view-angle aria-label="view angle">\n'
+        '      <span class="viz-slider-val" data-angle-val>0°</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:170px;">\n'
+        '      <span class="viz-slider-label">DEPTH</span>\n'
+        '      <input type="range" min="0" max="50" value="10" data-depth-scale aria-label="depth scale">\n'
+        '      <span class="viz-slider-val" data-depth-val>0.10</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-parallax", "A3", "Parallax / Height Offset", chips, controls)
+
+
+def render_viz_derivative(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-dmode>HEIGHTMAP</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>height</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>ddx/ddy normals</span>'
+    )
+    controls = (
+        '    <div class="viz-steps">\n'
+        '      <button class="viz-step active" data-dmode="height" type="button">HEIGHTMAP</button>\n'
+        '      <button class="viz-step" data-dmode="normal" type="button">NORMAL</button>\n'
+        '      <button class="viz-step" data-dmode="split" type="button">SPLIT</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">STRENGTH</span>\n'
+        '      <input type="range" min="1" max="20" value="5" data-deriv-strength aria-label="derivative strength">\n'
+        '      <span class="viz-slider-val" data-deriv-val>5</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-derivative", "A4", "Derivative Maps — ddx/ddy", chips, controls)
+
+
+def render_viz_depth_intersect(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>● LIVE</span>'
+        '<span class="viz-chip" data-chip-angle>surface 0°</span>'
+        '<span class="viz-chip" data-chip-foam style="color:var(--accent3)">foam active</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">SURF ANGLE</span>\n'
+        '      <input type="range" min="-30" max="30" value="0" data-surf-angle aria-label="surface angle">\n'
+        '      <span class="viz-slider-val" data-surf-val>0°</span>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:160px;">\n'
+        '      <span class="viz-slider-label">FOAM WIDTH</span>\n'
+        '      <input type="range" min="1" max="40" value="12" data-foam-width aria-label="foam width">\n'
+        '      <span class="viz-slider-val" data-foam-val>12</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-depth-intersect", "A5", "Scene Depth Intersection", chips, controls)
+
+
+def render_viz_fourier(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-state>● LIVE</span>'
+        '<span class="viz-chip" data-chip-nfreqs>3 frequencies</span>'
+        '<span class="viz-chip" data-chip-sum style="color:var(--accent3)">sum shown</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:220px;">\n'
+        '      <span class="viz-slider-label">FREQUENCIES</span>\n'
+        '      <input type="range" min="1" max="8" value="3" data-nfreqs aria-label="number of frequencies">\n'
+        '      <span class="viz-slider-val" data-freqs-val>3</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(block, "viz-fourier", "A6", "Fourier / Frequency Stacking", chips, controls)
+
+
 def render_block(block: dict) -> str:
     t = block.get("type")
     dispatch = {
@@ -764,6 +1151,26 @@ def render_block(block: dict) -> str:
         "viz-sortorder":  lambda: render_viz_sortorder(block),
         "viz-precision":  lambda: render_viz_precision(block),
         "viz-orbit":      lambda: render_viz_orbit(block),
+        "viz-saturate":         lambda: render_viz_saturate(block),
+        "viz-abs":              lambda: render_viz_abs(block),
+        "viz-frac":             lambda: render_viz_frac(block),
+        "viz-sincos":           lambda: render_viz_sincos(block),
+        "viz-uv-tile":          lambda: render_viz_uv_tile(block),
+        "viz-dot":              lambda: render_viz_dot(block),
+        "viz-cross":            lambda: render_viz_cross(block),
+        "viz-power":            lambda: render_viz_power(block),
+        "viz-polar":            lambda: render_viz_polar(block),
+        "viz-uv-rotate":        lambda: render_viz_uv_rotate(block),
+        "viz-gradient-noise":   lambda: render_viz_gradient_noise(block),
+        "viz-pan":              lambda: render_viz_pan(block),
+        "viz-fresnel":          lambda: render_viz_fresnel(block),
+        "viz-normal-space":     lambda: render_viz_normal_space(block),
+        "viz-sdf":              lambda: render_viz_sdf(block),
+        "viz-triplanar":        lambda: render_viz_triplanar(block),
+        "viz-parallax":         lambda: render_viz_parallax(block),
+        "viz-derivative":       lambda: render_viz_derivative(block),
+        "viz-depth-intersect":  lambda: render_viz_depth_intersect(block),
+        "viz-fourier":          lambda: render_viz_fourier(block),
         "raw":         lambda: block.get("html", ""),
     }
     fn = dispatch.get(t)

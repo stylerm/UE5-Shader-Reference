@@ -15,13 +15,32 @@ meta:
     - {id: depth-fade, label: "Depth Fade / Soft Particles"}
     - {id: flipbook, label: "Sub-UV Flipbook Timing"}
     - {id: channels, label: "Channel Packing (RGBA)"}
+    - {id: saturate, label: "Saturate / Clamp"}
+    - {id: abs-val, label: "Absolute Value (abs)"}
+    - {id: frac, label: "Frac (Fractional Part)"}
+    - {id: sincos, label: "Sine & Cosine"}
+    - {id: uv-tile, label: "UV Tiling & Offset"}
     - {divider: "INTERMEDIATE", area: intermediate}
     - {id: uvflow, label: "UV Flow / Distortion"}
     - {id: burst, label: "Spawn Rate vs Burst"}
     - {id: sortorder, label: "Sort Order Artifacts"}
     - {id: precision, label: "float vs half Precision"}
+    - {id: dot, label: "Dot Product (lighting)"}
+    - {id: cross, label: "Cross Product (tangent frame)"}
+    - {id: power, label: "Power / Contrast Shaping"}
+    - {id: polar, label: "Polar Coordinates"}
+    - {id: uv-rotate, label: "UV Rotation & Pivot"}
+    - {id: gradient-noise, label: "Noise (Value / Gradient / Voronoi)"}
+    - {id: pan, label: "Panning & Flow Animation"}
+    - {id: fresnel, label: "Fresnel Effect"}
+    - {id: normal-space, label: "World vs Local Normal"}
     - {divider: "ADVANCED", area: advanced}
-    - {id: advanced-coming, label: "Coming soon"}
+    - {id: sdf, label: "Signed Distance Fields"}
+    - {id: triplanar, label: "Triplanar Projection"}
+    - {id: parallax, label: "Parallax / Height Offset"}
+    - {id: derivative, label: "Derivative Maps (ddx/ddy)"}
+    - {id: depth-intersect, label: "Scene Depth Intersection"}
+    - {id: fourier, label: "Fourier / Frequency Stacking"}
 
 section_groups:
 
@@ -203,6 +222,201 @@ section_groups:
                   - icon: "no"
                     html: "<strong>Treating alpha as free storage.</strong> Alpha adds memory overhead on some platforms (BC1 has no alpha; you'd need BC3). Audit compression before packing alpha."
 
+      - id: saturate
+        label: "Saturate / Clamp"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — drag the input value past 0 and 1"
+            content:
+              - type: viz-saturate
+                title: "Saturate / Clamp"
+                number: "B5"
+                caption: >
+                  Drag the input slider beyond 0–1 to see how saturate() snaps
+                  the output to the valid range. Values below 0 are floored,
+                  values above 1 are ceilinged — the orange dot shows raw input,
+                  the green dot shows the clamped output.
+
+          - color: orange
+            title: "saturate() vs clamp() in HLSL"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>saturate(x)</code> is shorthand for <code>clamp(x, 0, 1)</code>. On most GPUs it maps to a single hardware instruction."
+                  - icon: arrow
+                    html: "<code>clamp(x, a, b)</code> is the general form — use it when your valid range isn't 0–1 (e.g. clamping a light count to [0,4])."
+                  - icon: arrow
+                    html: "Both operate component-wise on vectors: <code>saturate(float3(−0.2, 0.5, 1.8))</code> → <code>(0, 0.5, 1)</code>."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Forgetting to saturate before pow().</strong> <code>pow(x, e)</code> with a negative x is undefined in HLSL — saturate first when the base could go negative."
+                  - icon: "no"
+                    html: "<strong>Saturating normals.</strong> Normal vectors have components in [−1, 1]; saturating them squashes the negative half. Use <code>normalize()</code> instead."
+
+      - id: abs-val
+        label: "Absolute Value (abs)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — sine wave and its abs() mirror"
+            content:
+              - type: viz-abs
+                title: "Absolute Value — abs()"
+                number: "B6"
+                caption: >
+                  The blue curve is sin(x), the orange curve is abs(sin(x)).
+                  abs() folds the negative half upward, producing the mirrored
+                  petal pattern used in ripple and pulse FX. Drag the frequency
+                  slider to see how the fold rate scales.
+
+          - color: orange
+            title: "Uses in shader math"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<strong>Ripple / pulse patterns:</strong> <code>abs(sin(uv.x * freq + time))</code> produces symmetric oscillation without negative values."
+                  - icon: arrow
+                    html: "<strong>Distance from a line:</strong> <code>abs(dot(n, p) − d)</code> gives unsigned distance to a plane — useful for edge glow masks."
+                  - icon: arrow
+                    html: "<strong>Sign-agnostic comparison:</strong> <code>abs(a − b) &lt; threshold</code> checks nearness without a branch."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>abs() on normals for lighting.</strong> Wrapping normals with <code>abs(N)</code> produces a two-sided surface effect, not correct back-face lighting — use <code>facing = sign(dot(N, V))</code> instead."
+                  - icon: "no"
+                    html: "<strong>Expecting abs(x*x) to equal x*x.</strong> It already does — squaring always gives a positive result. The redundant abs() just adds confusion."
+
+      - id: frac
+        label: "Frac (Fractional Part)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — sawtooth ramp and looping wave"
+            content:
+              - type: viz-frac
+                title: "Frac — Fractional Part"
+                number: "B7"
+                caption: >
+                  RAMP mode shows a climbing value and its frac() output — the
+                  classic 0→1 sawtooth. Switch to FRAC + SIN to see how
+                  frac(t) combined with sin() produces a perfectly looping wave,
+                  the building block of repeating UV animation.
+
+          - color: orange
+            title: "frac() in UV animation"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>frac(Time * Speed)</code> produces a 0→1 ramp that loops every <code>1/Speed</code> seconds — the standard UV pan loop."
+                  - icon: arrow
+                    html: "Combine with <code>sin(frac(t) * 2π)</code> for a smooth repeating wave with no phase discontinuity."
+                  - icon: arrow
+                    html: "<code>frac(uv * tiles)</code> tiles a texture: scales UV and discards the integer part, restarting the 0–1 range every tile."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Using frac() on negative values without care.</strong> <code>frac(−0.3)</code> = 0.7, not −0.3. For negative time offsets, add a large integer offset first: <code>frac(t + 1000.0)</code>."
+                  - icon: "no"
+                    html: "<strong>Visible discontinuity at the loop point.</strong> If the texture isn't tileable, frac() snaps back to 0 and the seam shows. Pre-filter with a cross-fade at <code>frac(t) > 0.9</code>."
+
+      - id: sincos
+        label: "Sine & Cosine"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — oscillation curves and circle trace"
+            content:
+              - type: viz-sincos
+                title: "Sine & Cosine"
+                number: "B8"
+                caption: >
+                  CURVES mode plots sin and cos animated over time with
+                  frequency and amplitude sliders. Switch to CIRCLE to see
+                  them used as X/Y outputs — sin drives horizontal, cos vertical
+                  — tracing the unit circle used for circular UV orbits.
+
+          - color: orange
+            title: "sin/cos in shader math"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<strong>Oscillation:</strong> <code>sin(Time * Freq) * Amplitude</code> is the standard animated ripple, pulse, or sway driver."
+                  - icon: arrow
+                    html: "<strong>Circular UV motion:</strong> <code>UV += float2(sin(t), cos(t)) * Radius</code> orbits a texture sample around a pivot."
+                  - icon: arrow
+                    html: "<strong>Smooth periodic mask:</strong> <code>saturate(sin(uv.x * freq + t) * 0.5 + 0.5)</code> remaps sin's [−1,1] range to a bright scan-line mask."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Using degrees instead of radians.</strong> HLSL sin/cos expect radians. A 90° phase offset is <code>PI/2</code> (~1.5708), not 90."
+                  - icon: "no"
+                    html: "<strong>sin(t) for a 0→1 oscillator.</strong> sin returns [−1,1]. Remap: <code>sin(t) * 0.5 + 0.5</code> before using as a blend weight or opacity."
+
+      - id: uv-tile
+        label: "UV Tiling & Offset"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — tile and offset sliders with split-view"
+            content:
+              - type: viz-uv-tile
+                title: "UV Tiling & Offset"
+                number: "B9"
+                caption: >
+                  Left panel shows raw UV gradient; right panel shows the
+                  tiled checkerboard. Adjust TILE U/V to repeat the texture,
+                  and OFF U/V to shift the tiling start point. The tiling
+                  formula applied is: <code>UV_tiled = frac(UV * Tile + Offset)</code>.
+
+          - color: orange
+            title: "Tiling in UE5 materials"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "The <strong>TexCoord</strong> node exposes UTiling/VTiling as scalar parameters — the engine multiplies UV by the tile values automatically."
+                  - icon: arrow
+                    html: "Manual form in HLSL: <code>float2 tiledUV = frac(UV * float2(tileU, tileV) + float2(offU, offV));</code>"
+                  - icon: arrow
+                    html: "Non-uniform tiling (different U vs V) is useful for trimming textures on long surfaces like pipes or walls."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Tiling a non-tileable texture.</strong> Visible seams at tile boundaries mean the texture wasn't authored to wrap. Check <em>Texture Address Mode = Wrap</em> and that the texture edges match."
+                  - icon: "no"
+                    html: "<strong>UV offset without frac.</strong> Adding a raw offset can push UVs outside [0,1]. Wrap with <code>frac()</code> or use the <em>Wrap</em> address mode so the sampler handles it."
+
   # ════════════════════════════════════════════════════════════════════════════
   #  INTERMEDIATE — interactive demos for mid-level concepts
   # ════════════════════════════════════════════════════════════════════════════
@@ -372,6 +586,361 @@ section_groups:
                   - icon: "no"
                     html: "<strong>Assuming desktop == mobile precision.</strong> PC GPUs promote half to float silently. Always validate in a mobile preview or on device — the banding may not appear on PC at all."
 
+      - id: dot
+        label: "Dot Product (surface angle / lighting)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — drag the light direction arrow"
+            content:
+              - type: viz-dot
+                title: "Dot Product — Surface Lighting"
+                number: "I5"
+                caption: >
+                  Drag the light arrow on the hemisphere to change the angle
+                  between the surface normal and the incoming light. The dot
+                  product scalar readout shows how darkening scales from 1
+                  (facing) to 0 (grazing) to negative (behind).
+
+          - color: orange
+            title: "dot() in lighting math"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>dot(N, L)</code> gives the cosine of the angle between normal N and light direction L — the core of Lambertian diffuse lighting."
+                  - icon: arrow
+                    html: "Both vectors must be normalized before the dot product, or the magnitude bleeds into the result."
+                  - icon: arrow
+                    html: "<strong>Signed result matters:</strong> positive = surface faces the light, zero = grazing, negative = back-face. <code>max(0, dot(N,L))</code> eliminates the back hemisphere."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Forgetting to normalize.</strong> <code>dot(float3(2,0,0), float3(1,0,0))</code> = 2, not 1. Always normalize light and normal vectors."
+                  - icon: "no"
+                    html: "<strong>dot(N, L) vs dot(N, V).</strong> Dot with the light direction gives diffuse; dot with the view direction gives specular falloff (Phong) and Fresnel."
+
+      - id: cross
+        label: "Cross Product (surface tangent / binormal)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — drag vectors to see the perpendicular"
+            content:
+              - type: viz-cross
+                title: "Cross Product — Tangent Frame"
+                number: "I6"
+                caption: >
+                  Drag the tips of vectors A and B. The result A×B is drawn
+                  perpendicular to both. Toggle FLIP WINDING to reverse the
+                  order — watch how the result direction inverts, mirroring the
+                  winding-order sensitivity that causes flipped tangent frames.
+
+          - color: orange
+            title: "cross() in tangent frame reconstruction"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>cross(T, B)</code> reconstructs the surface normal from tangent T and bitangent B — used in vertex shaders when only T and N are stored."
+                  - icon: arrow
+                    html: "<code>cross(N, T)</code> reconstructs the bitangent, but the sign must be flipped by the handedness value stored in the mesh's tangent W component."
+                  - icon: arrow
+                    html: "Result is not normalized — call <code>normalize(cross(A, B))</code> unless the inputs are already orthonormal unit vectors."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Ignoring the W component.</strong> In UE5's packed tangent format, the tangent W sign encodes handedness. If you skip <code>T.w</code>, half your meshes will have inverted bitangents."
+                  - icon: "no"
+                    html: "<strong>cross() on parallel vectors.</strong> <code>cross(A, A)</code> = (0,0,0) — undefined as a direction. Guard against it when reconstructing frames from degenerate geometry."
+
+      - id: power
+        label: "Power / Contrast Shaping"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — reshape a gradient with the power exponent"
+            content:
+              - type: viz-power
+                title: "Power / Contrast Shaping"
+                number: "I7"
+                caption: >
+                  The blue strip is a linear 0→1 gradient. The orange strip
+                  shows the same gradient after pow(x, p). Drag POW to push
+                  values toward black (p&gt;1) or white (p&lt;1). This is the
+                  fundamental contrast sculptor for masks.
+
+          - color: orange
+            title: "pow() for mask shaping"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>pow(mask, p)</code> with <code>p &gt; 1</code> concentrates the bright area — useful for tight specular highlights or narrow rim glow."
+                  - icon: arrow
+                    html: "<code>pow(mask, p)</code> with <code>p &lt; 1</code> spreads brightness — useful for wide subsurface falloff or soft ambient occlusion."
+                  - icon: arrow
+                    html: "Fresnel uses <code>pow(1 − dot(N,V), exponent)</code> — the pow here controls rim width, not brightness."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>pow() with a negative base.</strong> <code>pow(−0.1, 2.0)</code> is undefined in HLSL (returns NaN on many drivers). Saturate before pow: <code>pow(saturate(x), e)</code>."
+                  - icon: "no"
+                    html: "<strong>pow(0, 0) is indeterminate.</strong> Most drivers return 1, but it's UB. If your exponent is dynamic, guard with <code>max(x, 0.0001)</code>."
+
+      - id: polar
+        label: "Polar Coordinates (UV → angle + radius)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — isolate angle and radius channels"
+            content:
+              - type: viz-polar
+                title: "Polar Coordinates"
+                number: "I8"
+                caption: >
+                  The left half shows the Cartesian UV grid. The right half
+                  shows the same space remapped to polar — the ANGLE channel
+                  sweeps around the centre, the RADIUS channel grows outward.
+                  Toggle BOTH / ANGLE / RADIUS to isolate each.
+
+          - color: orange
+            title: "Polar math in HLSL"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "Centre UV at the pivot: <code>float2 c = UV − 0.5;</code>"
+                  - icon: arrow
+                    html: "Extract angle: <code>float angle = atan2(c.y, c.x);</code> range [−π, π]. Remap to [0,1] with <code>(angle / (2*PI) + 0.5)</code>."
+                  - icon: arrow
+                    html: "Extract radius: <code>float r = length(c);</code>. Use it to make radial masks, circular wipe transitions, or radial distance fields."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>atan2 seam at ±π.</strong> The angle wraps from +π to −π at the left-centre edge. Smooth this by sampling two frames or using a gradient texture for the angular lookup."
+                  - icon: "no"
+                    html: "<strong>Non-square UV distorts radius.</strong> On a non-square canvas, <code>length(c)</code> produces an ellipse. Correct by scaling <code>c.x</code> by the aspect ratio."
+
+      - id: uv-rotate
+        label: "UV Rotation & Pivot"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — rotate and drag the pivot point"
+            content:
+              - type: viz-uv-rotate
+                title: "UV Rotation & Pivot"
+                number: "I9"
+                caption: >
+                  Drag the ANGLE slider to rotate the checkerboard. The orange
+                  dot is the pivot — drag it on the canvas to see how off-centre
+                  pivots create arc-shaped motion instead of in-place spin.
+                  This is the 2D rotation matrix in action.
+
+          - color: orange
+            title: "2D rotation matrix in HLSL"
+            content:
+              - type: code
+                lang: hlsl
+                code: |
+                  float2 RotateUV(float2 uv, float angle, float2 pivot) {
+                      float s = sin(angle), c = cos(angle);
+                      uv -= pivot;
+                      uv  = float2(c*uv.x - s*uv.y,
+                                   s*uv.x + c*uv.y);
+                      return uv + pivot;
+                  }
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Forgetting the pivot offset.</strong> Rotating around (0,0) moves the texture off screen. Always translate to the pivot, rotate, then translate back."
+                  - icon: "no"
+                    html: "<strong>Aspect-ratio distortion.</strong> A unit circle UV rotation on a non-square canvas stretches into an ellipse. Account for aspect ratio when the canvas isn't 1:1."
+
+      - id: gradient-noise
+        label: "Noise (Gradient / Value / Voronoi)"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — noise type, scale, and octave sliders"
+            content:
+              - type: viz-gradient-noise
+                title: "Noise — Value / Gradient / Voronoi"
+                number: "I10"
+                caption: >
+                  Three noise algorithms shown side by side. VALUE noise
+                  interpolates random cell values for smooth, blobby patterns.
+                  GRADIENT (Perlin-style) has lower-contrast, more organic
+                  detail. VORONOI shows cell distance, producing rock-crack and
+                  cell-foam patterns. Stack octaves to add fine detail at scale.
+
+          - color: orange
+            title: "Choosing a noise type"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<strong>Value noise</strong> — cheap, smooth. Good for cloud opacity and slow material pulsing. The go-to when quality doesn't matter much."
+                  - icon: arrow
+                    html: "<strong>Gradient noise</strong> — lower grid-pattern bias, more organic. The <code>MF_Noise</code> family in UE5 uses Perlin-style gradient noise."
+                  - icon: arrow
+                    html: "<strong>Voronoi</strong> — produces cell patterns. Use for cracks, skin pores, wet-ground puddle layout. <code>VoronoiNoise</code> node available natively in UE5."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Too many octaves.</strong> Each octave doubles sampling cost. More than 4–5 octaves rarely improves visuals — the detail is smaller than a pixel."
+                  - icon: "no"
+                    html: "<strong>Visible tile boundaries.</strong> All three types tile at the scale boundary. If the tile seam is visible, either use a larger noise tile or a seamless noise texture."
+
+      - id: pan
+        label: "Panning & Flow Animation"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — pan speeds and layer toggle"
+            content:
+              - type: viz-pan
+                title: "Panning & Flow Animation"
+                number: "I11"
+                caption: >
+                  1 LAYER: single checkerboard panning at PAN X/Y speeds.
+                  2 LAYERS: a second layer pans at negative speed. The ping-pong
+                  blend between them hides the snap at each loop boundary —
+                  the proto-flowmap technique for looping turbulence.
+
+          - color: orange
+            title: "Two-layer loop technique"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "Layer A: <code>uv0 = UV + float2(speedX, speedY) * frac(Time);</code>"
+                  - icon: arrow
+                    html: "Layer B: <code>uv1 = UV − float2(speedX, speedY) * frac(Time + 0.5);</code>"
+                  - icon: arrow
+                    html: "Blend: <code>lerp(SampleA, SampleB, abs(frac(Time) * 2 − 1));</code> — this crossfade hides the per-layer wrap seam."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Single layer with a non-tileable texture.</strong> At the loop boundary, the UV jumps back to 0 and the texture snaps. Use two half-phase layers or a seamlessly-authored texture."
+                  - icon: "no"
+                    html: "<strong>Panning with raw Time.</strong> <code>UV + Time * speed</code> works, but precision degrades after ~30 min due to fp32 limits. Use <code>frac(Time * speed)</code> to keep the value in [0,1]."
+
+      - id: fresnel
+        label: "Fresnel Effect"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — exponent controls rim width"
+            content:
+              - type: viz-fresnel
+                title: "Fresnel Effect"
+                number: "I12"
+                caption: >
+                  A sphere with an edge glow driven by the Fresnel term.
+                  Drag EXPONENT low for a wide rim, high for a razor-thin edge.
+                  The term is <code>pow(1 − dot(N, V), exp)</code> — the grazing
+                  angle between surface normal and view direction.
+
+          - color: orange
+            title: "Fresnel in UE5 materials"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "The <strong>Fresnel</strong> node in UE5 computes <code>pow(1 − dot(N, V), Exponent)</code> automatically. Connect to Emissive for rim glow."
+                  - icon: arrow
+                    html: "Schlick approximation for physical accuracy: <code>F0 + (1 − F0) * pow(1 − cosTheta, 5)</code> where F0 is the normal-incidence reflectance."
+                  - icon: arrow
+                    html: "High exponents (10–30) produce tight highlights used for wet surfaces, car paint, and stylized outlines."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Using Fresnel for all rim lighting.</strong> Fresnel is view-dependent — it changes with camera angle. For a fixed rim, drive emissive from the light direction instead."
+                  - icon: "no"
+                    html: "<strong>Forgetting vertex normal mode.</strong> The Fresnel node can use either pixel or vertex normals — pixel normals react to normal maps, vertex normals give a smoother baseline."
+
+      - id: normal-space
+        label: "World-Space vs. Local-Space Normal"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — see normals fixed vs rotating with mesh"
+            content:
+              - type: viz-normal-space
+                title: "World vs Local Normal"
+                number: "I13"
+                caption: >
+                  Two panels show a simple mesh rotating over time. The left
+                  panel draws normals fixed in world space — they always point
+                  up. The right panel draws local-space normals — they rotate
+                  with the mesh. This is the difference between
+                  <code>VertexNormalWS</code> and <code>TransformVector(Normal, Tangent, World)</code>.
+
+          - color: orange
+            title: "Normal space in UE5 materials"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<strong>World-space normal:</strong> useful for triplanar blending and environment effects that should remain consistent regardless of mesh orientation."
+                  - icon: arrow
+                    html: "<strong>Tangent-space normal:</strong> the standard format for normal maps — offsets relative to the surface, rotate with the mesh automatically via the TBN matrix."
+                  - icon: arrow
+                    html: "UE5 nodes: <code>VertexNormalWS</code> (world), <code>VertexNormalOS</code> (object), <code>PixelNormalWS</code> (world after normal map). Use the right one or lighting breaks on rotation."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>World-space normals in a normal map.</strong> A world-space normal map only works for static objects. Once the object rotates, the normals point in the wrong direction."
+                  - icon: "no"
+                    html: "<strong>Mixing normal spaces in a material.</strong> If you combine a tangent-space normal with a world-space offset, convert one to the other first using <code>TransformVector</code>."
+
   # ════════════════════════════════════════════════════════════════════════════
   #  ADVANCED — placeholder, populated in later PRs
   # ════════════════════════════════════════════════════════════════════════════
@@ -380,34 +949,251 @@ section_groups:
     theme: advanced
     sections:
 
-      - id: advanced-coming
-        label: "More demos on the way"
+      - id: sdf
+        label: "Signed Distance Fields (SDF shapes)"
         cards:
 
-          - color: yellow
+          - color: blue
             span: grid-full
-            title: "Roadmap"
+            title: "Interactive — pick a shape to see the distance heatmap"
             content:
-              - type: prose
-                text: >
-                  Queued advanced-tier visualizers: drag-coefficient integration,
-                  wave intrinsics / thread group sharing, and bounds culling cost.
-                  The existing demos below are the visual counterparts — open them
-                  now to see the patterns in action before the step-by-step
-                  breakdowns arrive.
-              - type: raw
-                html: |
-                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
-                    <a class="viz-ref" href="visuals.html#threadgroups">
-                      <span class="viz-ref-badge">03</span>
-                      Threadgroup dispatch · 65,535 X→Y remap
-                    </a>
-                    <a class="viz-ref" href="visuals.html#bounds">
-                      <span class="viz-ref-badge">05</span>
-                      Fixed vs dynamic bounds
-                    </a>
-                    <a class="viz-ref" href="visuals.html#noise-strip">
-                      <span class="viz-ref-badge">06</span>
-                      Noise fields · Value / Worley / fBm
-                    </a>
-                  </div>
+              - type: viz-sdf
+                title: "Signed Distance Fields"
+                number: "A1"
+                caption: >
+                  SDF renders as a heatmap: cyan = inside (negative distance),
+                  orange = outside (positive distance), bright green = the zero
+                  isoline (the edge). Toggle CIRCLE / BOX / RING to see how
+                  the distance field changes shape, and notice that the gradient
+                  magnitude is always 1 (Eikonal property).
+
+          - color: orange
+            title: "SDF in HLSL shaders"
+            content:
+              - type: code
+                lang: hlsl
+                code: |
+                  // Circle SDF — centred at origin, radius r
+                  float sdCircle(float2 p, float r) { return length(p) - r; }
+                  // Box SDF — half-extents b
+                  float sdBox(float2 p, float2 b) {
+                      float2 d = abs(p) - b;
+                      return length(max(d, 0)) + min(max(d.x, d.y), 0);
+                  }
+                  // Ring SDF — outer radius r1, inner radius r2
+                  float sdRing(float2 p, float r1, float r2) {
+                      return abs(length(p) - r1) - r2;
+                  }
+                  // Use: float d = sdCircle(UV - 0.5, 0.3);
+                  // Edge mask: smoothstep(-aa, aa, -d)
+                  // Glow:      exp(-d * falloff)
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Treating SDF as a binary mask directly.</strong> Raw SDF values are in world units. Anti-alias with <code>smoothstep(−fwidth(d), fwidth(d), −d)</code> to get a pixel-width edge."
+                  - icon: "no"
+                    html: "<strong>Combining SDFs with multiply.</strong> Multiplying two SDFs doesn't produce the correct union or intersection — use <code>min(d1, d2)</code> for union, <code>max(d1, d2)</code> for intersection."
+
+      - id: triplanar
+        label: "Triplanar Projection"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — adjust blend sharpness"
+            content:
+              - type: viz-triplanar
+                title: "Triplanar Projection"
+                number: "A2"
+                caption: >
+                  Three projection planes (XY, XZ, YZ) each contribute a
+                  differently-tinted checkerboard weighted by the surface
+                  normal. Low SHARPNESS gives a wide blend across faces; high
+                  SHARPNESS snaps each face to a single projection. The
+                  blend weights are <code>pow(abs(N), sharpness)</code> normalized.
+
+          - color: orange
+            title: "Triplanar in HLSL"
+            content:
+              - type: code
+                lang: hlsl
+                code: |
+                  float3 TriplanarBlend(float3 N, float sharpness) {
+                      float3 w = pow(abs(N), sharpness);
+                      return w / (w.x + w.y + w.z);
+                  }
+                  // Sample three projections then blend:
+                  // float4 tx = Tex.Sample(S, p.yz) * w.x
+                  //           + Tex.Sample(S, p.xz) * w.y
+                  //           + Tex.Sample(S, p.xy) * w.z;
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Using object-space normals with world-space positions.</strong> Mix carefully — triplanar projection coordinates should be in the same space as the blend normals."
+                  - icon: "no"
+                    html: "<strong>Visible seam at 45° normals.</strong> At exactly 45° between two faces the blend is 50/50 — if the two projected textures don't align at that seam, it shows. Increase sharpness or use a matching texture."
+
+      - id: parallax
+        label: "Parallax / Height-Based Offset"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — view angle and depth scale"
+            content:
+              - type: viz-parallax
+                title: "Parallax / Height Offset"
+                number: "A3"
+                caption: >
+                  A flat surface that appears to have depth. The VIEW ANGLE
+                  slider simulates changing camera angle — the UV sample point
+                  shifts as if you're looking at a bumpy surface from the side.
+                  DEPTH controls how extreme the illusion is before it breaks.
+
+          - color: orange
+            title: "Parallax mapping in HLSL"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "Simple parallax: <code>float2 uvOffset = viewDirTS.xy / viewDirTS.z * (heightSample − 0.5) * depth;</code>"
+                  - icon: arrow
+                    html: "Steep parallax (POM): raymarch the height field in tangent space — more accurate but costs 8–16 texture samples per pixel."
+                  - icon: arrow
+                    html: "Contact refinement (POMR): binary-search after the last raymarching step to sharpen contact shadows at silhouettes."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Parallax on curved or thin geometry.</strong> Parallax offsets UVs in a flat plane approximation — it breaks badly on silhouette edges or curved surfaces with large depth values."
+                  - icon: "no"
+                    html: "<strong>Missing tangent-space view direction.</strong> The view vector must be in tangent space for the offset calculation. Use the TBN matrix to transform ViewDirWS before applying parallax."
+
+      - id: derivative
+        label: "Derivative Maps & ddx/ddy"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — heightmap to screen-space derivatives"
+            content:
+              - type: viz-derivative
+                title: "Derivative Maps — ddx/ddy"
+                number: "A4"
+                caption: >
+                  HEIGHTMAP shows the source elevation data. NORMAL shows
+                  the surface normal derived from screen-space partial derivatives
+                  — <code>ddx(height)</code> and <code>ddy(height)</code> give the
+                  slope per pixel in X and Y. SPLIT compares both side by side.
+
+          - color: orange
+            title: "ddx/ddy in HLSL"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "<code>ddx(h)</code> is the horizontal screen-space gradient of h — difference between adjacent pixels in a 2×2 quad."
+                  - icon: arrow
+                    html: "Build a normal: <code>float3 N = normalize(float3(−ddx(h), −ddy(h), 1.0 / strength));</code>"
+                  - icon: arrow
+                    html: "Derivative maps store pre-computed ddx/ddy in RG channels — cheaper to sample than a full normal map because they don't need to be decoded from [−1,1]."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>ddx/ddy inside dynamic branches.</strong> Screen-space derivatives are computed across 2×2 pixel quads simultaneously. A branch that not all four pixels take produces undefined derivatives — use <code>ddx_fine</code>/<code>ddy_fine</code> or avoid branching."
+                  - icon: "no"
+                    html: "<strong>ddx/ddy on non-screen-space values.</strong> These functions operate on rasterized screen quads, not on computed object-space values. The result is only meaningful for interpolated vertex outputs."
+
+      - id: depth-intersect
+        label: "Custom Depth / Scene Depth Intersection"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — surface angle and foam width"
+            content:
+              - type: viz-depth-intersect
+                title: "Scene Depth Intersection"
+                number: "A5"
+                caption: >
+                  A semi-transparent plane submerges an object. The depth
+                  difference between the plane's pixel depth and the scene
+                  depth behind it creates a foam/glow band at the waterline.
+                  SURF ANGLE tilts the plane to show how the intersection
+                  band shifts with geometry angle.
+
+          - color: orange
+            title: "Depth intersection in UE5 materials"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "The <strong>Depth Fade</strong> node reads <code>SceneDepth</code> and subtracts the pixel's own depth — the positive remainder is the depth gap."
+                  - icon: arrow
+                    html: "Foam mask: <code>float foam = 1 − saturate(depthDiff / FoamWidth);</code> — thin band near zero depth difference."
+                  - icon: arrow
+                    html: "For intersection glow, pipe the mask into Emissive or Opacity; for waterline foam, multiply by a scrolling noise texture."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>Using PixelDepth instead of SceneDepth.</strong> PixelDepth is the translucent surface's own depth — SceneDepth samples the opaque geometry behind it. You need both: <code>SceneDepth − PixelDepth</code>."
+                  - icon: "no"
+                    html: "<strong>Foam on opaque materials.</strong> The depth fade relies on the translucent pass reading the depth buffer. On opaque materials, the node silently returns 1 and the foam never appears."
+
+      - id: fourier
+        label: "Fourier / Frequency-Domain Thinking"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — stack frequencies to build complexity"
+            content:
+              - type: viz-fourier
+                title: "Fourier / Frequency Stacking"
+                number: "A6"
+                caption: >
+                  Each row is a sine wave at a harmonic frequency — frequency 1,
+                  2, 4, 8 … The bottom row is their sum. Drag FREQUENCIES to
+                  add or remove harmonics and watch how the waveform builds up
+                  complexity. This is exactly how octave-based fBm noise works.
+
+          - color: orange
+            title: "Frequency thinking in shader noise"
+            content:
+              - type: checklist
+                items:
+                  - icon: arrow
+                    html: "Each fBm octave doubles the frequency and halves the amplitude — called a <strong>lacunarity</strong> of 2 and <strong>gain</strong> of 0.5."
+                  - icon: arrow
+                    html: "Low frequencies carry the large-scale shape; high frequencies add surface detail. Removing the highest octave is like blurring the noise."
+                  - icon: arrow
+                    html: "The Fourier perspective explains why <em>more octaves ≠ more quality past the Nyquist limit</em> — once the frequency is smaller than a pixel, it aliases rather than adding detail."
+
+          - color: red
+            title: "Common mistakes"
+            content:
+              - type: checklist
+                items:
+                  - icon: "no"
+                    html: "<strong>High-frequency noise on low-res textures.</strong> Baked noise at frequency 8 on a 64×64 texture has 8 pixels per period — barely representable. Bake at an appropriate resolution or use runtime noise."
+                  - icon: "no"
+                    html: "<strong>Confusing frequency and scale.</strong> In shader terms, <em>scale</em> is the spatial frequency of the noise — higher scale = more repeats per unit = higher frequency. They're inverses of each other."

@@ -132,4 +132,4 @@ UE5-HLSL-Cheatsheet/
 
 ## License
 
-[MIT](LICENSE) — use freely, attribution appreciated.
+[CC BY 4.0](LICENSE) — use freely, attribution required.

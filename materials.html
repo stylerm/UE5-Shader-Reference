@@ -878,23 +878,33 @@ Helpers H;
 // canvas.offsetWidth/Height (set by CSS aspect-ratio) and syncs the
 // backing pixel buffer to device pixel ratio. Returns dpr.
 window._vizRedrawOnShow = window._vizRedrawOnShow || function(canvas, draw) {
-  // Canvas vizes on the optim/engine subpages start hidden, so offsetWidth is
-  // 0 and their first draw is skipped. Redraw once the element actually has a
-  // box — on resize, and after any click that could have switched a subpage.
+  // Canvas vizes on a non-default subpage tab start hidden, so their first
+  // draw measures 0 and they would stay blank until a window resize. Redraw
+  // when the element actually gains a box — and keep checking until the size
+  // settles, because a tab swap reports a transient width mid-reflow.
   function sync() {
     var w = canvas.offsetWidth;
     if (!w) return;
     var dpr = window.devicePixelRatio || 1;
     if (canvas.width !== Math.round(w * dpr)) draw();
   }
+  function settle() {
+    var lastW = -1, stable = 0, tries = 0;
+    (function step() {
+      var w = canvas.offsetWidth;
+      if (w > 0) {
+        stable = (w === lastW) ? stable + 1 : 0;
+        lastW = w;
+        sync();
+        if (stable >= 2) return;   // same width three checks running
+      }
+      // rAF is suspended while the tab is hidden, so poll on a timer.
+      if (++tries < 60) setTimeout(step, 50);
+    })();
+  }
   window.addEventListener('resize', draw);
-  document.addEventListener('click', function() { setTimeout(sync, 0); }, true);
-  var tries = 0;
-  (function retry() {
-    sync();
-    // rAF is suspended while the tab is hidden, so poll on a timer instead.
-    if (!canvas.offsetWidth && ++tries < 40) setTimeout(retry, 50);
-  })();
+  document.addEventListener('click', settle, true);
+  settle();
 };
 
 window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
@@ -1261,6 +1271,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     }
 
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr = _vizFitCanvas(canvas);
       var CW = canvas.width, CH = canvas.height;
       if (off.width !== CW || off.height !== CH) { off.width = CW; off.height = CH; }
@@ -1370,7 +1381,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
         ctx.beginPath(); ctx.moveTo(half, 0); ctx.lineTo(half, CH); ctx.stroke();
       }
     }
-    window.addEventListener('resize', draw); draw();
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -1469,6 +1480,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     function rateAlive(t)  { return Math.round(RATE_SPAWN * RATE_LIFE * Math.min(t / RATE_LIFE, 1) * Math.min(t * 3, 1)); }
     function burstAlive(t) { return t < 0.12 ? 0 : Math.round(BURST * Math.max(0, 1 - (t - 0.12) / BURST_LIFE)); }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr = _vizFitCanvas(canvas);
       var W = canvas.width, H = canvas.height;
       ctx.clearRect(0, 0, W, H);
@@ -1556,7 +1568,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       if (chipBurst) chipBurst.textContent = '0';
       draw();
     });
-    window.addEventListener('resize', draw); draw();
+    _vizRedrawOnShow(canvas, draw); draw();
   }
   roots.forEach(hydrate);
 })();
@@ -1601,6 +1613,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       });
     });
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr = _vizFitCanvas(canvas);
       var CW = canvas.width, CH = canvas.height;
       ctx.clearRect(0, 0, CW, CH);
@@ -1635,7 +1648,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText('DRAW ORDER: ' + seq.map(function(q){return q.id;}).join(' → '), Math.round(6*dpr), Math.round(14*dpr));
       ctx.fillText('← CAMERA', Math.round(6*dpr), Math.round(CH - 7*dpr));
     }
-    window.addEventListener('resize', draw); draw();
+    _vizRedrawOnShow(canvas, draw); draw();
   }
   roots.forEach(hydrate);
 })();
@@ -1674,6 +1687,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       return Math.round(v / step) * step;
     }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr = _vizFitCanvas(canvas);
       var CW = canvas.width, CH = canvas.height;
       ctx.clearRect(0, 0, CW, CH);
@@ -1724,7 +1738,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText(rMax.toFixed(3), CW - Math.round(4*dpr), Math.round(CH - 5*dpr));
       ctx.textAlign = 'left';
     }
-    window.addEventListener('resize', draw); draw();
+    _vizRedrawOnShow(canvas, draw); draw();
   }
   roots.forEach(hydrate);
 })();
@@ -1988,6 +2002,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     }
     if (slider) slider.addEventListener('input', update);
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr = _vizFitCanvas(canvas);
       var W = canvas.width, H = canvas.height;
       ctx.clearRect(0, 0, W, H);
@@ -2032,7 +2047,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       }
       ctx.textAlign = 'left';
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2237,6 +2252,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     });
     function frac(v) { return v-Math.floor(v); }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr = _vizFitCanvas(canvas);
       var W = canvas.width, H = canvas.height;
       ctx.clearRect(0,0,W,H); ctx.fillStyle = '#07090e'; ctx.fillRect(0,0,W,H);
@@ -2261,7 +2277,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText('TILED ('+v.tu+'\xD7'+v.tv+')', half+(W-half)*0.5, H-8*dpr);
       ctx.textAlign='left';
     }
-    syncChips(); draw(); window.addEventListener('resize', draw);
+    syncChips(); draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2297,6 +2313,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       draw(); e.preventDefault();
     }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       ctx.clearRect(0,0,W,H); ctx.fillStyle='#07090e'; ctx.fillRect(0,0,W,H);
@@ -2332,7 +2349,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillStyle='rgba(255,179,71,0.85)'; ctx.fillText('dot(N,L) = '+dv.toFixed(2), cx, cy+r*0.35+16*dpr);
       ctx.textAlign='left';
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2381,6 +2398,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.moveTo(x1,y1); ctx.lineTo(x1-aLen*Math.cos(ang-0.4),y1-aLen*Math.sin(ang-0.4)); ctx.lineTo(x1-aLen*Math.cos(ang+0.4),y1-aLen*Math.sin(ang+0.4)); ctx.closePath(); ctx.fill();
     }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height, cx=W*0.5, cy=H*0.5, sc=Math.min(W,H)*0.38;
       ctx.clearRect(0,0,W,H); ctx.fillStyle='#07090e'; ctx.fillRect(0,0,W,H);
@@ -2403,7 +2421,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText('A\xD7B = '+cross.toFixed(2),cx,cy+rC+14*dpr);
       ctx.textAlign='left';
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2429,6 +2447,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     }
     if (powerSldr) powerSldr.addEventListener('input', update);
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       ctx.clearRect(0,0,W,H); ctx.fillStyle='#07090e'; ctx.fillRect(0,0,W,H);
@@ -2440,7 +2459,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillStyle='rgba(0,229,255,0.6)'; ctx.fillText('linear input  (pow = 1.0)',8*dpr,y0-4*dpr);
       ctx.fillStyle='#ff6b35'; ctx.fillText('pow(x, '+getPow().toFixed(1)+')',8*dpr,y1-4*dpr);
     }
-    update(); window.addEventListener('resize', draw);
+    update(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2466,6 +2485,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     });
     var offscreen=document.createElement('canvas');
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       ctx.clearRect(0,0,W,H); ctx.fillStyle='#07090e'; ctx.fillRect(0,0,W,H);
@@ -2488,7 +2508,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       var lbl=ch==='angle'?'ANGLE — atan2(y,x)':ch==='radius'?'RADIUS — length(uv)':'ANGLE + RADIUS combined';
       ctx.fillText(lbl, W*0.5, H-8*dpr); ctx.textAlign='left';
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2527,6 +2547,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     canvas.addEventListener('touchend', function(){ draggingPivot=false; });
     function frac(v){ return v-Math.floor(v); }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       ctx.clearRect(0,0,W,H); ctx.fillStyle='#07090e'; ctx.fillRect(0,0,W,H);
@@ -2547,7 +2568,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.font=Math.round(9*dpr)+'px JetBrains Mono, monospace'; ctx.textAlign='left';
       ctx.fillStyle='rgba(255,107,53,0.7)'; ctx.fillText('pivot',pivX+8*dpr,pivY-4*dpr);
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2732,6 +2753,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     if (expSldr) expSldr.addEventListener('input', update);
     var offscreen=document.createElement('canvas');
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       if (offscreen.width!==W||offscreen.height!==H){ offscreen.width=W; offscreen.height=H; }
@@ -2759,7 +2781,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText('pow(1\u2212dot(N,V), '+getExp().toFixed(1)+')', W*0.5, H-8*dpr);
       ctx.textAlign='left';
     }
-    update(); window.addEventListener('resize', draw);
+    update(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2844,6 +2866,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     function sdRing(x,y,r1,r2){ return Math.abs(Math.sqrt(x*x+y*y)-r1)-r2; }
     var offscreen=document.createElement('canvas');
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       if (offscreen.width!==W||offscreen.height!==H){ offscreen.width=W; offscreen.height=H; }
@@ -2872,7 +2895,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText('SDF heatmap \xB7 cyan=inside(d<0) \xB7 orange=outside(d>0) \xB7 bright=edge', W*0.5, H-8*dpr);
       ctx.textAlign='left';
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -2955,6 +2978,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     function height(u,v){ return Math.sin(u*Math.PI*6)*Math.sin(v*Math.PI*6)*0.5+0.5; }
     function frac(v){ return v-Math.floor(v); }
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       ctx.clearRect(0,0,W,H); ctx.fillStyle='#07090e'; ctx.fillRect(0,0,W,H);
@@ -2978,7 +3002,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
       ctx.fillText('FLAT UV',half*0.5,H-8*dpr); ctx.fillText('PARALLAX OFFSET',half+(W-half)*0.5,H-8*dpr);
       ctx.textAlign='left';
     }
-    sync(); window.addEventListener('resize', draw);
+    sync(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();
@@ -3008,6 +3032,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
     function hgt(u,v){ return Math.sin(u*11.3)*0.4+Math.sin(v*8.7+1.2)*0.35+Math.sin((u+v)*6.1)*0.25; }
     var offscreen=document.createElement('canvas');
     function draw() {
+      if (!canvas.offsetWidth) return;
       var dpr=_vizFitCanvas(canvas);
       var W=canvas.width, H=canvas.height;
       if (offscreen.width!==W||offscreen.height!==H){ offscreen.width=W; offscreen.height=H; }
@@ -3042,7 +3067,7 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
         ctx.textAlign='left';
       }
     }
-    draw(); window.addEventListener('resize', draw);
+    draw(); _vizRedrawOnShow(canvas, draw);
   }
   roots.forEach(hydrate);
 })();

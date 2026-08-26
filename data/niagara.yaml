@@ -14,6 +14,7 @@ meta:
     - {id: scratch-pad,  label: Scratch Pad}
     - {id: restrictions, label: Restrictions}
     - {id: stateless,    label: Stateless}
+    - {id: stateless-custom, label: Custom Modules}
     - {id: attributes,   label: Attributes}
     - {id: patterns,     label: Patterns}
     - {divider: "OPTIMIZATION", area: optim}

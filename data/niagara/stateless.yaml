@@ -4,57 +4,77 @@
   cards:
 
     - color: orange
-      title: "Stateless Particle Struct"
+      title: "The Simulate Entry Point"
       content:
         - type: prose
-          text: "Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:"
+          text: "Every stateless module .ush exposes <strong>exactly one</strong> function, and it takes <strong>exactly one argument</strong>. There is no context struct and no parameter struct:"
         - type: code
           src: |
-            // Stateless module entry point
-            void MyModule_Initialize(
-                inout FStatelessParticle Particle,
-                in FStatelessParticleContext Context)
+            // <ModuleName> = class name with the
+            // "NiagaraStatelessModule_" prefix stripped
+            void MyModule_Simulate(
+                inout FStatelessParticle Particle)
             {
-              // Read state
-              uint   Idx = Context.ExecIndex;
-              float3 Pos = Particle.Position;
-              float  Age = Particle.Age;
-
-              // Write state directly
-              Particle.Position         = NewPos;
-              Particle.PreviousPosition = OldPos;
-              Particle.Scale            = float3(1,1,1);
-              Particle.Color            = float4(1,0,0,1);
-              Particle.MeshOrientation  = NewQuat;
+              Particle.Position += Offset;
+              Particle.Color    *= Tint;
             }
+        - type: checklist
+          items:
+            - {icon: "no", html: "<strong>There is no <code>FStatelessParticleContext</code></strong> — the type does not exist anywhere in the Niagara source tree. A 3-arg <code>_Simulate</code> taking a context will not compile"}
+            - {icon: "no", html: "<strong>Don't wrap parameters in a struct</strong> — shader parameters are <strong>file-scope globals</strong>, not members (next card)"}
+            - {icon: "no", html: "<strong>No <code>#pragma once</code></strong> — the template is <code>#include</code>d exactly once into a generated .usf. None of the engine's 19 module templates have one"}
+            - {icon: ok,   html: "<strong>The name is derived, not declared</strong> — <code>UNiagaraStatelessModule_Foo</code> ⇒ <code>Foo_Simulate</code>. The translator string-strips the prefix (<code>NiagaraStatelessEmitterTranslator.cpp:155</code>)"}
+
+    - color: blue
+      title: "Parameters Are Globals, Not Members"
+      content:
+        - type: prose
+          text: "The C++ <code>SHADER_PARAMETER</code> names and the HLSL global names must match <strong>character for character</strong>. The module-name prefix is the convention that keeps them unique in one flat namespace:"
+        - type: code
+          src: |
+            // ── C++ ────────────────────────────────
+            BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
+              SHADER_PARAMETER(uint32, MyMod_Count)
+              SHADER_PARAMETER(uint32, MyMod_DataOffset)
+            END_SHADER_PARAMETER_STRUCT()
+
+            // ── .ush ───────────────────────────────
+            uint MyMod_Count;        // file scope
+            uint MyMod_DataOffset;   // no struct
+
+            void MyMod_Simulate(
+                inout FStatelessParticle Particle)
+            { ... }
+        - type: prose
+          text: "Every module's parameters are concatenated into <strong>one</strong> shader parameter struct for the whole emitter, so an unprefixed name like <code>Count</code> collides with every other module."
 
     - color: green
-      title: "GPU Buffer Access Pattern"
+      title: "Bulk Data · Use the Static Data Buffer"
       content:
         - type: prose
-          text: "Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:"
+          text: "Niagara already ships a shared, engine-managed constant buffer for per-module array data. <strong>Don't create your own SRV</strong> — register the array at build time and read it back by offset:"
         - type: code
           src: |
-            // Reading float3 from typed float buffer
-            float3 ReadFloat3FromBuffer(
-                Buffer<float> InBuffer, uint Index)
-            {
-              uint Base = Index * 3;
-              return float3(
-                InBuffer[Base + 0],
-                InBuffer[Base + 1],
-                InBuffer[Base + 2]);
-            }
+            // ── C++, BuildEmitterData ──────────────
+            // Returns a uint32 offset into the
+            // shared static data buffer
+            Built->DataOffset =
+                BuildContext.AddStaticData(Positions);
+            Built->Count = Positions.Num();
 
-            // Reading float4 (color, quaternion)
-            float4 ReadFloat4FromBuffer(
-                Buffer<float> InBuffer, uint Index)
-            {
-              uint Base = Index * 4;
-              return float4(
-                InBuffer[Base + 0], InBuffer[Base + 1],
-                InBuffer[Base + 2], InBuffer[Base + 3]);
-            }
+            // ── .ush ───────────────────────────────
+            // Common_StaticDataBuffer is already in
+            // scope via NiagaraStatelessCommon.ush
+            float3 P = GetStaticFloat3(
+                MyMod_DataOffset, Element);
+        - type: prose
+          text: "Overloads exist for <code>uint32</code>, <code>int32</code>, <code>float</code>, <code>FVector2f</code>, <code>FVector3f</code>, <code>FVector4f</code>, <code>FLinearColor</code>; readers are <code>GetStaticUInt</code> / <code>Int</code> / <code>Float</code> / <code>Float2</code> / <code>Float3</code>. This is the same path <code>AddDistribution()</code> uses internally."
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Offsets are element-strided, not byte-strided</strong> — <code>GetStaticFloat3(Base, N)</code> loads at <code>(Base + N*3) * 4</code> bytes. Pass the raw offset from <code>AddStaticData</code>, don't pre-multiply it"}
+            - {icon: "no", html: "<strong>Don't hand-roll <code>CreateStructured</code> plus a <code>mutable</code> SRV on the UObject</strong> — <code>SetShaderParameters</code> runs on the render thread, so lazily creating RHI resources from a <code>const</code> method is a data race, and the resource has no owner with the right lifetime"}
+            - {icon: warn, html: "<strong>A structured buffer needs a structured SRV</strong> — <code>CreateStructured(stride)</code> paired with <code>EBufferType::Typed</code> + <code>PF_R32_FLOAT</code> is a mismatch that survives compilation and reads garbage"}
+            - {icon: ok,   html: "The one engine module with <code>SHADER_PARAMETER_SRV</code> (<code>SolveVelocitiesAndForces_NoiseLUT</code>, a <code>ByteAddressBuffer</code>) binds an <strong>engine-lifetime static LUT</strong>, not per-instance data — that's the only shape where a raw SRV is idiomatic here"}
 
     - color: orange
       span: grid-full
@@ -68,27 +88,236 @@
             </a>
 
     - color: blue
+      title: "Randomness Is Already Seeded"
+      content:
+        - type: prose
+          text: "The template reseeds a thread-local <code>GRandomSeedInternal</code> from <code>(Common_RandomSeed, Particle.UniqueID, ModuleIndex)</code> <strong>before every module call</strong>. The argument to <code>Random*</code> is a <em>call-site offset</em>, not a seed:"
+        - type: code
+          src: |
+            // 0, 1, 2… are call-site offsets
+            // within THIS module
+            uint   I = RandomUInt(0) % Count;
+            float3 V = RandomFloat3(1);
+            float3 D = RandomUnitFloat3(2);
+
+            // Available: RandomUInt / UInt2/3/4,
+            // RandomFloat / Float2/3/4,
+            // RandomRangeFloat, RandomScaleBiasFloat,
+            // RandomUnitFloat2/3
+        - type: checklist
+          items:
+            - {icon: "no", html: "<strong><code>NiagaraStatelessRandomUInt()</code> does not exist</strong> — no such symbol in the engine. The real entry points are in <code>NiagaraStatelessCommon.ush:75-109</code>"}
+            - {icon: "no", html: "<strong>Don't pass <code>Particle.UniqueID</code> as the seed</strong> — it's already folded in. Passing it again correlates every module against the same value"}
+            - {icon: "no", html: "<strong>Don't hand-roll a MurmurHash finalizer</strong> — <code>Rand4DPCG32</code> is already doing that work behind <code>RandomUInt4</code>"}
+            - {icon: ok,   html: "<strong>Reuse an offset and you get the same number back</strong> — that's a feature, and it's how a value stays stable across two reads"}
+            - {icon: warn, html: "<strong>Determinism is the whole contract</strong> — the sim recomputes from scratch every frame, so any value that isn't a pure function of <code>(UniqueID, Age, offset)</code> visibly jitters frame to frame"}
+
+    - color: green
+      title: "FStatelessParticle · Real Members"
+      content:
+        - type: prose
+          text: "Fixed members are declared in <code>GenerateCS_PreModules.ush</code>; attribute members are appended by the translator from the emitter's variable set:"
+        - type: code
+          src: |
+            // Always present
+            bool  bAlive;    // set false to kill
+            uint  UniqueID;  // stable per particle
+            float MaterialRandom;
+            float Lifetime;
+            float Age;
+            float NormalizedAge;
+            float PreviousAge;
+            float PreviousNormalizedAge;
+            float DeltaTime, InvDeltaTime;
+
+            // Appended per emitter attribute set:
+            // Position, Velocity, Color, Scale,
+            // SpriteSize, SpriteRotation, MeshIndex,
+            // MeshOrientation, RibbonWidth,
+            // SubImageIndex, CameraOffset,
+            // DynamicMaterialParameter0..3,
+            // plus each Previous* counterpart
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Write every variable you declare in <code>GetOutputVariables()</code></strong> — declaring <code>PreviousPositionVariable</code> then writing only <code>Position</code> leaves the previous value at whatever the last module left, corrupting velocity and motion vectors"}
+            - {icon: ok,   html: "<strong>Members outside your declared set still exist</strong> and are writable — but nothing guarantees they're bound to an output component, so the write may be discarded"}
+            - {icon: ok,   html: "<strong><code>Particle.bAlive = false</code> kills the particle</strong> — it's checked once, after all modules run, before the output write"}
+
+    - color: blue
       title: "Indexing Strategies"
       content:
         - type: prose
           text: "Common patterns for selecting which array element a particle uses:"
         - type: code
           src: |
-            // Sequential (round-robin by particle ID)
-            uint Idx = ParticleID % NumPositions;
+            // Random (already seeded per particle)
+            uint Idx = RandomUInt(0) % Count;
+
+            // Sequential (round-robin by particle)
+            uint Idx = Particle.UniqueID % Count;
 
             // Sequential with clamping (no wrap)
-            uint Idx = min(ParticleID, NumPositions - 1);
+            uint Idx = min(Particle.UniqueID,
+                           Count - 1);
 
-            // Random via MurmurHash3 finalizer
-            uint Hash = ParticleID;
-            Hash ^= Hash >> 16;
-            Hash *= 0x85ebca6b;
-            Hash ^= Hash >> 13;
-            Hash *= 0xc2b2ae35;
-            Hash ^= Hash >> 16;
-            uint Idx = Hash % NumPositions;
-
-            // Age-based (interpolate through array)
-            float T   = NormalizedAge * (float)Count;
+            // Age-based (walk the array over life)
+            float T   = Particle.NormalizedAge
+                      * (float)Count;
             uint  Idx = min((uint)T, Count - 1);
+        - type: prose
+          text: "Guard <code>Count == 0</code> before the modulo — <code>% 0</code> on GPU is undefined, not a trap."
+
+# ── SECTION 4: CUSTOM STATELESS MODULES ────────────────────────────────
+- id: stateless-custom
+  label: "Authoring a Custom Stateless Module · C++"
+  cards:
+
+    - color: red
+      span: grid-full
+      title: "Read this first · A game plugin cannot ship a custom stateless module"
+      content:
+        - type: gotcha
+          variant: full
+          problem: "You can write, compile, and expose a <code>UNiagaraStatelessModule</code> subclass from a game plugin. It appears in the editor, its C++ runs, and <strong>its shader never executes</strong> — the particles behave as if the module isn't there."
+          why: "The stateless simulation shader is <strong>not generated at cook time</strong>. <code>NiagaraStatelessSimulationDefault.usf</code> is a hand-committed, pre-generated file with a hardcoded <code>PARTICLE_MODULES</code> list and a fixed set of <code>#include</code>s, bound by <code>IMPLEMENT_GLOBAL_SHADER(FSimulationShaderDefaultCS, …)</code>. The editor translator that emits that HLSL is a <strong>dev-time tool</strong> whose output an engine programmer commits by hand."
+          why_ref: "NiagaraStatelessEmitterShaders.cpp:7 · NiagaraStatelessSimulationDefault.usf:42-69 · NiagaraStatelessEmitterTemplate.cpp:227-273"
+          fix: "Shipping a custom module means <strong>engine-side changes</strong>: subclass <code>UNiagaraStatelessEmitterTemplate</code>, override <code>InitModulesAndAttributes()</code> / <code>GetShaderParametersMetadata()</code> / <code>GetSimulationShader()</code>, declare a new global shader, run the translator, and commit the generated .usf. Without an engine fork, <strong>use a regular GPU emitter with a Scratch Pad module</strong> — more expensive per particle, but a supported extension point."
+          detect: "The give-away is silence: the module compiles, the details panel populates, <code>BuildEmitterData</code> hits a breakpoint, and nothing changes on screen. The base <code>UNiagaraStatelessEmitterTemplate::GetSimulationShader()</code> returns an <strong>empty <code>TShaderRef</code></strong> — only <code>UNiagaraStatelessEmitterDefault</code> overrides it with a real one."
+        - type: prose
+          text: "Everything below still holds — it is the contract you implement inside an engine fork, and the <code>PARTICLE_MODULE(Null)</code> entries in the shipped .usf show what a module that isn't wired up looks like from the shader's side. Budget the engine work before starting."
+
+    - color: yellow
+      title: "Build.cs · The Internal Include Dance"
+      content:
+        - type: prose
+          text: "Stateless headers live under Niagara's <code>Internal/</code> tree, which is not on the public include path. Without these, <code>NiagaraStatelessModule.h</code> will not resolve:"
+        - type: code
+          src: |
+            string NiagaraSrc = Path.Combine(
+              EngineDirectory,
+              "Plugins/FX/Niagara/Source");
+
+            PrivateIncludePaths.AddRange(new[] {
+              Path.Combine(NiagaraSrc,
+                "Niagara/Internal"),
+              Path.Combine(NiagaraSrc,
+                "NiagaraShader/Internal"),
+            });
+
+            PublicDependencyModuleNames.AddRange(new[]{
+              "Core", "CoreUObject", "Engine",
+              "Niagara", "NiagaraCore",
+              "RHI", "RenderCore" });
+            PrivateDependencyModuleNames.AddRange(new[]{
+              "Projects", "NiagaraShader" });
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Include with the <code>Stateless/</code> prefix</strong> — <code>#include \"Stateless/NiagaraStatelessModule.h\"</code>. Adding <code>Internal/Stateless</code> to the path so you can drop the prefix works, but diverges from every engine module and breaks on upgrade"}
+            - {icon: warn, html: "<strong><code>Internal/</code> is internal by design</strong> — no API-stability promise. Expect breakage across engine versions"}
+
+    - color: green
+      title: "The 5-Method Contract"
+      content:
+        - type: code
+          src: |
+            UCLASS(MinimalAPI, EditInlineNew,
+                   meta=(DisplayName="My Module"))
+            class UNiagaraStatelessModule_MyMod
+              : public UNiagaraStatelessModule
+            {
+              GENERATED_BODY()
+            public:
+              // 1. game thread, build/cook time
+              virtual void BuildEmitterData(
+                const F…BuildContext&) const override;
+              // 2. once — declares the layout
+              virtual void BuildShaderParameters(
+                F…ParametersBuilder&) const override;
+              // 3. render thread, per dispatch
+              virtual void SetShaderParameters(
+                const F…Context&) const override;
+            #if WITH_EDITORONLY_DATA
+              // 4. virtual path to the .ush
+              virtual const TCHAR*
+                GetShaderTemplatePath() const override;
+              // 5. what this module writes
+              virtual void GetOutputVariables(
+                TArray<FNiagaraVariableBase>&,
+                EVariableFilter) const override;
+            #endif
+            };
+        - type: prose
+          text: "<code>EditInlineNew</code> is required — without it the module can't be instantiated in the emitter stack. Both editor-only methods feed HLSL generation, which never runs in a cooked build."
+
+    - color: green
+      title: "Built Data · Allocate Before You Bail"
+      content:
+        - type: prose
+          text: "<code>SetShaderParameters</code> reads built data <strong>unconditionally</strong>, so the allocation must happen on every path — allocate first, then early-return:"
+        - type: code
+          src: |
+            void U…MyMod::BuildEmitterData(
+              const F…BuildContext& Ctx) const
+            {
+              // ALWAYS first — even when disabled
+              FModuleBuiltData* Built =
+                Ctx.AllocateBuiltData<FModuleBuiltData>();
+
+              if (!IsModuleEnabled() || Data.IsEmpty())
+              {
+                return;   // zeroed built data
+              }
+
+              Built->Offset = Ctx.AddStaticData(Data);
+              Built->Count  = Data.Num();
+
+              // opt in to the CPU sim path
+              Ctx.AddParticleSimulationExecSimulate(
+                &ParticleSimulate);
+            }
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Built data must be POD</strong> — it lands in a raw <code>TArray&lt;uint8&gt;</code> arena. No constructors, no destructors, no pointers"}
+            - {icon: warn, html: "<strong>Skip <code>AddParticleSimulationExecSimulate</code> and the module is GPU-only</strong> — it silently does nothing on CPU-simulated stateless emitters, with no warning"}
+            - {icon: ok,   html: "<strong>Resolve attribute offsets here</strong> via <code>FindParticleVariableIndex()</code> and guard on <code>INDEX_NONE</code> — the attribute may not be in the emitter's set at all"}
+
+    - color: yellow
+      title: "Shader Template Path · Virtual, Not Physical"
+      content:
+        - type: prose
+          text: "<code>GetShaderTemplatePath()</code> returns a <strong>virtual shader path</strong>. Every segment after the mount point must exist as a real subdirectory on disk:"
+        - type: code
+          src: |
+            // StartupModule — map the mount point
+            AddShaderSourceDirectoryMapping(
+              TEXT("/Plugin/MyPlugin"),
+              FPaths::Combine(
+                IPluginManager::Get()
+                  .FindPlugin(TEXT("MyPlugin"))
+                  ->GetBaseDir(),
+                TEXT("Shaders")));
+
+            // ⇒ /Plugin/MyPlugin/Private/Foo.ush
+            //   resolves to
+            //   MyPlugin/Shaders/Private/Foo.ush
+            //                    ^^^^^^^ must exist
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>The <code>Private/</code> in engine paths is a real folder</strong>, not decoration — <code>/Plugin/FX/Niagara/Private/Stateless/Modules/…</code> mirrors <code>Niagara/Shaders/Private/Stateless/Modules/</code> exactly. A path segment you never created won't resolve"}
+            - {icon: warn, html: "<strong>Map the directory before any shader path is resolved</strong> — use <code>LoadingPhase: PostConfigInit</code> if anything resolves early"}
+            - {icon: "no", html: "<strong>Keep exactly one copy of the .ush</strong> — a second copy under <code>Source/</code> is never compiled and silently drifts from the one that is"}
+
+    - color: blue
+      span: grid-full
+      title: "Naming Contract · Five Names That Must Agree"
+      content:
+        - type: prose
+          text: "Nothing cross-validates these. A mismatch is a silent no-op or an obscure shader compile error, never a clear message:"
+        - type: table
+          cols: ["Thing", "Must be", "Tied to"]
+          rows:
+            - ["C++ class", "<code>UNiagaraStatelessModule_<strong>MyMod</strong></code>", "the class declaration"]
+            - ["HLSL entry point", "<code><strong>MyMod</strong>_Simulate</code>", "class name minus the <code>NiagaraStatelessModule_</code> prefix"]
+            - ["Shader globals", "<code><strong>MyMod</strong>_&lt;Param&gt;</code>", ".ush file scope ↔ <code>SHADER_PARAMETER</code>, byte-identical"]
+            - ["Template path", "<code>/Plugin/&lt;Mount&gt;/&lt;RealDirs&gt;/….ush</code>", "<code>GetShaderTemplatePath()</code> ↔ <code>AddShaderSourceDirectoryMapping</code>"]
+            - ["Declared outputs", "every member the shader writes", "<code>GetOutputVariables()</code> ↔ the <code>_Simulate</code> body"]

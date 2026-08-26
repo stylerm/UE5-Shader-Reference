@@ -47,6 +47,7 @@
 <a href="#scratch-pad" data-area="ref">Scratch Pad</a>
 <a href="#restrictions" data-area="ref">Restrictions</a>
 <a href="#stateless" data-area="ref">Stateless</a>
+<a href="#stateless-custom" data-area="ref">Custom Modules</a>
 <a href="#attributes" data-area="ref">Attributes</a>
 <a href="#patterns" data-area="ref">Patterns</a>
 <div class="sidenav-divider area-optim"></div>
@@ -153,46 +154,44 @@ OutColor    = <span class="kw">float4</span>(1,0,0,1);        <span class="c">//
 <div id="stateless" class="section-label">Stateless Module Patterns · From Real Code</div>
 <div class="grid">
 <div class="card orange">
-<div class="card-title"><span class="dot"></span> Stateless Particle Struct</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless modules use <code>FStatelessParticle</code> + <code>FStatelessParticleContext</code> — different from Scratch Pad:</p><pre><span class="c">// Stateless module entry point</span>
-<span class="kw">void</span> <span class="fn">MyModule_Initialize</span>(
-    <span class="kw">inout</span> <span class="kw">FStatelessParticle</span> Particle,
-    <span class="kw">in</span> <span class="kw">FStatelessParticleContext</span> Context)
+<div class="card-title"><span class="dot"></span> The Simulate Entry Point</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Every stateless module .ush exposes <strong>exactly one</strong> function, and it takes <strong>exactly one argument</strong>. There is no context struct and no parameter struct:</p><pre><span class="c">// &lt;ModuleName&gt; = class name with the</span>
+<span class="c">// &quot;NiagaraStatelessModule_&quot; prefix stripped</span>
+<span class="kw">void</span> <span class="fn">MyModule_Simulate</span>(
+    <span class="kw">inout</span> <span class="kw">FStatelessParticle</span> Particle)
 {
-  <span class="c">// Read state</span>
-  <span class="kw">uint</span>   Idx = Context.ExecIndex;
-  <span class="kw">float3</span> Pos = Particle.Position;
-  <span class="kw">float</span>  Age = Particle.Age;
+  Particle.Position += Offset;
+  Particle.Color    *= Tint;
+}</pre><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>There is no <code>FStatelessParticleContext</code></strong> — the type does not exist anywhere in the Niagara source tree. A 3-arg <code>_Simulate</code> taking a context will not compile</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Don't wrap parameters in a struct</strong> — shader parameters are <strong>file-scope globals</strong>, not members (next card)</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>No <code>#pragma once</code></strong> — the template is <code>#include</code>d exactly once into a generated .usf. None of the engine's 19 module templates have one</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>The name is derived, not declared</strong> — <code>UNiagaraStatelessModule_Foo</code> ⇒ <code>Foo_Simulate</code>. The translator string-strips the prefix (<code>NiagaraStatelessEmitterTranslator.cpp:155</code>)</span></div></div></div>
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> Parameters Are Globals, Not Members</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">The C++ <code>SHADER_PARAMETER</code> names and the HLSL global names must match <strong>character for character</strong>. The module-name prefix is the convention that keeps them unique in one flat namespace:</p><pre><span class="c">// ── C++ ────────────────────────────────</span>
+<span class="fn">BEGIN_SHADER_PARAMETER_STRUCT</span>(FParameters,)
+  <span class="fn">SHADER_PARAMETER</span>(uint32, MyMod_Count)
+  <span class="fn">SHADER_PARAMETER</span>(uint32, MyMod_DataOffset)
+<span class="fn">END_SHADER_PARAMETER_STRUCT</span>()
 
-  <span class="c">// Write state directly</span>
-  Particle.Position         = NewPos;
-  Particle.PreviousPosition = OldPos;
-  Particle.Scale            = <span class="kw">float3</span>(1,1,1);
-  Particle.Color            = <span class="kw">float4</span>(1,0,0,1);
-  Particle.MeshOrientation  = NewQuat;
-}</pre></div>
+<span class="c">// ── .ush ───────────────────────────────</span>
+<span class="kw">uint</span> MyMod_Count;        <span class="c">// file scope</span>
+<span class="kw">uint</span> MyMod_DataOffset;   <span class="c">// no struct</span>
+
+<span class="kw">void</span> <span class="fn">MyMod_Simulate</span>(
+    <span class="kw">inout</span> <span class="kw">FStatelessParticle</span> Particle)
+{ ... }</pre><p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Every module's parameters are concatenated into <strong>one</strong> shader parameter struct for the whole emitter, so an unprefixed name like <code>Count</code> collides with every other module.</p></div>
 <div class="card green">
-<div class="card-title"><span class="dot"></span> GPU Buffer Access Pattern</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless modules use typed <code>Buffer&lt;float&gt;</code> SRVs — read 3 or 4 consecutive floats per element:</p><pre><span class="c">// Reading float3 from typed float buffer</span>
-<span class="kw">float3</span> <span class="fn">ReadFloat3FromBuffer</span>(
-    <span class="kw">Buffer</span>&lt;<span class="kw">float</span>&gt; InBuffer, <span class="kw">uint</span> Index)
-{
-  <span class="kw">uint</span> Base = Index * 3;
-  <span class="kw">return</span> <span class="kw">float3</span>(
-    InBuffer[Base + 0],
-    InBuffer[Base + 1],
-    InBuffer[Base + 2]);
-}
+<div class="card-title"><span class="dot"></span> Bulk Data · Use the Static Data Buffer</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Niagara already ships a shared, engine-managed constant buffer for per-module array data. <strong>Don't create your own SRV</strong> — register the array at build time and read it back by offset:</p><pre><span class="c">// ── C++, BuildEmitterData ──────────────</span>
+<span class="c">// Returns a uint32 offset into the</span>
+<span class="c">// shared static data buffer</span>
+Built-&gt;DataOffset =
+    BuildContext.<span class="fn">AddStaticData</span>(Positions);
+Built-&gt;Count = Positions.<span class="fn">Num</span>();
 
-<span class="c">// Reading float4 (color, quaternion)</span>
-<span class="kw">float4</span> <span class="fn">ReadFloat4FromBuffer</span>(
-    <span class="kw">Buffer</span>&lt;<span class="kw">float</span>&gt; InBuffer, <span class="kw">uint</span> Index)
-{
-  <span class="kw">uint</span> Base = Index * 4;
-  <span class="kw">return</span> <span class="kw">float4</span>(
-    InBuffer[Base + 0], InBuffer[Base + 1],
-    InBuffer[Base + 2], InBuffer[Base + 3]);
-}</pre></div>
+<span class="c">// ── .ush ───────────────────────────────</span>
+<span class="c">// Common_StaticDataBuffer is already in</span>
+<span class="c">// scope via NiagaraStatelessCommon.ush</span>
+<span class="kw">float3</span> P = <span class="fn">GetStaticFloat3</span>(
+    MyMod_DataOffset, Element);</pre><p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Overloads exist for <code>uint32</code>, <code>int32</code>, <code>float</code>, <code>FVector2f</code>, <code>FVector3f</code>, <code>FVector4f</code>, <code>FLinearColor</code>; readers are <code>GetStaticUInt</code> / <code>Int</code> / <code>Float</code> / <code>Float2</code> / <code>Float3</code>. This is the same path <code>AddDistribution()</code> uses internally.</p><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Offsets are element-strided, not byte-strided</strong> — <code>GetStaticFloat3(Base, N)</code> loads at <code>(Base + N*3) * 4</code> bytes. Pass the raw offset from <code>AddStaticData</code>, don't pre-multiply it</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Don't hand-roll <code>CreateStructured</code> plus a <code>mutable</code> SRV on the UObject</strong> — <code>SetShaderParameters</code> runs on the render thread, so lazily creating RHI resources from a <code>const</code> method is a data race, and the resource has no owner with the right lifetime</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>A structured buffer needs a structured SRV</strong> — <code>CreateStructured(stride)</code> paired with <code>EBufferType::Typed</code> + <code>PF_R32_FLOAT</code> is a mismatch that survives compilation and reads garbage</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">The one engine module with <code>SHADER_PARAMETER_SRV</code> (<code>SolveVelocitiesAndForces_NoiseLUT</code>, a <code>ByteAddressBuffer</code>) binds an <strong>engine-lifetime static LUT</strong>, not per-instance data — that's the only shape where a raw SRV is idiomatic here</span></div></div></div>
 <div class="card orange grid-full">
 <div class="card-title"><span class="dot"></span> See it in action</div>
 <a class="viz-ref" href="visuals.html#stateless">
@@ -201,25 +200,146 @@ OutColor    = <span class="kw">float4</span>(1,0,0,1);        <span class="c">//
 </a>
 </div>
 <div class="card blue">
+<div class="card-title"><span class="dot"></span> Randomness Is Already Seeded</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">The template reseeds a thread-local <code>GRandomSeedInternal</code> from <code>(Common_RandomSeed, Particle.UniqueID, ModuleIndex)</code> <strong>before every module call</strong>. The argument to <code>Random*</code> is a <em>call-site offset</em>, not a seed:</p><pre><span class="c">// 0, 1, 2… are call-site offsets</span>
+<span class="c">// within THIS module</span>
+<span class="kw">uint</span>   I = <span class="fn">RandomUInt</span>(0) % Count;
+<span class="kw">float3</span> V = <span class="fn">RandomFloat3</span>(1);
+<span class="kw">float3</span> D = <span class="fn">RandomUnitFloat3</span>(2);
+
+<span class="c">// Available: RandomUInt / UInt2/3/4,</span>
+<span class="c">// RandomFloat / Float2/3/4,</span>
+<span class="c">// RandomRangeFloat, RandomScaleBiasFloat,</span>
+<span class="c">// RandomUnitFloat2/3</span></pre><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong><code>NiagaraStatelessRandomUInt()</code> does not exist</strong> — no such symbol in the engine. The real entry points are in <code>NiagaraStatelessCommon.ush:75-109</code></span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Don't pass <code>Particle.UniqueID</code> as the seed</strong> — it's already folded in. Passing it again correlates every module against the same value</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Don't hand-roll a MurmurHash finalizer</strong> — <code>Rand4DPCG32</code> is already doing that work behind <code>RandomUInt4</code></span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Reuse an offset and you get the same number back</strong> — that's a feature, and it's how a value stays stable across two reads</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Determinism is the whole contract</strong> — the sim recomputes from scratch every frame, so any value that isn't a pure function of <code>(UniqueID, Age, offset)</code> visibly jitters frame to frame</span></div></div></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> FStatelessParticle · Real Members</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Fixed members are declared in <code>GenerateCS_PreModules.ush</code>; attribute members are appended by the translator from the emitter's variable set:</p><pre><span class="c">// Always present</span>
+<span class="kw">bool</span>  bAlive;    <span class="c">// set false to kill</span>
+<span class="kw">uint</span>  UniqueID;  <span class="c">// stable per particle</span>
+<span class="kw">float</span> MaterialRandom;
+<span class="kw">float</span> Lifetime;
+<span class="kw">float</span> Age;
+<span class="kw">float</span> NormalizedAge;
+<span class="kw">float</span> PreviousAge;
+<span class="kw">float</span> PreviousNormalizedAge;
+<span class="kw">float</span> DeltaTime, InvDeltaTime;
+
+<span class="c">// Appended per emitter attribute set:</span>
+<span class="c">// Position, Velocity, Color, Scale,</span>
+<span class="c">// SpriteSize, SpriteRotation, MeshIndex,</span>
+<span class="c">// MeshOrientation, RibbonWidth,</span>
+<span class="c">// SubImageIndex, CameraOffset,</span>
+<span class="c">// DynamicMaterialParameter0..3,</span>
+<span class="c">// plus each Previous* counterpart</span></pre><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Write every variable you declare in <code>GetOutputVariables()</code></strong> — declaring <code>PreviousPositionVariable</code> then writing only <code>Position</code> leaves the previous value at whatever the last module left, corrupting velocity and motion vectors</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Members outside your declared set still exist</strong> and are writable — but nothing guarantees they're bound to an output component, so the write may be discarded</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong><code>Particle.bAlive = false</code> kills the particle</strong> — it's checked once, after all modules run, before the output write</span></div></div></div>
+<div class="card blue">
 <div class="card-title"><span class="dot"></span> Indexing Strategies</div>
-<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Common patterns for selecting which array element a particle uses:</p><pre><span class="c">// Sequential (round-robin by particle ID)</span>
-<span class="kw">uint</span> Idx = ParticleID % NumPositions;
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Common patterns for selecting which array element a particle uses:</p><pre><span class="c">// Random (already seeded per particle)</span>
+<span class="kw">uint</span> Idx = <span class="fn">RandomUInt</span>(0) % Count;
+
+<span class="c">// Sequential (round-robin by particle)</span>
+<span class="kw">uint</span> Idx = Particle.UniqueID % Count;
 
 <span class="c">// Sequential with clamping (no wrap)</span>
-<span class="kw">uint</span> Idx = <span class="fn">min</span>(ParticleID, NumPositions - 1);
+<span class="kw">uint</span> Idx = <span class="fn">min</span>(Particle.UniqueID,
+               Count - 1);
 
-<span class="c">// Random via MurmurHash3 finalizer</span>
-<span class="kw">uint</span> Hash = ParticleID;
-Hash ^= Hash &gt;&gt; 16;
-Hash *= 0x85ebca6b;
-Hash ^= Hash &gt;&gt; 13;
-Hash *= 0xc2b2ae35;
-Hash ^= Hash &gt;&gt; 16;
-<span class="kw">uint</span> Idx = Hash % NumPositions;
+<span class="c">// Age-based (walk the array over life)</span>
+<span class="kw">float</span> T   = Particle.NormalizedAge
+          * (<span class="kw">float</span>)Count;
+<span class="kw">uint</span>  Idx = <span class="fn">min</span>((<span class="kw">uint</span>)T, Count - 1);</pre><p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Guard <code>Count == 0</code> before the modulo — <code>% 0</code> on GPU is undefined, not a trap.</p></div>
+</div>
 
-<span class="c">// Age-based (interpolate through array)</span>
-<span class="kw">float</span> T   = NormalizedAge * (<span class="kw">float</span>)Count;
-<span class="kw">uint</span>  Idx = <span class="fn">min</span>((<span class="kw">uint</span>)T, Count - 1);</pre></div>
+<div id="stateless-custom" class="section-label">Authoring a Custom Stateless Module · C++</div>
+<div class="grid">
+<div class="card red grid-full">
+<div class="card-title"><span class="dot"></span> Read this first · A game plugin cannot ship a custom stateless module</div>
+<div class="gotcha-block"><div class="gotcha-row problem"><span class="gotcha-label">Problem</span><span class="gotcha-text">You can write, compile, and expose a <code>UNiagaraStatelessModule</code> subclass from a game plugin. It appears in the editor, its C++ runs, and <strong>its shader never executes</strong> — the particles behave as if the module isn't there.</span></div><div class="gotcha-row why"><span class="gotcha-label">Why</span><span class="gotcha-text">The stateless simulation shader is <strong>not generated at cook time</strong>. <code>NiagaraStatelessSimulationDefault.usf</code> is a hand-committed, pre-generated file with a hardcoded <code>PARTICLE_MODULES</code> list and a fixed set of <code>#include</code>s, bound by <code>IMPLEMENT_GLOBAL_SHADER(FSimulationShaderDefaultCS, …)</code>. The editor translator that emits that HLSL is a <strong>dev-time tool</strong> whose output an engine programmer commits by hand. <code class="gotcha-ref">NiagaraStatelessEmitterShaders.cpp:7 · NiagaraStatelessSimulationDefault.usf:42-69 · NiagaraStatelessEmitterTemplate.cpp:227-273</code></span></div><div class="gotcha-row fix"><span class="gotcha-label">Fix</span><span class="gotcha-text">Shipping a custom module means <strong>engine-side changes</strong>: subclass <code>UNiagaraStatelessEmitterTemplate</code>, override <code>InitModulesAndAttributes()</code> / <code>GetShaderParametersMetadata()</code> / <code>GetSimulationShader()</code>, declare a new global shader, run the translator, and commit the generated .usf. Without an engine fork, <strong>use a regular GPU emitter with a Scratch Pad module</strong> — more expensive per particle, but a supported extension point.</span></div><div class="gotcha-row detect"><span class="gotcha-label">Detect</span><span class="gotcha-text">The give-away is silence: the module compiles, the details panel populates, <code>BuildEmitterData</code> hits a breakpoint, and nothing changes on screen. The base <code>UNiagaraStatelessEmitterTemplate::GetSimulationShader()</code> returns an <strong>empty <code>TShaderRef</code></strong> — only <code>UNiagaraStatelessEmitterDefault</code> overrides it with a real one.</span></div></div><p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Everything below still holds — it is the contract you implement inside an engine fork, and the <code>PARTICLE_MODULE(Null)</code> entries in the shipped .usf show what a module that isn't wired up looks like from the shader's side. Budget the engine work before starting.</p></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Build.cs · The Internal Include Dance</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Stateless headers live under Niagara's <code>Internal/</code> tree, which is not on the public include path. Without these, <code>NiagaraStatelessModule.h</code> will not resolve:</p><pre>string NiagaraSrc = Path.<span class="fn">Combine</span>(
+  EngineDirectory,
+  &quot;Plugins/FX/Niagara/Source&quot;);
+
+PrivateIncludePaths.<span class="fn">AddRange</span>(new[] {
+  Path.<span class="fn">Combine</span>(NiagaraSrc,
+    &quot;Niagara/Internal&quot;),
+  Path.<span class="fn">Combine</span>(NiagaraSrc,
+    &quot;NiagaraShader/Internal&quot;),
+});
+
+PublicDependencyModuleNames.<span class="fn">AddRange</span>(new[]{
+  &quot;Core&quot;, &quot;CoreUObject&quot;, &quot;Engine&quot;,
+  &quot;Niagara&quot;, &quot;NiagaraCore&quot;,
+  &quot;RHI&quot;, &quot;RenderCore&quot; });
+PrivateDependencyModuleNames.<span class="fn">AddRange</span>(new[]{
+  &quot;Projects&quot;, &quot;NiagaraShader&quot; });</pre><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Include with the <code>Stateless/</code> prefix</strong> — <code>#include "Stateless/NiagaraStatelessModule.h"</code>. Adding <code>Internal/Stateless</code> to the path so you can drop the prefix works, but diverges from every engine module and breaks on upgrade</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong><code>Internal/</code> is internal by design</strong> — no API-stability promise. Expect breakage across engine versions</span></div></div></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> The 5-Method Contract</div>
+<pre><span class="fn">UCLASS</span>(MinimalAPI, EditInlineNew,
+       meta=(DisplayName=&quot;My Module&quot;))
+class UNiagaraStatelessModule_MyMod
+  : public UNiagaraStatelessModule
+{
+  <span class="fn">GENERATED_BODY</span>()
+public:
+  <span class="c">// 1. game thread, build/cook time</span>
+  virtual <span class="kw">void</span> <span class="fn">BuildEmitterData</span>(
+    <span class="kw">const</span> F…BuildContext&amp;) <span class="kw">const</span> override;
+  <span class="c">// 2. once — declares the layout</span>
+  virtual <span class="kw">void</span> <span class="fn">BuildShaderParameters</span>(
+    F…ParametersBuilder&amp;) <span class="kw">const</span> override;
+  <span class="c">// 3. render thread, per dispatch</span>
+  virtual <span class="kw">void</span> <span class="fn">SetShaderParameters</span>(
+    <span class="kw">const</span> F…Context&amp;) <span class="kw">const</span> override;
+<span class="kw">#if</span> WITH_EDITORONLY_DATA
+  <span class="c">// 4. virtual path to the .ush</span>
+  virtual <span class="kw">const</span> TCHAR*
+    <span class="fn">GetShaderTemplatePath</span>() <span class="kw">const</span> override;
+  <span class="c">// 5. what this module writes</span>
+  virtual <span class="kw">void</span> <span class="fn">GetOutputVariables</span>(
+    TArray&lt;FNiagaraVariableBase&gt;&amp;,
+    EVariableFilter) <span class="kw">const</span> override;
+<span class="kw">#endif</span>
+};</pre><p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;"><code>EditInlineNew</code> is required — without it the module can't be instantiated in the emitter stack. Both editor-only methods feed HLSL generation, which never runs in a cooked build.</p></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Built Data · Allocate Before You Bail</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;"><code>SetShaderParameters</code> reads built data <strong>unconditionally</strong>, so the allocation must happen on every path — allocate first, then early-return:</p><pre><span class="kw">void</span> U…MyMod::<span class="fn">BuildEmitterData</span>(
+  <span class="kw">const</span> F…BuildContext&amp; Ctx) <span class="kw">const</span>
+{
+  <span class="c">// ALWAYS first — even when disabled</span>
+  FModuleBuiltData* Built =
+    Ctx.AllocateBuiltData&lt;FModuleBuiltData&gt;();
+
+  <span class="kw">if</span> (!<span class="fn">IsModuleEnabled</span>() || Data.<span class="fn">IsEmpty</span>())
+  {
+    <span class="kw">return</span>;   <span class="c">// zeroed built data</span>
+  }
+
+  Built-&gt;Offset = Ctx.<span class="fn">AddStaticData</span>(Data);
+  Built-&gt;Count  = Data.<span class="fn">Num</span>();
+
+  <span class="c">// opt in to the CPU sim path</span>
+  Ctx.<span class="fn">AddParticleSimulationExecSimulate</span>(
+    &amp;ParticleSimulate);
+}</pre><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Built data must be POD</strong> — it lands in a raw <code>TArray&lt;uint8&gt;</code> arena. No constructors, no destructors, no pointers</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Skip <code>AddParticleSimulationExecSimulate</code> and the module is GPU-only</strong> — it silently does nothing on CPU-simulated stateless emitters, with no warning</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Resolve attribute offsets here</strong> via <code>FindParticleVariableIndex()</code> and guard on <code>INDEX_NONE</code> — the attribute may not be in the emitter's set at all</span></div></div></div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> Shader Template Path · Virtual, Not Physical</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;"><code>GetShaderTemplatePath()</code> returns a <strong>virtual shader path</strong>. Every segment after the mount point must exist as a real subdirectory on disk:</p><pre><span class="c">// StartupModule — map the mount point</span>
+<span class="fn">AddShaderSourceDirectoryMapping</span>(
+  <span class="fn">TEXT</span>(&quot;/Plugin/MyPlugin&quot;),
+  FPaths::<span class="fn">Combine</span>(
+    IPluginManager::<span class="fn">Get</span>()
+      .<span class="fn">FindPlugin</span>(<span class="fn">TEXT</span>(&quot;MyPlugin&quot;))
+      -&gt;<span class="fn">GetBaseDir</span>(),
+    <span class="fn">TEXT</span>(&quot;Shaders&quot;)));
+
+<span class="c">// ⇒ /Plugin/MyPlugin/Private/Foo.ush</span>
+<span class="c">//   resolves to</span>
+<span class="c">//   MyPlugin/Shaders/Private/Foo.ush</span>
+<span class="c">//                    ^^^^^^^ must exist</span></pre><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>The <code>Private/</code> in engine paths is a real folder</strong>, not decoration — <code>/Plugin/FX/Niagara/Private/Stateless/Modules/…</code> mirrors <code>Niagara/Shaders/Private/Stateless/Modules/</code> exactly. A path segment you never created won't resolve</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Map the directory before any shader path is resolved</strong> — use <code>LoadingPhase: PostConfigInit</code> if anything resolves early</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Keep exactly one copy of the .ush</strong> — a second copy under <code>Source/</code> is never compiled and silently drifts from the one that is</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Naming Contract · Five Names That Must Agree</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Nothing cross-validates these. A mismatch is a silent no-op or an obscure shader compile error, never a clear message:</p><table class="table-multi"><thead><tr><th>Thing</th><th>Must be</th><th>Tied to</th></tr></thead><tbody><tr><td data-label="Thing">C++ class</td><td data-label="Must be"><code>UNiagaraStatelessModule_<strong>MyMod</strong></code></td><td data-label="Tied to">the class declaration</td></tr><tr><td data-label="Thing">HLSL entry point</td><td data-label="Must be"><code><strong>MyMod</strong>_Simulate</code></td><td data-label="Tied to">class name minus the <code>NiagaraStatelessModule_</code> prefix</td></tr><tr><td data-label="Thing">Shader globals</td><td data-label="Must be"><code><strong>MyMod</strong>_&lt;Param&gt;</code></td><td data-label="Tied to">.ush file scope ↔ <code>SHADER_PARAMETER</code>, byte-identical</td></tr><tr><td data-label="Thing">Template path</td><td data-label="Must be"><code>/Plugin/&lt;Mount&gt;/&lt;RealDirs&gt;/….ush</code></td><td data-label="Tied to"><code>GetShaderTemplatePath()</code> ↔ <code>AddShaderSourceDirectoryMapping</code></td></tr><tr><td data-label="Thing">Declared outputs</td><td data-label="Must be">every member the shader writes</td><td data-label="Tied to"><code>GetOutputVariables()</code> ↔ the <code>_Simulate</code> body</td></tr></tbody></table></div>
 </div>
 
 <div id="attributes" class="section-label">Particle Attribute Reference</div>

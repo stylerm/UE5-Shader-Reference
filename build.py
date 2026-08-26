@@ -46,7 +46,8 @@ _KEYWORDS = frozenset({
     "groupshared", "cbuffer",
     "Buffer", "RWBuffer", "Texture2D", "RWTexture2D", "Texture2DArray",
     "SamplerState", "StructuredBuffer", "RWStructuredBuffer", "ByteAddressBuffer",
-    "SV_DispatchThreadID", "SV_GroupThreadID", "SV_GroupID",
+    "SV_DispatchThreadID", "SV_GroupThreadID", "SV_GroupID", "SV_VertexID",
+    "RWByteAddressBuffer", "Texture3D", "RWTexture3D", "numthreads",
     "FStatelessParticle", "FStatelessParticleContext",
 })
 
@@ -60,12 +61,16 @@ _BUILTINS = frozenset({
     "Texture2DSample", "Texture2DSampleLevel", "Load", "SampleLevel",
     "GroupMemoryBarrierWithGroupSync", "AllMemoryBarrierWithGroupSync",
     "InterlockedAdd", "InterlockedMin", "InterlockedMax",
+    "InterlockedCompareExchange", "asuint", "asfloat", "asint", "countbits",
+    "Store", "Store2", "Store3", "Store4", "Load2", "Load3", "Load4",
     "ExternalTexture", "TextureSample",
     # User-defined helpers shown in examples
     "QuatMultiply", "ReadFloat3FromBuffer", "ReadFloat4FromBuffer",
     "hash21", "glsl_mod", "SmoothMin", "PointDist", "SegmentDist",
     "MainCS", "MyModule_Initialize",
     "DECLARE_TILE_CACHE_FLOAT", "LOAD_TILE_SCROLLED",
+    "FloatToOrderedUint", "OrderedUintToFloat", "WriteControlPoint",
+    "GetDistanceToNearestSurfaceGlobal", "ExecIndex",
 })
 
 _PREPROC_RE = re.compile(r"^(#\w+)(.*)", re.DOTALL)
@@ -1130,6 +1135,109 @@ def render_viz_fourier(block: dict) -> str:
     return _viz_canvas_shell(block, "viz-fourier", "A6", "Fourier / Frequency Stacking", chips, controls)
 
 
+def render_viz_atomic_order(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-mode>RAW asuint()</span>'
+        '<span class="viz-chip"><span class="viz-dot t"></span>float order</span>'
+        '<span class="viz-chip"><span class="viz-dot b"></span>uint order</span>'
+        '<span class="viz-chip" data-chip-verdict style="color:var(--bad)">order BROKEN</span>'
+    )
+    controls = (
+        '    <div class="viz-toggles">\n'
+        '      <button class="viz-toggle" data-toggle-mode type="button">MODE: RAW asuint()</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(
+        block, "viz-atomic-order", "C1",
+        "Float → Orderable uint", chips, controls)
+
+
+def render_viz_scatter_gather(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-mode>GATHER</span>'
+        '<span class="viz-chip" data-chip-threads>threads: 0</span>'
+        '<span class="viz-chip" data-chip-tests>SDF evals: 0</span>'
+        '<span class="viz-chip" data-chip-ratio style="color:var(--accent3)">—</span>'
+    )
+    controls = (
+        '    <div class="viz-toggles">\n'
+        '      <button class="viz-toggle" data-toggle-mode type="button">MODE: GATHER</button>\n'
+        '    </div>\n'
+        '    <div class="viz-slider-row" style="flex:1;min-width:200px;">\n'
+        '      <span class="viz-slider-label">STAMPS</span>\n'
+        '      <input type="range" min="1" max="8" value="3" data-stamps aria-label="stamp count">\n'
+        '      <span class="viz-slider-val" data-stamps-val>3</span>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(
+        block, "viz-scatter-gather", "C2",
+        "Scatter vs Gather Dispatch", chips, controls)
+
+
+def render_viz_redblack(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-pass>RED pass</span>'
+        '<span class="viz-chip" data-chip-buffers>buffers: 1</span>'
+        '<span class="viz-chip" data-chip-hazard style="color:var(--accent3)">0 read/write hazards</span>'
+    )
+    controls = (
+        '    <div class="viz-steps" role="tablist">\n'
+        '      <button class="viz-step active" data-step="0" type="button">1 · RED</button>\n'
+        '      <button class="viz-step" data-step="1" type="button">2 · BLACK</button>\n'
+        '    </div>\n'
+        '    <div class="viz-toggles">\n'
+        '      <button class="viz-toggle" data-play type="button">▶ PLAY</button>\n'
+        '      <button class="viz-toggle" data-toggle-scheme type="button">SCHEME: RED/BLACK</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(
+        block, "viz-redblack", "C3",
+        "Red/Black In-Place Relaxation", chips, controls)
+
+
+def render_viz_activity_rect(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-frame>frame 0</span>'
+        '<span class="viz-chip" data-chip-dispatch>dispatched: 0 texels</span>'
+        '<span class="viz-chip" data-chip-saved style="color:var(--accent3)">saved: 0%</span>'
+    )
+    controls = (
+        '    <div class="viz-slider-row" style="flex:1;min-width:220px;">\n'
+        '      <span class="viz-slider-label">FRAME</span>\n'
+        '      <input type="range" min="0" max="48" value="0" data-frame aria-label="frame">\n'
+        '      <span class="viz-slider-val" data-frame-val>0</span>\n'
+        '    </div>\n'
+        '    <div class="viz-toggles">\n'
+        '      <button class="viz-toggle" data-play type="button">▶ PLAY</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(
+        block, "viz-activity-rect", "C4",
+        "Activity Rect · Dilate, Decay, Skip", chips, controls)
+
+
+def render_viz_gpu_driven(block: dict) -> str:
+    chips = (
+        '<span class="viz-chip viz-chip-state" data-chip-stage>1 · SIMULATE</span>'
+        '<span class="viz-chip" data-chip-draws>draw calls: —</span>'
+        '<span class="viz-chip" data-chip-readback style="color:var(--accent3)">CPU readback: none</span>'
+    )
+    controls = (
+        '    <div class="viz-steps" role="tablist">\n'
+        '      <button class="viz-step active" data-step="0" type="button">1 · SIM</button>\n'
+        '      <button class="viz-step" data-step="1" type="button">2 · CONTROL POINTS</button>\n'
+        '      <button class="viz-step" data-step="2" type="button">3 · GEOMETRY CS</button>\n'
+        '      <button class="viz-step" data-step="3" type="button">4 · INDIRECT DRAW</button>\n'
+        '    </div>\n'
+        '    <div class="viz-toggles">\n'
+        '      <button class="viz-toggle" data-play type="button">▶ PLAY</button>\n'
+        '    </div>\n'
+    )
+    return _viz_canvas_shell(
+        block, "viz-gpu-driven", "C5",
+        "GPU-Driven Mesh · Particles to One Draw", chips, controls)
+
+
 def render_block(block: dict) -> str:
     t = block.get("type")
     dispatch = {
@@ -1171,6 +1279,11 @@ def render_block(block: dict) -> str:
         "viz-derivative":       lambda: render_viz_derivative(block),
         "viz-depth-intersect":  lambda: render_viz_depth_intersect(block),
         "viz-fourier":          lambda: render_viz_fourier(block),
+        "viz-atomic-order":     lambda: render_viz_atomic_order(block),
+        "viz-scatter-gather":   lambda: render_viz_scatter_gather(block),
+        "viz-redblack":         lambda: render_viz_redblack(block),
+        "viz-activity-rect":    lambda: render_viz_activity_rect(block),
+        "viz-gpu-driven":       lambda: render_viz_gpu_driven(block),
         "raw":         lambda: block.get("html", ""),
     }
     fn = dispatch.get(t)

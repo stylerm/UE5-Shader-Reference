@@ -1854,6 +1854,19 @@ body.subpage-advanced .sidenav-links .sidenav-section.area-intermediate {
 .viz-orbit     .viz-canvas { aspect-ratio: 1/1; max-height: 420px; }
 .viz-orbit     .viz-body   { display: block; }
 
+/* Compute / GPU-pipeline visualizers (shaders + niagara pages). */
+.viz-atomic-order   .viz-body,
+.viz-scatter-gather .viz-body,
+.viz-redblack       .viz-body,
+.viz-activity-rect  .viz-body,
+.viz-gpu-driven     .viz-body { display: block; }
+
+.viz-atomic-order   .viz-canvas { aspect-ratio: 21/8;  }
+.viz-scatter-gather .viz-canvas { aspect-ratio: 21/11; }
+.viz-redblack       .viz-canvas { aspect-ratio: 21/10; }
+.viz-activity-rect  .viz-canvas { aspect-ratio: 21/11; }
+.viz-gpu-driven     .viz-canvas { aspect-ratio: 21/8;  }
+
 /* ── Inline example images (figure + caption) ───────────────────────────── */
 figure.example-img {
   margin: 12px 0 4px;

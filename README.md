@@ -11,9 +11,9 @@ A practical, community-maintained reference for converting **GLSL/HLSL shaders**
 | Page | Content |
 |------|---------|
 | [**Home**](index.html) | Hub overview, core GLSL→HLSL conversions, UE globals quick reference |
-| [**Materials**](materials.html) | Custom node rules, full intrinsic table, Shadertoy porting guide, WPO/vertex patterns, prompt templates |
-| [**Niagara**](niagara.html) | Scratch Pad HLSL, attribute namespaces, Stateless module patterns, GPU sim restrictions, compute buffer access |
-| [**Shaders**](shaders.html) | `.usf`/`.ush` file rules, compute shader patterns, TGSM, feature level matrix, platform guards, texture sampling |
+| [**Materials**](materials.html) | Custom node rules, full intrinsic table, Shadertoy porting guide, WPO/vertex patterns, prompt templates, sampling a compute output via the external texture registry |
+| [**Niagara**](niagara.html) | Scratch Pad HLSL, attribute namespaces, Stateless module patterns, authoring a custom Stateless module in C++, GPU sim restrictions, compute buffer access, GPU-driven mesh rendering, custom Data Interface authoring |
+| [**Shaders**](shaders.html) | `.usf`/`.ush` file rules, compute shader patterns, TGSM, GPU atomics & lock-free composition, feature level matrix, platform guards, texture sampling, scatter vs gather dispatch, persistent GPU simulation |
 | [**Visuals**](visuals.html) | Interactive visualizers for overdraw, bounds, thread groups, stateless particles, and other engine concepts |
 | [**Fundamentals**](fundamentals.html) | Skill-tiered walkthroughs — beginner / intermediate / advanced interactive demos, one concept per card |
 

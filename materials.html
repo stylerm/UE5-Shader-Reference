@@ -58,6 +58,7 @@
 <a href="#mat-blend" data-area="optim">Blend Modes</a>
 <div class="sidenav-divider area-engine"></div>
 <span class="sidenav-section area-engine">ENGINE INTERNALS</span>
+<a href="#mat-sim-output" data-area="engine">Sim Output</a>
 <a href="#mat-gotchas" data-area="engine">Engine Gotchas</a>
   </div>
 </nav>
@@ -347,6 +348,19 @@ Helpers H;
 <section class="subpage" data-subpage="engine" role="tabpanel">
 <div class="area area-engine">
 <div class="area-heading">🔬 Engine Internals</div>
+<div id="mat-sim-output" class="section-label">Sampling a Compute Output From a Material</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Getting a Render Target Into a Material Without Binding It</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">A compute pass produces a render target. Hundreds of material instances need to read it. Wiring it through a parameter means every instance carries a texture binding somebody has to keep current — and any instance that misses the update samples last level's texture, or nothing.</p><table class="table-multi"><thead><tr><th>Approach</th><th>Binding cost</th><th>Fails by</th></tr></thead><tbody><tr><td data-label="Approach"><strong>Texture parameter per instance</strong></td><td data-label="Binding cost">One update per MID per change</td><td data-label="Fails by">A missed instance silently samples a stale target</td></tr><tr><td data-label="Approach"><strong>Material Parameter Collection</strong></td><td data-label="Binding cost">n/a — MPCs hold scalars and vectors</td><td data-label="Fails by">Cannot carry a texture at all</td></tr><tr><td data-label="Approach"><strong>External texture registry</strong></td><td data-label="Binding cost">One registration per frame, globally</td><td data-label="Fails by">Nothing bound under the GUID → engine fallback texture</td></tr></tbody></table><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-advanced" title="Advanced setup — engine plumbing, per-platform, multi-system" aria-label="Advanced setup — engine plumbing, per-platform, multi-system"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span><strong>Register the render target under a fixed GUID</strong> each frame via <code>FExternalTextureRegistry</code>. A custom material expression compiles to <code>Compiler-&gt;ExternalTexture(GUID)</code> and resolves to the live target at render time.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Instances need no binding at all.</strong> The node carries the GUID; adding a material to the project costs nothing on the CPU side.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Never regenerate the GUID.</strong> It is baked into every material that references it — a new value silently unbinds every existing asset.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Retired GUIDs stay retired.</strong> If the channel layout of a surface changes, mint a new GUID rather than reusing the old one; assets authored against the old semantics would compile fine and read nonsense.</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Custom Node vs Custom Expression</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">A <code>Custom</code> node is authored per-material and cannot reach the registry. Reading a globally-registered target needs a real <code>UMaterialExpression</code> subclass — which is C++, but buys things a Custom node cannot.</p><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>It resolves its own texture.</strong> No pin to wire, no way for an artist to wire the wrong one.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>It can degrade to a constant</strong> when the producing system is disabled — a Custom node has to be manually bypassed.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>It ships as code, not a <code>.uasset</code></strong> — no binary merge conflicts, and the behaviour is reviewable in a diff.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Prefer one composite node over five primitive ones</strong> for the common case. Expose the primitives too, but the default path should be one node and one fetch.</span></div></div></div>
+<div class="card red grid-full">
+<div class="card-title"><span class="dot"></span> The Neutral-Value Trap</div>
+<div class="gotcha-block"><div class="gotcha-row problem"><span class="gotcha-label">Problem</span><span class="gotcha-text">With the producing system switched off, every material reading the shared target behaves as though the effect is at maximum everywhere.</span></div><div class="gotcha-row why"><span class="gotcha-label">Why</span><span class="gotcha-text">The disabled-state fallback was registered as the engine black texture. Black is only "nothing" when zero means nothing. For a normalised distance field where <m>0</m> = touching and <m>1</m> = out of range, black means <em>the entire world is being touched at once</em>.</span></div><div class="gotcha-row fix"><span class="gotcha-label">Fix</span><span class="gotcha-text">Work out the neutral value per channel layout and register a texture that holds it — or clear the real target to neutral and keep registering that. For a normalised distance the neutral is <code>float4(1, 0, 0, 0)</code>, not black.</span></div><div class="gotcha-row detect"><span class="gotcha-label">Detect</span><span class="gotcha-text">The effect is inverted or saturated rather than absent. If disabling the producer makes materials do <em>more</em> instead of nothing, the fallback polarity is wrong.</span></div></div><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Write the channel contract down where the GUID is declared</strong>, including units. "R = distance" is not a contract; "R = distance normalised to 0..1, multiply by MaxDistance for cm" is.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Do not mix normalised and unit-carrying channels across sibling surfaces</strong> without saying so loudly. One target holding centimetres and another holding 0..1 is the bug that survives review.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Keep the consumer surface registered in every mode.</strong> If a cheap path and an expensive path both publish under the same GUID with the same semantics, materials never branch on which is running.</span></div></div></div>
+</div>
+
 <div id="mat-gotchas" class="section-label" data-priority="high">Engine Gotchas · Source-Verified</div>
 <div class="grid grid-2">
 <div class="card red">
@@ -863,6 +877,26 @@ Helpers H;
 // Used by all canvas-based fundamentals visualizers below. Reads
 // canvas.offsetWidth/Height (set by CSS aspect-ratio) and syncs the
 // backing pixel buffer to device pixel ratio. Returns dpr.
+window._vizRedrawOnShow = window._vizRedrawOnShow || function(canvas, draw) {
+  // Canvas vizes on the optim/engine subpages start hidden, so offsetWidth is
+  // 0 and their first draw is skipped. Redraw once the element actually has a
+  // box — on resize, and after any click that could have switched a subpage.
+  function sync() {
+    var w = canvas.offsetWidth;
+    if (!w) return;
+    var dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr)) draw();
+  }
+  window.addEventListener('resize', draw);
+  document.addEventListener('click', function() { setTimeout(sync, 0); }, true);
+  var tries = 0;
+  (function retry() {
+    sync();
+    // rAF is suspended while the tab is hidden, so poll on a timer instead.
+    if (!canvas.offsetWidth && ++tries < 40) setTimeout(retry, 50);
+  })();
+};
+
 window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
   var dpr = window.devicePixelRatio || 1;
   var w = canvas.offsetWidth;
@@ -3118,6 +3152,602 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
   }
   roots.forEach(hydrate);
 })();
+
+// ── VIZ-ATOMIC-ORDER — float bit patterns as sortable uint keys ──
+// Two lanes: floats in numeric order (top) and the same values in uint-key
+// order (bottom). RAW asuint() inverts the negative half, so the connecting
+// lines cross — that crossing IS the bug InterlockedMin would hit. ENCODED
+// applies the flip rule and the lines run parallel.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-atomic-order]');
+  if (!roots.length) return;
+  var VALUES = [-64, -8, -0.5, 0, 0.5, 8, 64];
+  function rawKey(f) {
+    var buf = new ArrayBuffer(4), fv = new Float32Array(buf), uv = new Uint32Array(buf);
+    fv[0] = f; return uv[0] >>> 0;
+  }
+  function encKey(f) {
+    var u = rawKey(f);
+    return ((u & 0x80000000) !== 0 ? (~u >>> 0) : ((u | 0x80000000) >>> 0)) >>> 0;
+  }
+  function hex(u) { return '0x' + ('00000000' + u.toString(16).toUpperCase()).slice(-8); }
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var btn    = root.querySelector('[data-toggle-mode]');
+    var chipM  = root.querySelector('[data-chip-mode]');
+    var chipV  = root.querySelector('[data-chip-verdict]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var encoded = false;
+    if (btn) btn.addEventListener('click', function() {
+      encoded = !encoded;
+      btn.textContent = 'MODE: ' + (encoded ? 'ENCODED' : 'RAW asuint()');
+      if (chipM) chipM.textContent = encoded ? 'ENCODED' : 'RAW asuint()';
+      if (chipV) {
+        chipV.textContent = encoded ? 'total order preserved' : 'order BROKEN';
+        chipV.style.color = encoded ? 'var(--accent3)' : 'var(--bad)';
+      }
+      draw();
+    });
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var keyFn = encoded ? encKey : rawKey;
+      var n = VALUES.length;
+      var PAD = 54 * dpr, laneW = W - PAD * 2;
+      var topY = H * 0.30, botY = H * 0.70;
+      function slotX(i) { return PAD + (laneW * (i + 0.5)) / n; }
+      var order = VALUES.map(function(v, i) { return {i: i, k: keyFn(v)}; })
+                        .sort(function(a, b) { return a.k - b.k; });
+      var rankOf = [];
+      order.forEach(function(o, r) { rankOf[o.i] = r; });
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.strokeStyle = '#1e2530'; ctx.lineWidth = dpr;
+      [topY, botY].forEach(function(y) {
+        ctx.beginPath(); ctx.moveTo(PAD * 0.5, y); ctx.lineTo(W - PAD * 0.5, y); ctx.stroke();
+      });
+      ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+      ctx.fillText('float value order', PAD * 0.5, topY - 26 * dpr);
+      ctx.fillText('uint key order  — what InterlockedMin actually sorts by', PAD * 0.5, botY + 38 * dpr);
+      ctx.textAlign = 'center';
+      var broken = false;
+      for (var i = 0; i < n; i++) {
+        var x0 = slotX(i), x1 = slotX(rankOf[i]);
+        var crosses = (rankOf[i] !== i);
+        if (crosses) broken = true;
+        ctx.strokeStyle = crosses ? 'rgba(255,87,87,0.55)' : 'rgba(184,255,87,0.45)';
+        ctx.lineWidth = 1.5 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(x0, topY + 11 * dpr);
+        ctx.bezierCurveTo(x0, (topY + botY) / 2, x1, (topY + botY) / 2, x1, botY - 11 * dpr);
+        ctx.stroke();
+      }
+      for (var a = 0; a < n; a++) {
+        var xa = slotX(a), va = VALUES[a];
+        ctx.fillStyle = va < 0 ? '#ff6b35' : '#00e5ff';
+        ctx.beginPath(); ctx.arc(xa, topY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillText(String(va), xa, topY - 12 * dpr);
+      }
+      for (var r2 = 0; r2 < n; r2++) {
+        var src = order[r2].i, xb = slotX(r2), vb = VALUES[src];
+        ctx.fillStyle = vb < 0 ? '#ff6b35' : '#00e5ff';
+        ctx.beginPath(); ctx.arc(xb, botY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillStyle = '#4a5568';
+        ctx.fillText(hex(order[r2].k), xb, botY + 26 * dpr);
+        ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillStyle = vb < 0 ? 'rgba(255,107,53,0.85)' : 'rgba(0,229,255,0.85)';
+        ctx.fillText(String(vb), xb, botY + 15 * dpr);
+      }
+      ctx.textAlign = 'left';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillStyle = encoded ? 'rgba(184,255,87,0.85)' : 'rgba(255,87,87,0.85)';
+      ctx.fillText(encoded
+        ? 'u = asuint(f);  return (u & 0x80000000) ? ~u : (u | 0x80000000);'
+        : 'u = asuint(f);  // negatives compare LARGER than every positive',
+        PAD * 0.5, H - 9 * dpr);
+      if (chipV && !encoded) chipV.textContent = broken ? 'order BROKEN' : 'order ok';
+    }
+    draw(); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-SCATTER-GATHER — dispatch shape for N stamps over a grid ──
+// GATHER: one thread per texel, each looping every stamp -> grid x N evals.
+// SCATTER: one thread per texel inside a stamp's bounding rect, one Z slice
+// per stamp -> sum of footprints. Chips carry the real eval counts.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-scatter-gather]');
+  if (!roots.length) return;
+  var COLS = 40, ROWS = 22;
+  var PALETTE = ['#00e5ff', '#ff6b35', '#b8ff57', '#ffb347', '#ff5757',
+                 '#8ab4ff', '#ff8ad4', '#7ef0c0'];
+  function stampsFor(n) {
+    var out = [], seed = 1337;
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    for (var i = 0; i < n; i++) {
+      var r = 1.6 + rnd() * 3.4;
+      out.push({ x: r + rnd() * (COLS - 2 * r), y: r + rnd() * (ROWS - 2 * r), r: r,
+                 c: PALETTE[i % PALETTE.length] });
+    }
+    return out;
+  }
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var btn    = root.querySelector('[data-toggle-mode]');
+    var slider = root.querySelector('[data-stamps]');
+    var sVal   = root.querySelector('[data-stamps-val]');
+    var chipM  = root.querySelector('[data-chip-mode]');
+    var chipT  = root.querySelector('[data-chip-threads]');
+    var chipE  = root.querySelector('[data-chip-tests]');
+    var chipR  = root.querySelector('[data-chip-ratio]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var scatter = false;
+    if (btn) btn.addEventListener('click', function() {
+      scatter = !scatter;
+      btn.textContent = 'MODE: ' + (scatter ? 'SCATTER' : 'GATHER');
+      if (chipM) chipM.textContent = scatter ? 'SCATTER' : 'GATHER';
+      draw();
+    });
+    if (slider) slider.addEventListener('input', function() {
+      if (sVal) sVal.textContent = slider.value; draw();
+    });
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var n = slider ? parseInt(slider.value, 10) : 3;
+      var stamps = stampsFor(n);
+      var TOP = 12 * dpr, BOT = 26 * dpr;
+      var cs = Math.min((W - 32 * dpr) / COLS, (H - TOP - BOT) / ROWS);
+      var ox = (W - cs * COLS) / 2, oy = TOP;
+      ctx.strokeStyle = '#141a22'; ctx.lineWidth = dpr;
+      for (var c = 0; c <= COLS; c++) {
+        ctx.beginPath(); ctx.moveTo(ox + c * cs, oy); ctx.lineTo(ox + c * cs, oy + ROWS * cs); ctx.stroke();
+      }
+      for (var r = 0; r <= ROWS; r++) {
+        ctx.beginPath(); ctx.moveTo(ox, oy + r * cs); ctx.lineTo(ox + COLS * cs, oy + r * cs); ctx.stroke();
+      }
+      var gridTexels = COLS * ROWS, threads, evals;
+      if (!scatter) {
+        ctx.fillStyle = 'rgba(0,229,255,0.13)';
+        ctx.fillRect(ox, oy, COLS * cs, ROWS * cs);
+        threads = gridTexels; evals = gridTexels * n;
+      } else {
+        threads = 0;
+        stamps.forEach(function(s) {
+          var x0 = Math.max(0, Math.floor(s.x - s.r)), x1 = Math.min(COLS, Math.ceil(s.x + s.r));
+          var y0 = Math.max(0, Math.floor(s.y - s.r)), y1 = Math.min(ROWS, Math.ceil(s.y + s.r));
+          threads += (x1 - x0) * (y1 - y0);
+          ctx.globalAlpha = 0.16; ctx.fillStyle = s.c;
+          ctx.fillRect(ox + x0 * cs, oy + y0 * cs, (x1 - x0) * cs, (y1 - y0) * cs);
+          ctx.globalAlpha = 0.55; ctx.strokeStyle = s.c; ctx.lineWidth = 1.5 * dpr;
+          ctx.strokeRect(ox + x0 * cs, oy + y0 * cs, (x1 - x0) * cs, (y1 - y0) * cs);
+          ctx.globalAlpha = 1;
+        });
+        evals = threads;
+      }
+      stamps.forEach(function(s) {
+        ctx.strokeStyle = s.c; ctx.lineWidth = 1.5 * dpr; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.arc(ox + s.x * cs, oy + s.y * cs, s.r * cs, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 0.18; ctx.fillStyle = s.c; ctx.fill(); ctx.globalAlpha = 1;
+      });
+      var gatherEvals = gridTexels * n;
+      if (chipT) chipT.textContent = 'threads: ' + threads.toLocaleString();
+      if (chipE) chipE.textContent = 'SDF evals: ' + evals.toLocaleString();
+      if (chipR) {
+        chipR.textContent = scatter
+          ? (gatherEvals / Math.max(1, evals)).toFixed(1) + '× fewer than gather'
+          : 'grid × N = ' + COLS + '×' + ROWS + '×' + n;
+        chipR.style.color = scatter ? 'var(--accent3)' : 'var(--bad)';
+      }
+      ctx.fillStyle = '#6b7a8d';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(scatter
+        ? 'Dispatch.xy = largest footprint     Dispatch.z = one slice per stamp'
+        : 'Dispatch.xy = whole grid     inner loop = for (i < StampCount)',
+        ox, H - 9 * dpr);
+    }
+    draw(); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-REDBLACK — parity-split Gauss-Seidel vs Jacobi ──
+// RED/BLACK: one UAV. A pass writes only its own parity, and the four
+// neighbours it reads are all the opposite parity, so nothing written in
+// this dispatch is read in this dispatch. JACOBI: two buffers, every cell
+// written, every read from the other one.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-redblack]');
+  if (!roots.length) return;
+  var COLS = 14, ROWS = 9;
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var steps  = root.querySelectorAll('[data-step]');
+    var play   = root.querySelector('[data-play]');
+    var scheme = root.querySelector('[data-toggle-scheme]');
+    var chipP  = root.querySelector('[data-chip-pass]');
+    var chipB  = root.querySelector('[data-chip-buffers]');
+    var chipH  = root.querySelector('[data-chip-hazard]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var pass = 0, jacobi = false, playing = false, raf = null, last = 0, dprC = 1;
+    function setPass(p) {
+      pass = p & 1;
+      steps.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.dataset.step, 10) === pass);
+      });
+      if (chipP) chipP.textContent = jacobi ? 'JACOBI sweep' : (pass ? 'BLACK pass' : 'RED pass');
+      draw();
+    }
+    steps.forEach(function(b) {
+      b.addEventListener('click', function() { stop(); setPass(parseInt(b.dataset.step, 10)); });
+    });
+    function stop() {
+      playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+      if (play) play.textContent = '▶ PLAY';
+    }
+    if (play) play.addEventListener('click', function() {
+      playing = !playing;
+      play.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (playing) { last = 0; raf = requestAnimationFrame(tick); } else stop();
+    });
+    function tick(t) {
+      if (!playing) return;
+      if (!last) last = t;
+      if (t - last > 900) { last = t; setPass(pass + 1); }
+      raf = requestAnimationFrame(tick);
+    }
+    if (scheme) scheme.addEventListener('click', function() {
+      jacobi = !jacobi;
+      scheme.textContent = 'SCHEME: ' + (jacobi ? 'JACOBI' : 'RED/BLACK');
+      if (chipB) chipB.textContent = 'buffers: ' + (jacobi ? 2 : 1);
+      if (chipH) {
+        chipH.textContent = jacobi ? '2× VRAM · ρ = 0.99976' : '0 read/write hazards · ρ = 0.99952';
+        chipH.style.color = jacobi ? 'var(--warn)' : 'var(--accent3)';
+      }
+      setPass(pass);
+    });
+    function drawGrid(ox, oy, cs, mode, label) {
+      for (var y = 0; y < ROWS; y++) {
+        for (var x = 0; x < COLS; x++) {
+          var parity = (x + y) & 1;
+          var px = ox + x * cs, py = oy + y * cs;
+          var fill = 'rgba(255,255,255,0.03)';
+          if (mode === 'rb') {
+            fill = parity === pass
+              ? (pass ? 'rgba(255,107,53,0.55)' : 'rgba(0,229,255,0.55)')
+              : 'rgba(255,255,255,0.035)';
+          } else if (mode === 'write') { fill = 'rgba(184,255,87,0.45)'; }
+          else if (mode === 'read')    { fill = 'rgba(0,229,255,0.28)'; }
+          ctx.fillStyle = fill;
+          ctx.fillRect(px + dprC, py + dprC, cs - 2 * dprC, cs - 2 * dprC);
+          ctx.strokeStyle = '#141a22'; ctx.lineWidth = dprC;
+          ctx.strokeRect(px, py, cs, cs);
+        }
+      }
+      ctx.fillStyle = '#6b7a8d';
+      ctx.font = Math.round(9 * dprC) + 'px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, ox + (COLS * cs) / 2, oy + ROWS * cs + 15 * dprC);
+      ctx.textAlign = 'left';
+    }
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas); dprC = dpr;
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var TOP = 12 * dpr, BOT = 42 * dpr;
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      if (jacobi) {
+        var cs = Math.min((W - 70 * dpr) / (COLS * 2), (H - TOP - BOT) / ROWS);
+        var totalW = COLS * cs * 2 + 40 * dpr;
+        var ox = (W - totalW) / 2, oy = TOP;
+        drawGrid(ox, oy, cs, 'read', 'PressureA — SRV, read');
+        drawGrid(ox + COLS * cs + 40 * dpr, oy, cs, 'write', 'PressureB — UAV, written');
+        ctx.strokeStyle = 'rgba(184,255,87,0.5)'; ctx.lineWidth = 2 * dpr;
+        var ay = oy + (ROWS * cs) / 2, ax0 = ox + COLS * cs + 10 * dpr, ax1 = ax0 + 22 * dpr;
+        ctx.beginPath(); ctx.moveTo(ax0, ay); ctx.lineTo(ax1, ay); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ax1 + 5 * dpr, ay); ctx.lineTo(ax1 - 2 * dpr, ay - 4 * dpr);
+        ctx.lineTo(ax1 - 2 * dpr, ay + 4 * dpr); ctx.closePath();
+        ctx.fillStyle = 'rgba(184,255,87,0.6)'; ctx.fill();
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+        ctx.fillText('every cell written each sweep — the swap costs a second full-res buffer',
+                     ox, H - 9 * dpr);
+      } else {
+        var cs2 = Math.min((W - 60 * dpr) / COLS, (H - TOP - BOT) / ROWS);
+        var ox2 = (W - COLS * cs2) / 2, oy2 = TOP;
+        drawGrid(ox2, oy2, cs2, 'rb', 'PressureGrid — ONE UAV, read AND written');
+        var hx = 6, hy = 4;
+        if (((hx + hy) & 1) !== pass) hx = 7;
+        [[hx - 1, hy], [hx + 1, hy], [hx, hy - 1], [hx, hy + 1]].forEach(function(p) {
+          if (p[0] < 0 || p[1] < 0 || p[0] >= COLS || p[1] >= ROWS) return;
+          ctx.strokeStyle = 'rgba(184,255,87,0.9)'; ctx.lineWidth = 2 * dpr;
+          ctx.strokeRect(ox2 + p[0] * cs2 + dpr, oy2 + p[1] * cs2 + dpr,
+                         cs2 - 2 * dpr, cs2 - 2 * dpr);
+        });
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5 * dpr;
+        ctx.strokeRect(ox2 + hx * cs2 + dpr, oy2 + hy * cs2 + dpr, cs2 - 2 * dpr, cs2 - 2 * dpr);
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+        ctx.fillText('white = the cell this thread writes    green = the 4 it reads, all opposite parity',
+                     ox2, H - 9 * dpr);
+      }
+    }
+    setPass(0); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-ACTIVITY-RECT — dirty-rect dispatch on a persistent field ──
+// Stamps land for the first ~11 frames. The CPU keeps a bounding rect of
+// everything written since the field was last empty and dilates it one texel
+// per frame — that is how fast the relaxation front travels. Once the field
+// has decayed the rect expires and the whole dispatch is skipped.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-activity-rect]');
+  if (!roots.length) return;
+  var COLS = 48, ROWS = 26, MAXF = 48, STAMP_END = 11, DECAY_START = 30, EXPIRE = 41;
+  function stampAt(f) {
+    var t = f / STAMP_END;
+    return { x: 10 + t * 16, y: 9 + Math.sin(t * 3.1) * 5, r: 2.2 };
+  }
+  function rectAt(f) {
+    if (f >= EXPIRE) return null;
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    var upto = Math.min(f, STAMP_END);
+    for (var i = 0; i <= upto; i++) {
+      var s = stampAt(i);
+      x0 = Math.min(x0, s.x - s.r); x1 = Math.max(x1, s.x + s.r);
+      y0 = Math.min(y0, s.y - s.r); y1 = Math.max(y1, s.y + s.r);
+    }
+    var dil = Math.min(f, DECAY_START);
+    if (f > DECAY_START) dil -= (f - DECAY_START) * 2.6;
+    dil = Math.max(0, dil);
+    x0 = Math.max(0, Math.floor(x0 - dil)); y0 = Math.max(0, Math.floor(y0 - dil));
+    x1 = Math.min(COLS, Math.ceil(x1 + dil)); y1 = Math.min(ROWS, Math.ceil(y1 + dil));
+    if (x1 <= x0 || y1 <= y0) return null;
+    return {x0: x0, y0: y0, x1: x1, y1: y1};
+  }
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var slider = root.querySelector('[data-frame]');
+    var fVal   = root.querySelector('[data-frame-val]');
+    var play   = root.querySelector('[data-play]');
+    var chipF  = root.querySelector('[data-chip-frame]');
+    var chipD  = root.querySelector('[data-chip-dispatch]');
+    var chipS  = root.querySelector('[data-chip-saved]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var playing = false, raf = null, last = 0;
+    function stop() {
+      playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+      if (play) play.textContent = '▶ PLAY';
+    }
+    if (slider) slider.addEventListener('input', function() { stop(); draw(); });
+    if (play) play.addEventListener('click', function() {
+      playing = !playing;
+      play.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (playing) { last = 0; raf = requestAnimationFrame(tick); } else stop();
+    });
+    function tick(t) {
+      if (!playing) return;
+      if (!last) last = t;
+      if (t - last > 110) {
+        last = t;
+        slider.value = (parseInt(slider.value, 10) + 1) % (MAXF + 1);
+        draw();
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var f = slider ? parseInt(slider.value, 10) : 0;
+      if (fVal) fVal.textContent = String(f);
+      var TOP = 12 * dpr, BOT = 26 * dpr;
+      var cs = Math.min((W - 32 * dpr) / COLS, (H - TOP - BOT) / ROWS);
+      var ox = (W - COLS * cs) / 2, oy = TOP;
+      ctx.fillStyle = 'rgba(255,255,255,0.015)';
+      ctx.fillRect(ox, oy, COLS * cs, ROWS * cs);
+      ctx.strokeStyle = '#1e2530'; ctx.lineWidth = dpr;
+      ctx.strokeRect(ox, oy, COLS * cs, ROWS * cs);
+      var rect = rectAt(f);
+      var total = COLS * ROWS, dispatched = 0;
+      if (rect) {
+        dispatched = (rect.x1 - rect.x0) * (rect.y1 - rect.y0);
+        ctx.fillStyle = 'rgba(0,229,255,0.15)';
+        ctx.fillRect(ox + rect.x0 * cs, oy + rect.y0 * cs,
+                     (rect.x1 - rect.x0) * cs, (rect.y1 - rect.y0) * cs);
+        ctx.strokeStyle = 'rgba(0,229,255,0.75)'; ctx.lineWidth = 1.5 * dpr;
+        ctx.setLineDash([4 * dpr, 3 * dpr]);
+        ctx.strokeRect(ox + rect.x0 * cs, oy + rect.y0 * cs,
+                       (rect.x1 - rect.x0) * cs, (rect.y1 - rect.y0) * cs);
+        ctx.setLineDash([]);
+      }
+      var upto = Math.min(f, STAMP_END);
+      for (var i = 0; i <= upto; i++) {
+        var s = stampAt(i);
+        var fade = f <= STAMP_END ? 1 : Math.max(0.10, 1 - (f - STAMP_END) / (EXPIRE - STAMP_END));
+        ctx.globalAlpha = 0.7 * fade;
+        ctx.fillStyle = (i === upto && f <= STAMP_END) ? '#ff6b35' : 'rgba(255,107,53,0.5)';
+        ctx.beginPath(); ctx.arc(ox + s.x * cs, oy + s.y * cs, s.r * cs, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      var phase = f <= STAMP_END ? 'STAMPS ACTIVE · rect grows to cover them'
+                : f <= DECAY_START ? 'PROPAGATING · rect dilates 1 texel/frame'
+                : rect ? 'DECAYING · rect shrinks back'
+                : 'FIELD EMPTY · WHOLE DISPATCH SKIPPED';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = rect ? '#6b7a8d' : '#b8ff57';
+      ctx.fillText(phase, ox, H - 9 * dpr);
+      if (chipF) chipF.textContent = 'frame ' + f;
+      if (chipD) chipD.textContent = rect
+        ? 'dispatched: ' + dispatched.toLocaleString() + ' / ' + total.toLocaleString()
+        : 'dispatched: 0 — skipped';
+      if (chipS) {
+        var saved = Math.round((1 - dispatched / total) * 100);
+        chipS.textContent = 'saved: ' + saved + '%';
+        chipS.style.color = saved > 50 ? 'var(--accent3)' : 'var(--warn)';
+      }
+    }
+    draw(); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-GPU-DRIVEN — particles to one indirect draw, no readback ──
+// Four stages across one frame. The point is the chip that does not move:
+// the draw-call count is 1 regardless of N, and nothing round-trips to CPU.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-gpu-driven]');
+  if (!roots.length) return;
+  var STAGES = [
+    {t: '1 · SIMULATE',       d: 'Niagara GPU emitter ticks N particles — normal sim, no renderer yet'},
+    {t: '2 · CONTROL POINTS', d: 'one module call writes a fixed-size point per particle into a ByteAddressBuffer'},
+    {t: '3 · GEOMETRY CS',    d: 'a global compute shader reads the whole buffer — including neighbours — and builds quads'},
+    {t: '4 · INDIRECT DRAW',  d: 'streamless VF: NumPrimitives = 0, vertex count comes from a GPU-written args buffer'}
+  ];
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var steps  = root.querySelectorAll('[data-step]');
+    var play   = root.querySelector('[data-play]');
+    var chipS  = root.querySelector('[data-chip-stage]');
+    var chipD  = root.querySelector('[data-chip-draws]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var stage = 0, playing = false, raf = null, last = 0;
+    function stop() {
+      playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+      if (play) play.textContent = '▶ PLAY';
+    }
+    function setStage(s) {
+      stage = ((s % STAGES.length) + STAGES.length) % STAGES.length;
+      steps.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.dataset.step, 10) === stage);
+      });
+      if (chipS) chipS.textContent = STAGES[stage].t;
+      if (chipD) chipD.textContent = stage === 3 ? 'draw calls: 1 — for any N' : 'draw calls: —';
+      draw();
+    }
+    steps.forEach(function(b) {
+      b.addEventListener('click', function() { stop(); setStage(parseInt(b.dataset.step, 10)); });
+    });
+    if (play) play.addEventListener('click', function() {
+      playing = !playing;
+      play.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (playing) { last = 0; raf = requestAnimationFrame(tick); } else stop();
+    });
+    function tick(t) {
+      if (!playing) return;
+      if (!last) last = t;
+      if (t - last > 1300) { last = t; setStage(stage + 1); }
+      raf = requestAnimationFrame(tick);
+    }
+    function drawStageArt(i, x, y, w, h, on, done, dpr) {
+      ctx.save();
+      ctx.globalAlpha = on ? 1 : done ? 0.45 : 0.22;
+      var cx = x + w / 2, cy = y + h / 2;
+      if (i === 0) {
+        for (var p = 0; p < 14; p++) {
+          var a = (p / 14) * Math.PI * 2, rr = Math.min(w, h) * 0.32;
+          ctx.fillStyle = '#ff6b35';
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(a * 1.6) * rr, cy + Math.sin(a) * rr * 0.85, 2.6 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (i === 1) {
+        var slots = 8, sw = (w * 0.78) / slots, sx = cx - (sw * slots) / 2;
+        for (var s = 0; s < slots; s++) {
+          ctx.fillStyle = 'rgba(0,229,255,0.28)';
+          ctx.fillRect(sx + s * sw + dpr, cy - 9 * dpr, sw - 2 * dpr, 18 * dpr);
+          ctx.strokeStyle = 'rgba(0,229,255,0.55)'; ctx.lineWidth = dpr;
+          ctx.strokeRect(sx + s * sw + dpr, cy - 9 * dpr, sw - 2 * dpr, 18 * dpr);
+        }
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'center';
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('fixed stride', cx, cy + 26 * dpr);
+      } else if (i === 2) {
+        var n = 6, qw = (w * 0.72) / n, qx = cx - (qw * n) / 2;
+        for (var q = 0; q < n; q++) {
+          ctx.beginPath();
+          ctx.moveTo(qx + q * qw, cy + 10 * dpr);
+          ctx.lineTo(qx + q * qw + qw * 0.85, cy - 10 * dpr);
+          ctx.lineTo(qx + q * qw + qw * 0.85, cy + 10 * dpr);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(184,255,87,0.14)'; ctx.fill();
+          ctx.strokeStyle = 'rgba(184,255,87,0.65)'; ctx.lineWidth = dpr; ctx.stroke();
+        }
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'center';
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('1 thread / quad', cx, cy + 26 * dpr);
+      } else {
+        ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1.3 * dpr;
+        for (var seg = 0; seg < 9; seg++) {
+          var t0 = seg / 9, t1 = (seg + 1) / 9;
+          var x0 = x + w * 0.10 + t0 * w * 0.80, x1 = x + w * 0.10 + t1 * w * 0.80;
+          var y0 = cy + Math.sin(t0 * 6.2) * h * 0.18, y1 = cy + Math.sin(t1 * 6.2) * h * 0.18;
+          var rr2 = 9 * dpr;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0 - rr2); ctx.lineTo(x1, y1 - rr2);
+          ctx.lineTo(x1, y1 + rr2); ctx.lineTo(x0, y0 + rr2); ctx.closePath();
+          ctx.fillStyle = 'rgba(0,229,255,0.10)'; ctx.fill(); ctx.stroke();
+        }
+        ctx.fillStyle = '#b8ff57'; ctx.textAlign = 'center';
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('DrawIndexedIndirect × 1', cx, y + h - 1 * dpr);
+      }
+      ctx.restore(); ctx.textAlign = 'left';
+    }
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var PAD = 14 * dpr, GAP = 14 * dpr;
+      var bw = (W - PAD * 2 - GAP * 3) / 4, bh = H - 52 * dpr, by = 12 * dpr;
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      for (var i = 0; i < 4; i++) {
+        var bx = PAD + i * (bw + GAP);
+        var on = i === stage, done = i < stage;
+        ctx.fillStyle = on ? 'rgba(0,229,255,0.07)' : 'rgba(255,255,255,0.015)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = on ? 'rgba(0,229,255,0.7)' : done ? 'rgba(184,255,87,0.35)' : '#1e2530';
+        ctx.lineWidth = (on ? 1.8 : 1) * dpr;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = on ? '#00e5ff' : done ? 'rgba(184,255,87,0.7)' : '#4a5568';
+        ctx.textAlign = 'center';
+        ctx.fillText(STAGES[i].t, bx + bw / 2, by + 15 * dpr);
+        drawStageArt(i, bx, by + 22 * dpr, bw, bh - 30 * dpr, on, done, dpr);
+        if (i < 3) {
+          var axm = bx + bw + GAP / 2, aym = by + bh / 2;
+          var col = i < stage ? 'rgba(184,255,87,0.6)' : '#26303c';
+          ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr;
+          ctx.beginPath(); ctx.moveTo(axm - 5 * dpr, aym); ctx.lineTo(axm + 2 * dpr, aym); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(axm + 6 * dpr, aym);
+          ctx.lineTo(axm, aym - 3.5 * dpr); ctx.lineTo(axm, aym + 3.5 * dpr);
+          ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+        }
+      }
+      ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText(STAGES[stage].d, PAD, H - 12 * dpr);
+    }
+    setStage(0); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
 </script>
 </body>
 </html>

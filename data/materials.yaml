@@ -23,6 +23,7 @@ meta:
     - {id: mat-rules,    label: Optim Rules}
     - {id: mat-blend,    label: Blend Modes}
     - {divider: "ENGINE INTERNALS", area: engine}
+    - {id: mat-sim-output, label: Sim Output}
     - {id: mat-gotchas,  label: Engine Gotchas}
 
 section_groups:
@@ -514,6 +515,60 @@ section_groups:
     icon: "🔬"
     theme: engine
     sections:
+
+
+      # ── SECTION: SAMPLING A COMPUTE OUTPUT FROM A MATERIAL ────────────────
+      - id: mat-sim-output
+        label: "Sampling a Compute Output From a Material"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "Getting a Render Target Into a Material Without Binding It"
+            content:
+              - type: prose
+                text: "A compute pass produces a render target. Hundreds of material instances need to read it. Wiring it through a parameter means every instance carries a texture binding somebody has to keep current — and any instance that misses the update samples last level's texture, or nothing."
+              - type: table
+                style: default
+                cols: ["Approach", "Binding cost", "Fails by"]
+                rows:
+                  - ["<strong>Texture parameter per instance</strong>", "One update per MID per change", "A missed instance silently samples a stale target"]
+                  - ["<strong>Material Parameter Collection</strong>", "n/a — MPCs hold scalars and vectors", "Cannot carry a texture at all"]
+                  - ["<strong>External texture registry</strong>", "One registration per frame, globally", "Nothing bound under the GUID → engine fallback texture"]
+              - type: checklist
+                items:
+                  - {icon: ok, cost: free, difficulty: advanced, html: "<strong>Register the render target under a fixed GUID</strong> each frame via <code>FExternalTextureRegistry</code>. A custom material expression compiles to <code>Compiler-&gt;ExternalTexture(GUID)</code> and resolves to the live target at render time."}
+                  - {icon: ok, html: "<strong>Instances need no binding at all.</strong> The node carries the GUID; adding a material to the project costs nothing on the CPU side."}
+                  - {icon: "no", html: "<strong>Never regenerate the GUID.</strong> It is baked into every material that references it — a new value silently unbinds every existing asset."}
+                  - {icon: warn, html: "<strong>Retired GUIDs stay retired.</strong> If the channel layout of a surface changes, mint a new GUID rather than reusing the old one; assets authored against the old semantics would compile fine and read nonsense."}
+
+          - color: orange
+            title: "Custom Node vs Custom Expression"
+            content:
+              - type: prose
+                text: "A <code>Custom</code> node is authored per-material and cannot reach the registry. Reading a globally-registered target needs a real <code>UMaterialExpression</code> subclass — which is C++, but buys things a Custom node cannot."
+              - type: checklist
+                items:
+                  - {icon: ok, html: "<strong>It resolves its own texture.</strong> No pin to wire, no way for an artist to wire the wrong one."}
+                  - {icon: ok, html: "<strong>It can degrade to a constant</strong> when the producing system is disabled — a Custom node has to be manually bypassed."}
+                  - {icon: ok, html: "<strong>It ships as code, not a <code>.uasset</code></strong> — no binary merge conflicts, and the behaviour is reviewable in a diff."}
+                  - {icon: warn, html: "<strong>Prefer one composite node over five primitive ones</strong> for the common case. Expose the primitives too, but the default path should be one node and one fetch."}
+
+          - color: red
+            span: grid-full
+            title: "The Neutral-Value Trap"
+            content:
+              - type: gotcha
+                variant: full
+                problem: "With the producing system switched off, every material reading the shared target behaves as though the effect is at maximum everywhere."
+                why: "The disabled-state fallback was registered as the engine black texture. Black is only \"nothing\" when zero means nothing. For a normalised distance field where <m>0</m> = touching and <m>1</m> = out of range, black means <em>the entire world is being touched at once</em>."
+                fix: "Work out the neutral value per channel layout and register a texture that holds it — or clear the real target to neutral and keep registering that. For a normalised distance the neutral is <code>float4(1, 0, 0, 0)</code>, not black."
+                detect: "The effect is inverted or saturated rather than absent. If disabling the producer makes materials do <em>more</em> instead of nothing, the fallback polarity is wrong."
+              - type: checklist
+                items:
+                  - {icon: ok, html: "<strong>Write the channel contract down where the GUID is declared</strong>, including units. \"R = distance\" is not a contract; \"R = distance normalised to 0..1, multiply by MaxDistance for cm\" is."}
+                  - {icon: warn, html: "<strong>Do not mix normalised and unit-carrying channels across sibling surfaces</strong> without saying so loudly. One target holding centimetres and another holding 0..1 is the bug that survives review."}
+                  - {icon: ok, html: "<strong>Keep the consumer surface registered in every mode.</strong> If a cheap path and an expensive path both publish under the same GUID with the same semantics, materials never branch on which is running."}
 
       # ── SECTION 11: ENGINE GOTCHAS (SOURCE-VERIFIED) ───────────────────────
       - id: mat-gotchas

@@ -1,0 +1,29 @@
+# ─── Local-only agent & planning docs ────────────────────────────────────────
+# These live on disk to guide agentic sessions. Not shipped to the public repo.
+CLAUDE.md
+**/CLAUDE.md
+reference/
+docs/
+next_session.md
+.claude/
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# ─── Editors / IDEs ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

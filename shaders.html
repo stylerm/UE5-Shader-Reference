@@ -46,15 +46,18 @@
 <a href="#usf-rules" data-area="ref">USF / USH</a>
 <a href="#compute" data-area="ref">Compute</a>
 <a href="#tgsm" data-area="ref">TGSM</a>
+<a href="#atomics" data-area="ref">Atomics</a>
 <a href="#reference" data-area="ref">Reference</a>
 <a href="#sampling" data-area="ref">Sampling</a>
 <a href="#orbital-rings" data-area="ref">Orbital Rings</a>
 <div class="sidenav-divider area-optim"></div>
 <span class="sidenav-section area-optim">OPTIMIZATION</span>
 <a href="#compute-perf" data-area="optim">Perf Rules</a>
+<a href="#scatter-gather" data-area="optim">Scatter/Gather</a>
 <div class="sidenav-divider area-engine"></div>
 <span class="sidenav-section area-engine">ENGINE INTERNALS</span>
 <a href="#dispatch-rules" data-area="engine">Dispatch</a>
+<a href="#persistent-sim" data-area="engine">Persistent Sim</a>
 <a href="#platform-perf" data-area="engine">Platform</a>
   </div>
 </nav>
@@ -156,7 +159,7 @@
 <span class="kw">RWTexture2D</span>&lt;<span class="kw">float4</span>&gt; OutputTexture;
 <span class="kw">uint</span> Resolution;
 
-[<span class="fn">numthreads</span>(NUM_THREADS_X, NUM_THREADS_Y, 1)]
+[<span class="kw">numthreads</span>(NUM_THREADS_X, NUM_THREADS_Y, 1)]
 <span class="kw">void</span> <span class="fn">MainCS</span>(
     <span class="kw">uint3</span> DispatchThreadID : <span class="kw">SV_DispatchThreadID</span>,
     <span class="kw">uint3</span> GroupThreadID   : <span class="kw">SV_GroupThreadID</span>,
@@ -233,6 +236,60 @@ TileCache[GroupThreadID.y][GroupThreadID.x]
 <span class="c">// Usage in compute shader</span>
 <span class="fn">DECLARE_TILE_CACHE_FLOAT</span>(SDFCache);
 <span class="fn">LOAD_TILE_SCROLLED</span>(SDFCache, SDFTex, ...);</pre></div>
+</div>
+
+<div id="atomics" class="section-label">GPU Atomics &amp; Lock-Free Composition</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> HLSL Has No Float Atomics</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;"><code>InterlockedMin</code>, <code>InterlockedMax</code> and <code>InterlockedAdd</code> are defined on <code>int</code> and <code>uint</code> only. Any pass where many threads composite into the same texel — stamping, splatting, rasterising into a grid — hits this immediately.</p><div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>A float UAV has no atomic min.</strong> Two threads writing the same texel race, and the winner is whichever finished last — not the smallest value.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><span class="cost-chip cost-expensive" title="Expensive — hero assets only" aria-label="Expensive — hero assets only">E</span><span class="setup-chip setup-advanced" title="Advanced setup — engine plumbing, per-platform, multi-system" aria-label="Advanced setup — engine plumbing, per-platform, multi-system"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span><strong>The CAS loop works but scales badly.</strong> <code>InterlockedCompareExchange</code> in a spin loop is correct, but every contending thread retries — cost climbs with overlap, which is exactly when you need it.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>The bit trick is one instruction.</strong> IEEE-754 floats already compare correctly as integers <em>within</em> a sign — flip the negative half and the whole range becomes a monotonic <code>uint</code> key.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">SM6 adds <code>NvInterlockedAddFp32</code> and vendor equivalents, but they are extensions — not portable across the platforms UE ships to.</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Order-Preserving float → uint</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Non-negative floats: set the sign bit so they sort above every negative. Negative floats: flip <em>all</em> bits, which both moves them below zero and reverses their (otherwise backwards) magnitude ordering.</p><pre><span class="kw">uint</span> <span class="fn">FloatToOrderedUint</span>(<span class="kw">float</span> Dist)
+{
+    <span class="kw">uint</span> u = <span class="fn">asuint</span>(Dist);
+    <span class="c">// Negative: flip all bits. Non-negative: set the sign bit.</span>
+    <span class="kw">return</span> (u &amp; 0x80000000u) ? ~u : (u | 0x80000000u);
+}
+
+<span class="kw">float</span> <span class="fn">OrderedUintToFloat</span>(<span class="kw">uint</span> Encoded)
+{
+    <span class="c">// High bit set -&gt; was non-negative -&gt; clear it. Else undo the full flip.</span>
+    <span class="kw">return</span> <span class="fn">asfloat</span>((Encoded &amp; 0x80000000u) ? (Encoded &amp; 0x7FFFFFFFu) : ~Encoded);
+}
+
+<span class="c">// Compositing many overlapping stamps into one grid, lock-free:</span>
+<span class="kw">RWTexture2D</span>&lt;<span class="kw">uint</span>&gt; InputGrid;
+
+<span class="kw">void</span> <span class="fn">StampTexel</span>(<span class="kw">uint2</span> Pixel, <span class="kw">float</span> SignedDistance)
+{
+    <span class="kw">uint</span> Encoded = <span class="fn">FloatToOrderedUint</span>(SignedDistance);
+    <span class="kw">uint</span> Prev;
+    <span class="fn">InterlockedMin</span>(InputGrid[Pixel], Encoded, Prev);
+}</pre><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">The mapping is a <strong>bijection</strong> — every float round-trips exactly, including negative interiors and both zeros.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>The clear value must be encoded too.</strong> Clearing the grid to <code>0</code> means "the most negative float representable", so every later <code>InterlockedMin</code> is a no-op and the field stays empty.</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — watch the ordering break, then hold</div>
+<div class="viz viz-atomic-order" data-viz-atomic-order>
+  <div class="viz-header"><span class="viz-num">C1</span><span class="viz-title">Float → Orderable uint</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-mode>RAW asuint()</span><span class="viz-chip"><span class="viz-dot t"></span>float order</span><span class="viz-chip"><span class="viz-dot b"></span>uint order</span><span class="viz-chip" data-chip-verdict style="color:var(--bad)">order BROKEN</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">The same seven floats in value order (top) and in uint-key order (bottom). Under raw asuint() the negatives jump to the top of the uint range and invert — every crossed line is a comparison InterlockedMin would get wrong. Toggle to ENCODED and the lines run parallel.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-toggles">
+      <button class="viz-toggle" data-toggle-mode type="button">MODE: RAW asuint()</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> When to Reach For This</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-cheap" title="Cheap — negligible cost" aria-label="Cheap — negligible cost">C</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Scatter rasterisation</strong> — N sources writing into one grid where the result is a min, max, or sum. Removes the read-modify-write race without a second pass.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-cheap" title="Cheap — negligible cost" aria-label="Cheap — negligible cost">C</span><span class="setup-chip setup-beginner" title="Beginner setup — one checkbox / one setting" aria-label="Beginner setup — one checkbox / one setting"><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><strong>GPU-side reductions</strong> — bounding boxes, depth extents, histogram peaks. Encode once, reduce with integer atomics, decode at the consumer.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Order-independent compositing</strong> — the result no longer depends on dispatch order, so the pass is deterministic frame to frame.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">For <code>InterlockedAdd</code> on floats there is no equivalent trick — the encoding preserves <em>order</em>, not arithmetic. Use fixed-point (<code>int</code> scaled by <m>1000</m>) or a separate reduction pass.</span></div></div></div>
+<div class="card red">
+<div class="card-title"><span class="dot"></span> What This Costs You</div>
+<div class="checklist"><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Atomic min is a hard min.</strong> Smooth blending between overlapping sources is impossible in the atomic pass — <code>smin()</code> is not associative under an atomic. Blend in a later gather pass if you need it.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>The grid is now <code>R32_UINT</code>.</strong> Every consumer must decode, and you lose filtered sampling — a <code>uint</code> texture cannot be bilinearly sampled.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Debug views show garbage</strong> until decoded. Budget a debug-blit pass, or you will be reading raw bit patterns in RenderDoc.</span></div></div></div>
 </div>
 
 <div id="reference" class="section-label">Quick Reference</div>
@@ -508,6 +565,63 @@ col += <span class="kw">float3</span>(0.40, 0.20, 0.06) * <span class="fn">exp</
 <table class="table-multi"><thead><tr><th>Size</th><th>Threads</th><th>TGSM Budget</th><th>Recommended For</th></tr></thead><tbody><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~1.6KB float</td><td data-label="Recommended For">Safe on all targets — textures, SDF, general 2D</td></tr><tr><td data-label="Size"><code>8×8×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">~3.2KB float2</td><td data-label="Recommended For">Gradient / neighbor reads with halo</td></tr><tr><td data-label="Size"><code>16×16×1</code></td><td data-label="Threads">256</td><td data-label="TGSM Budget">~6.4KB float</td><td data-label="Recommended For">PC/SM5+ only — larger tiles, reduce dispatch overhead</td></tr><tr><td data-label="Size"><code>64×1×1</code></td><td data-label="Threads">64</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">1D passes: histograms, prefix sums, buffer ops</td></tr><tr><td data-label="Size"><code>32×1×1</code></td><td data-label="Threads">32</td><td data-label="TGSM Budget">—</td><td data-label="Recommended For">Mobile-safe 1D — matches warp/wavefront size</td></tr></tbody></table></div>
 </div>
 
+<div id="scatter-gather" class="section-label">Scatter vs Gather Dispatch</div>
+<div class="grid">
+<div class="card blue">
+<div class="card-title"><span class="dot"></span> The Two Dispatch Shapes</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Any "N sources affect a grid" pass can be written from either end. The choice is not stylistic — it changes the asymptotic cost, and the crossover comes earlier than most people expect.</p><table class="table-multi"><thead><tr><th>Shape</th><th>One thread is</th><th>Cost</th><th>Good when</th></tr></thead><tbody><tr><td data-label="Shape"><strong>Gather</strong></td><td data-label="One thread is">one <em>texel</em>, looping every source</td><td data-label="Cost"><code>grid × N</code></td><td data-label="Good when">N is tiny and fixed, or every source covers the whole grid</td></tr><tr><td data-label="Shape"><strong>Scatter</strong></td><td data-label="One thread is">one <em>texel inside one source's bounding rect</em></td><td data-label="Cost"><code>Σ footprints</code></td><td data-label="Good when">sources are local — the normal case for stamps, decals, splats, impacts</td></tr></tbody></table><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body">Gather cost is <strong>independent of where the sources are</strong>. Ten stamps in one corner still cost ten full-grid loops.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body">Scatter cost tracks <strong>coverage</strong>. Sources that touch nothing cost nothing.</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> The 3D Dispatch Trick</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Scatter needs each thread to know <em>which source</em> it belongs to. Rather than an indirection buffer, put the source index on the dispatch's Z axis: X/Y cover the bounding rect, Z runs one slice per source.</p><pre><span class="c">// Dispatch(ceil(MaxFootprint / 8), ceil(MaxFootprint / 8), StampCount)</span>
+[<span class="kw">numthreads</span>(8, 8, 1)]
+<span class="kw">void</span> <span class="fn">MainCS</span>(<span class="kw">uint3</span> DispatchThreadID : <span class="kw">SV_DispatchThreadID</span>)
+{
+    <span class="kw">uint</span> StampIndex = DispatchThreadID.z + StampIndexOffset;
+    <span class="kw">if</span> (StampIndex &gt;= StampCount)
+        <span class="kw">return</span>;
+
+    FPointStamp S = PointStamps[StampIndex];
+
+    <span class="c">// Thread&#x27;s texel = this stamp&#x27;s bounding-rect origin + local offset.</span>
+    <span class="kw">int2</span> Origin = <span class="kw">int2</span>(<span class="fn">floor</span>((S.Position - S.Radius - GridOrigin) / GridScale));
+    <span class="kw">int2</span> Pixel  = Origin + <span class="kw">int2</span>(DispatchThreadID.xy);
+    <span class="kw">if</span> (<span class="fn">any</span>(Pixel &lt; 0) || <span class="fn">any</span>(Pixel &gt;= <span class="kw">int2</span>(Resolution, Resolution)))
+        <span class="kw">return</span>;
+
+    <span class="kw">float</span> Dist = <span class="fn">EvaluateStamp</span>(S, Pixel);
+    <span class="kw">uint</span>  Prev;
+    <span class="fn">InterlockedMin</span>(InputGrid[Pixel], <span class="fn">FloatToOrderedUint</span>(Dist), Prev);
+}</pre><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><span class="cost-chip cost-moderate" title="Moderate — budget carefully" aria-label="Moderate — budget carefully">M</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>X/Y must cover the <em>largest</em> footprint</strong>, so one huge source drags every slice up with it. That is the whole reason for the next card.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><code>StampIndexOffset</code> rebases Z, which lets you issue several dispatches over disjoint index ranges without touching the shader.</span></div></div></div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Bucket by Footprint</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Sort sources into two or three size buckets and issue one dispatch per bucket. Each dispatch sizes X/Y to <em>its own</em> largest member, so small stamps stop paying for the big one.</p><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-cheap" title="Cheap — negligible cost" aria-label="Cheap — negligible cost">C</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Two or three buckets is enough.</strong> The win is removing the worst outlier, not perfectly packing every size class — more buckets just adds dispatch overhead.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-beginner" title="Beginner setup — one checkbox / one setting" aria-label="Beginner setup — one checkbox / one setting"><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><strong>Sort on the CPU</strong> while you are already walking the source list to upload it. The sort is over tens of entries, not thousands.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">Cost goes from <code>N × largest footprint</code> to roughly <code>Σ footprints</code> — the number the scatter shape promised in the first place.</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — drag the stamp count and watch the ratio</div>
+<div class="viz viz-scatter-gather" data-viz-scatter-gather>
+  <div class="viz-header"><span class="viz-num">C2</span><span class="viz-title">Scatter vs Gather Dispatch</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-mode>GATHER</span><span class="viz-chip" data-chip-threads>threads: 0</span><span class="viz-chip" data-chip-tests>SDF evals: 0</span><span class="viz-chip" data-chip-ratio style="color:var(--accent3)">—</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">Highlighted cells are texels that actually run a thread. Gather lights the whole grid and multiplies by the stamp count; scatter lights only the bounding rects. The ratio chip is the real eval-count quotient — add stamps and it grows, because gather scales with N and scatter scales with coverage.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-toggles">
+      <button class="viz-toggle" data-toggle-mode type="button">MODE: GATHER</button>
+    </div>
+    <div class="viz-slider-row" style="flex:1;min-width:200px;">
+      <span class="viz-slider-label">STAMPS</span>
+      <input type="range" min="1" max="8" value="3" data-stamps aria-label="stamp count">
+      <span class="viz-slider-val" data-stamps-val>3</span>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card yellow">
+<div class="card-title"><span class="dot"></span> What Scatter Costs You</div>
+<div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Overlapping sources now collide.</strong> Two threads can target one texel, so the composite must be an <a href="#atomics">atomic</a> — which means a hard min/max, not a smooth blend.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Occupancy drops at the rect edges.</strong> A circular source in a square rect wastes the corners; that waste is bounded at <m>21%</m> and still far cheaper than gather.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Do not scatter global sources.</strong> Anything whose footprint is the whole grid — ambient wind, a full-screen decay — belongs in the gather pass that follows.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Keep both.</strong> Scatter the local sources, then run one cheap full-grid pass for the global terms. That is the standard split.</span></div></div></div>
+</div>
+
 </div>
 </section>
 <section class="subpage" data-subpage="engine" role="tabpanel">
@@ -547,6 +661,104 @@ GraphBuilder.<span class="fn">AddPass</span>(
 <div class="card blue">
 <div class="card-title"><span class="dot"></span> Profiling Compute Shaders</div>
 <div class="row-list stacked"><div class="row"><span class="row-label"><code>stat gpu</code></span><span class="row-text">Console command — shows GPU time per pass; look for your pass name from <code>RDG_EVENT_NAME</code></span></div><div class="row"><span class="row-label"><code>RenderDoc</code></span><span class="row-text">Frame capture tool — inspect every dispatch, view UAV contents, check thread occupancy</span></div><div class="row"><span class="row-label"><code>GPU Insights (5.4+)</code></span><span class="row-text">Built-in Unreal Insights GPU view — shows compute pass durations on a timeline</span></div><div class="row"><span class="row-label"><code>r.RDG.Debug 1</code></span><span class="row-text">Enables RDG validation — catches missing barriers, resource aliasing, and UAV hazards</span></div><div class="row"><span class="row-label"><code>profilegpu</code></span><span class="row-text">Console command — dumps per-pass GPU timings to the output log</span></div></div></div>
+</div>
+
+<div id="persistent-sim" class="section-label">Persistent GPU Simulation</div>
+<div class="grid">
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> The Shape of a Persistent Sim Frame</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">A simulation that carries state between frames — a distance field, a fluid grid, a heightmap of deformation — is not a single dispatch. It is a fixed chain, and the chain is the same whatever the sim is actually solving.</p><div class="row-list"><div class="row"><span class="row-label"><code>0 · Clear</code></span><span class="row-text">Reset the per-frame accumulator to its <em>neutral</em> value — which is rarely zero. Skippable when nothing wrote last frame.</span></div><div class="row"><span class="row-label"><code>1 · Inject</code></span><span class="row-text">Scatter this frame's external influences into the accumulator. See <a href="#scatter-gather">Scatter vs Gather</a>.</span></div><div class="row"><span class="row-label"><code>2 · Integrate</code></span><span class="row-text">Merge the accumulator into the persistent state, then advance it — advection, relaxation, decay. Reads state A, writes state B.</span></div><div class="row"><span class="row-label"><code>3 · Solve</code></span><span class="row-text">Any iterative step: pressure projection, Eikonal sweeps, diffusion. This is where the frame budget actually goes.</span></div><div class="row"><span class="row-label"><code>4 · Blit</code></span><span class="row-text">Derive the consumer-facing surface — gradients, normals, packed channels — into a texture materials and Niagara can sample.</span></div></div><div class="checklist"><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Steps 2 and 3 must never read and write one resource</strong> unless the access pattern is provably disjoint. That constraint drives every decision below.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><strong>Keep the consumer surface stable across modes.</strong> If a cheap mode and an expensive mode both publish the same texture with the same channel meaning, materials never learn which one is running.</span></div></div></div>
+<div class="card orange">
+<div class="card-title"><span class="dot"></span> Ping-Pong Is the Default, Not the Only Option</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-moderate" title="Moderate — budget carefully" aria-label="Moderate — budget carefully">M</span><span class="setup-chip setup-beginner" title="Beginner setup — one checkbox / one setting" aria-label="Beginner setup — one checkbox / one setting"><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><strong>Ping-pong</strong> — allocate A and B, read A write B, swap. Correct for any stencil, and the only option when a thread reads neighbours it does not own.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><span class="cost-chip cost-moderate" title="Moderate — budget carefully" aria-label="Moderate — budget carefully">M</span><strong>It costs a full second copy of the state.</strong> At <m>1024²</m> RGBA16F that is <m>8 MB</m> per grid — and iterative solvers want several.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-cheap" title="Cheap — negligible cost" aria-label="Cheap — negligible cost">C</span><span class="setup-chip setup-advanced" title="Advanced setup — engine plumbing, per-platform, multi-system" aria-label="Advanced setup — engine plumbing, per-platform, multi-system"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span><strong>Parity splitting removes the second buffer</strong> when the stencil only touches immediate neighbours — see the red/black card.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Never alias a ping-pong pair to save memory.</strong> RDG will not catch it, and the corruption is frame-rate dependent.</span></div></div></div>
+<div class="card orange grid-full">
+<div class="card-title"><span class="dot"></span> Red/Black — Gauss-Seidel Without a Second Buffer</div>
+<p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Split the grid by <code>(x + y) &amp; 1</code>. A pass writes only its own parity, and the four neighbours it reads are all the other parity — so within one dispatch nothing that is written is read. One UAV, no hazard, and each pass sees the previous pass's fresh values, which is what makes it Gauss-Seidel rather than Jacobi.</p><pre><span class="kw">uint</span>                Resolution;
+<span class="kw">float</span>               Alpha;      <span class="c">// -(dx)^2</span>
+<span class="kw">float</span>               InvBeta;    <span class="c">// 0.25</span>
+<span class="kw">float</span>               SORWeight;  <span class="c">// omega in [1.0, 1.95]; 1.7 near-optimal</span>
+<span class="kw">uint</span>                PassIndex;  <span class="c">// 0 = red (x+y even), 1 = black (odd)</span>
+<span class="kw">Texture2D</span>&lt;<span class="kw">float2</span>&gt;   DivergenceGrid;
+<span class="kw">RWTexture2D</span>&lt;<span class="kw">float</span>&gt;  PressureGrid;   <span class="c">// read AND written in the same dispatch</span>
+
+[<span class="kw">numthreads</span>(8, 8, 1)]
+<span class="kw">void</span> <span class="fn">MainCS</span>(<span class="kw">uint3</span> DispatchThreadID : <span class="kw">SV_DispatchThreadID</span>)
+{
+    <span class="kw">if</span> (<span class="fn">any</span>(DispatchThreadID.xy &gt;= Resolution))
+        <span class="kw">return</span>;
+
+    <span class="kw">int2</span> Pixel = <span class="kw">int2</span>(DispatchThreadID.xy);
+
+    <span class="c">// Skip the cells that belong to the other pass.</span>
+    <span class="kw">if</span> ((((<span class="kw">uint</span>)Pixel.x + (<span class="kw">uint</span>)Pixel.y) &amp; 1u) != PassIndex)
+        <span class="kw">return</span>;
+
+    <span class="kw">int</span> Res = <span class="kw">int</span>(Resolution);
+    <span class="kw">float</span> pL = PressureGrid[<span class="kw">int2</span>(<span class="fn">max</span>(Pixel.x - 1, 0),       Pixel.y)];
+    <span class="kw">float</span> pR = PressureGrid[<span class="kw">int2</span>(<span class="fn">min</span>(Pixel.x + 1, Res - 1), Pixel.y)];
+    <span class="kw">float</span> pD = PressureGrid[<span class="kw">int2</span>(Pixel.x, <span class="fn">max</span>(Pixel.y - 1, 0))];
+    <span class="kw">float</span> pU = PressureGrid[<span class="kw">int2</span>(Pixel.x, <span class="fn">min</span>(Pixel.y + 1, Res - 1))];
+
+    <span class="kw">float</span> b       = DivergenceGrid.<span class="fn">Load</span>(<span class="kw">int3</span>(Pixel, 0)).r;
+    <span class="kw">float</span> pJacobi = (pL + pR + pD + pU + Alpha * b) * InvBeta;
+
+    <span class="c">// SOR: over-relax past the Jacobi estimate.</span>
+    <span class="kw">float</span> pOld = PressureGrid[Pixel];
+    PressureGrid[Pixel] = pOld + SORWeight * (pJacobi - pOld);
+}</pre><table class="table-multi"><thead><tr><th>Scheme</th><th>Buffers</th><th>Spectral radius ρ (N=256)</th><th>Relative</th></tr></thead><tbody><tr><td data-label="Scheme">Jacobi</td><td data-label="Buffers">2</td><td data-label="Spectral radius ρ (N=256)"><code>cos(π/N)</code> ≈ <m>0.99976</m></td><td data-label="Relative">baseline</td></tr><tr><td data-label="Scheme">Red/Black Gauss-Seidel</td><td data-label="Buffers">1</td><td data-label="Spectral radius ρ (N=256)"><code>ρ_J²</code> ≈ <m>0.99952</m></td><td data-label="Relative">≈ <m>2×</m> faster per iteration</td></tr><tr><td data-label="Scheme">Red/Black SOR (ω = 1.7)</td><td data-label="Buffers">1</td><td data-label="Spectral radius ρ (N=256)">≈ <m>0.967</m></td><td data-label="Relative">≈ <m>8–12×</m> faster</td></tr></tbody></table><div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Two dispatches per outer iteration</strong> — red then black. RDG inserts the UAV barrier between them, which is exactly the ordering the scheme depends on.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>ω is not free to pick.</strong> Above <m>2.0</m> the iteration diverges; near-optimal is problem-dependent but <m>1.7</m> is a sane default for a 2D Poisson solve.</span></div><div class="check-item"><span class="check-icon no">✗</span><span class="check-body"><strong>Do not use this for a wide stencil.</strong> The moment a thread reads a cell of its own parity — a 3×3 blur, a two-ring gather — the disjointness argument collapses and you need ping-pong back.</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — parity split vs the two-buffer sweep</div>
+<div class="viz viz-redblack" data-viz-redblack>
+  <div class="viz-header"><span class="viz-num">C3</span><span class="viz-title">Red/Black In-Place Relaxation</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-pass>RED pass</span><span class="viz-chip" data-chip-buffers>buffers: 1</span><span class="viz-chip" data-chip-hazard style="color:var(--accent3)">0 read/write hazards</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">Step between the red and black passes. White is the cell the highlighted thread writes; green rings are the four it reads — all of them the opposite parity, so none was touched this dispatch. Toggle to JACOBI to see the same solve pay for a second full-resolution buffer.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-steps" role="tablist">
+      <button class="viz-step active" data-step="0" type="button">1 · RED</button>
+      <button class="viz-step" data-step="1" type="button">2 · BLACK</button>
+    </div>
+    <div class="viz-toggles">
+      <button class="viz-toggle" data-play type="button">▶ PLAY</button>
+      <button class="viz-toggle" data-toggle-scheme type="button">SCHEME: RED/BLACK</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Three Cheap Wins on Any Iterative Solve</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-beginner" title="Beginner setup — one checkbox / one setting" aria-label="Beginner setup — one checkbox / one setting"><span class="dot fill"></span><span class="dot"></span><span class="dot"></span></span><strong>Warm-start.</strong> Do not clear the solution between frames — last frame's answer is a far better initial guess than zero. Clear only on init and on resize.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-cheap" title="Cheap — negligible cost" aria-label="Cheap — negligible cost">C</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Solve at half resolution.</strong> Downsample the right-hand side, solve, sample the result back up bilinearly. A pressure field is smooth; the error this introduces is well below what the advection step contributes.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Scale iteration count by dt.</strong> A fixed iteration count means the far field propagates at a frame-rate-dependent speed. Author against <m>60</m> fps and scale, clamped to a sane range.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><span class="cost-chip cost-situational" title="Situational — cost depends on context" aria-label="Situational — cost depends on context">?</span><span class="setup-chip setup-advanced" title="Advanced setup — engine plumbing, per-platform, multi-system" aria-label="Advanced setup — engine plumbing, per-platform, multi-system"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span><strong>Async compute</strong> overlaps the solve with unrelated graphics work — shadow depth, base pass. RDG demotes it to the graphics queue where the platform cannot honour it, so the fallback is automatic but the win is not guaranteed.</span></div></div></div>
+<div class="card blue grid-full">
+<div class="card-title"><span class="dot"></span> Interactive — the dirty rect that makes an idle sim free</div>
+<div class="viz viz-activity-rect" data-viz-activity-rect>
+  <div class="viz-header"><span class="viz-num">C4</span><span class="viz-title">Activity Rect · Dilate, Decay, Skip</span></div>
+  <div class="viz-chips"><span class="viz-chip viz-chip-state" data-chip-frame>frame 0</span><span class="viz-chip" data-chip-dispatch>dispatched: 0 texels</span><span class="viz-chip" data-chip-saved style="color:var(--accent3)">saved: 0%</span></div>
+  <div class="viz-body">
+    <canvas class="viz-canvas" data-canvas></canvas>
+    <div class="viz-caption">Scrub the timeline. The CPU tracks a bounding rect of everything written since the field was last empty and dilates it one texel per frame — the speed the relaxation front travels. When the field has decayed the rect expires and the entire dispatch is skipped, which is what makes a persistent sim cost nothing while nothing is happening.
+</div>
+  </div>
+  <div class="viz-controls">
+    <div class="viz-slider-row" style="flex:1;min-width:220px;">
+      <span class="viz-slider-label">FRAME</span>
+      <input type="range" min="0" max="48" value="0" data-frame aria-label="frame">
+      <span class="viz-slider-val" data-frame-val>0</span>
+    </div>
+    <div class="viz-toggles">
+      <button class="viz-toggle" data-play type="button">▶ PLAY</button>
+    </div>
+  </div>
+</div>
+</div>
+<div class="card green">
+<div class="card-title"><span class="dot"></span> Dispatch Less, Then Dispatch Nothing</div>
+<div class="checklist"><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-cheap" title="Cheap — negligible cost" aria-label="Cheap — negligible cost">C</span><span class="setup-chip setup-advanced" title="Advanced setup — engine plumbing, per-platform, multi-system" aria-label="Advanced setup — engine plumbing, per-platform, multi-system"><span class="dot fill"></span><span class="dot fill"></span><span class="dot fill"></span></span><strong>Track an activity rect on the CPU.</strong> Union of every source's bounds since the field was last empty; dilate it per frame by however far information travels in one step; clamp to the grid.</span></div><div class="check-item"><span class="check-icon ok">✓</span><span class="check-body"><span class="cost-chip cost-free" title="Free — effectively zero cost" aria-label="Free — effectively zero cost">F</span><span class="setup-chip setup-intermediate" title="Intermediate setup — multi-step, requires system understanding" aria-label="Intermediate setup — multi-step, requires system understanding"><span class="dot fill"></span><span class="dot fill"></span><span class="dot"></span></span><strong>Skip the whole frame when idle.</strong> No pending sources, no registered writers, no debug consumer, and the field has had time to decay — then issue nothing at all. This is the single largest win available and it is pure bookkeeping.</span></div><div class="check-item"><span class="check-icon warn">!</span><span class="check-body"><strong>Fall back to full-grid on the cases that break the invariant</strong> — first frame after init, resize, a parameter change that alters propagation speed, or any external writer you do not track. A wrong rect is a corrupt field, not a slow one.</span></div><div class="check-item"><span class="check-icon arrow">→</span><span class="check-body">The rect only pays off when sources are <em>local</em>. A sim driven by a full-screen source is always full-grid; do not add the bookkeeping.</span></div></div></div>
+<div class="card red grid-full">
+<div class="card-title"><span class="dot"></span> Two Failures That Do Not Report Themselves</div>
+<div class="gotcha-block"><div class="gotcha-row problem"><span class="gotcha-label">Problem</span><span class="gotcha-text">A compute pass that samples the Global Distance Field returns zero everywhere, but only outside the renderer's own passes.</span></div><div class="gotcha-row why"><span class="gotcha-label">Why</span><span class="gotcha-text">The GDF is bound as part of the <em>view</em> uniform buffer. Materials and Niagara can read it because they execute inside the renderer with a view bound; a standalone sim dispatch has no view and silently samples nothing. <code class="gotcha-ref">GetDistanceToNearestSurfaceGlobal</code></span></div><div class="gotcha-row fix"><span class="gotcha-label">Fix</span><span class="gotcha-text">Bake it. Add an <code>FSceneViewExtension</code>, dispatch at <code>PostRenderBasePassDeferred</code> where the view <em>is</em> bound, sample the GDF into your own texture, and have the sim read that texture next frame.</span></div><div class="gotcha-row detect"><span class="gotcha-label">Detect</span><span class="gotcha-text">Values are exactly <m>0</m> — not noisy, not partially correct. If a debug blit of the same sample inside a material shows real distances, the difference is the view binding, not the sampling code.</span></div></div><div class="gotcha-block"><div class="gotcha-row problem"><span class="gotcha-label">Problem</span><span class="gotcha-text">GPU crash or device-removed at high element counts, in a pass that works fine at low counts.</span></div><div class="gotcha-row why"><span class="gotcha-label">Why</span><span class="gotcha-text">An indirect-args buffer was never initialised. The draw or dispatch read whatever was in memory as its count, and a garbage vertex count is an out-of-bounds read — which is a page fault, not a validation error.</span></div><div class="gotcha-row fix"><span class="gotcha-label">Fix</span><span class="gotcha-text">Clear the args buffer to <code>{0, 0, 0, 0}</code> on allocation and leave it in the indirect-args state; let the producing pass overwrite it each frame. Separately, clamp any GPU-derived group count to <m>65535</m> before it reaches a dispatch.</span></div><div class="gotcha-row detect"><span class="gotcha-label">Detect</span><span class="gotcha-text">Failure scales with element count and disappears on a fresh allocation. <code>r.RDG.Debug 1</code> will not flag it — RDG tracks transitions, not buffer <em>contents</em>.</span></div></div></div>
 </div>
 
 <div id="platform-perf" class="section-label">Platform-Specific Performance Notes</div>
@@ -1063,6 +1275,26 @@ GraphBuilder.<span class="fn">AddPass</span>(
 // Used by all canvas-based fundamentals visualizers below. Reads
 // canvas.offsetWidth/Height (set by CSS aspect-ratio) and syncs the
 // backing pixel buffer to device pixel ratio. Returns dpr.
+window._vizRedrawOnShow = window._vizRedrawOnShow || function(canvas, draw) {
+  // Canvas vizes on the optim/engine subpages start hidden, so offsetWidth is
+  // 0 and their first draw is skipped. Redraw once the element actually has a
+  // box — on resize, and after any click that could have switched a subpage.
+  function sync() {
+    var w = canvas.offsetWidth;
+    if (!w) return;
+    var dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr)) draw();
+  }
+  window.addEventListener('resize', draw);
+  document.addEventListener('click', function() { setTimeout(sync, 0); }, true);
+  var tries = 0;
+  (function retry() {
+    sync();
+    // rAF is suspended while the tab is hidden, so poll on a timer instead.
+    if (!canvas.offsetWidth && ++tries < 40) setTimeout(retry, 50);
+  })();
+};
+
 window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
   var dpr = window.devicePixelRatio || 1;
   var w = canvas.offsetWidth;
@@ -3318,6 +3550,602 @@ window._vizFitCanvas = window._vizFitCanvas || function(canvas) {
   }
   roots.forEach(hydrate);
 })();
+
+// ── VIZ-ATOMIC-ORDER — float bit patterns as sortable uint keys ──
+// Two lanes: floats in numeric order (top) and the same values in uint-key
+// order (bottom). RAW asuint() inverts the negative half, so the connecting
+// lines cross — that crossing IS the bug InterlockedMin would hit. ENCODED
+// applies the flip rule and the lines run parallel.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-atomic-order]');
+  if (!roots.length) return;
+  var VALUES = [-64, -8, -0.5, 0, 0.5, 8, 64];
+  function rawKey(f) {
+    var buf = new ArrayBuffer(4), fv = new Float32Array(buf), uv = new Uint32Array(buf);
+    fv[0] = f; return uv[0] >>> 0;
+  }
+  function encKey(f) {
+    var u = rawKey(f);
+    return ((u & 0x80000000) !== 0 ? (~u >>> 0) : ((u | 0x80000000) >>> 0)) >>> 0;
+  }
+  function hex(u) { return '0x' + ('00000000' + u.toString(16).toUpperCase()).slice(-8); }
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var btn    = root.querySelector('[data-toggle-mode]');
+    var chipM  = root.querySelector('[data-chip-mode]');
+    var chipV  = root.querySelector('[data-chip-verdict]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var encoded = false;
+    if (btn) btn.addEventListener('click', function() {
+      encoded = !encoded;
+      btn.textContent = 'MODE: ' + (encoded ? 'ENCODED' : 'RAW asuint()');
+      if (chipM) chipM.textContent = encoded ? 'ENCODED' : 'RAW asuint()';
+      if (chipV) {
+        chipV.textContent = encoded ? 'total order preserved' : 'order BROKEN';
+        chipV.style.color = encoded ? 'var(--accent3)' : 'var(--bad)';
+      }
+      draw();
+    });
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var keyFn = encoded ? encKey : rawKey;
+      var n = VALUES.length;
+      var PAD = 54 * dpr, laneW = W - PAD * 2;
+      var topY = H * 0.30, botY = H * 0.70;
+      function slotX(i) { return PAD + (laneW * (i + 0.5)) / n; }
+      var order = VALUES.map(function(v, i) { return {i: i, k: keyFn(v)}; })
+                        .sort(function(a, b) { return a.k - b.k; });
+      var rankOf = [];
+      order.forEach(function(o, r) { rankOf[o.i] = r; });
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.strokeStyle = '#1e2530'; ctx.lineWidth = dpr;
+      [topY, botY].forEach(function(y) {
+        ctx.beginPath(); ctx.moveTo(PAD * 0.5, y); ctx.lineTo(W - PAD * 0.5, y); ctx.stroke();
+      });
+      ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+      ctx.fillText('float value order', PAD * 0.5, topY - 26 * dpr);
+      ctx.fillText('uint key order  — what InterlockedMin actually sorts by', PAD * 0.5, botY + 38 * dpr);
+      ctx.textAlign = 'center';
+      var broken = false;
+      for (var i = 0; i < n; i++) {
+        var x0 = slotX(i), x1 = slotX(rankOf[i]);
+        var crosses = (rankOf[i] !== i);
+        if (crosses) broken = true;
+        ctx.strokeStyle = crosses ? 'rgba(255,87,87,0.55)' : 'rgba(184,255,87,0.45)';
+        ctx.lineWidth = 1.5 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(x0, topY + 11 * dpr);
+        ctx.bezierCurveTo(x0, (topY + botY) / 2, x1, (topY + botY) / 2, x1, botY - 11 * dpr);
+        ctx.stroke();
+      }
+      for (var a = 0; a < n; a++) {
+        var xa = slotX(a), va = VALUES[a];
+        ctx.fillStyle = va < 0 ? '#ff6b35' : '#00e5ff';
+        ctx.beginPath(); ctx.arc(xa, topY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillText(String(va), xa, topY - 12 * dpr);
+      }
+      for (var r2 = 0; r2 < n; r2++) {
+        var src = order[r2].i, xb = slotX(r2), vb = VALUES[src];
+        ctx.fillStyle = vb < 0 ? '#ff6b35' : '#00e5ff';
+        ctx.beginPath(); ctx.arc(xb, botY, 5 * dpr, 0, Math.PI * 2); ctx.fill();
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillStyle = '#4a5568';
+        ctx.fillText(hex(order[r2].k), xb, botY + 26 * dpr);
+        ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillStyle = vb < 0 ? 'rgba(255,107,53,0.85)' : 'rgba(0,229,255,0.85)';
+        ctx.fillText(String(vb), xb, botY + 15 * dpr);
+      }
+      ctx.textAlign = 'left';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillStyle = encoded ? 'rgba(184,255,87,0.85)' : 'rgba(255,87,87,0.85)';
+      ctx.fillText(encoded
+        ? 'u = asuint(f);  return (u & 0x80000000) ? ~u : (u | 0x80000000);'
+        : 'u = asuint(f);  // negatives compare LARGER than every positive',
+        PAD * 0.5, H - 9 * dpr);
+      if (chipV && !encoded) chipV.textContent = broken ? 'order BROKEN' : 'order ok';
+    }
+    draw(); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-SCATTER-GATHER — dispatch shape for N stamps over a grid ──
+// GATHER: one thread per texel, each looping every stamp -> grid x N evals.
+// SCATTER: one thread per texel inside a stamp's bounding rect, one Z slice
+// per stamp -> sum of footprints. Chips carry the real eval counts.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-scatter-gather]');
+  if (!roots.length) return;
+  var COLS = 40, ROWS = 22;
+  var PALETTE = ['#00e5ff', '#ff6b35', '#b8ff57', '#ffb347', '#ff5757',
+                 '#8ab4ff', '#ff8ad4', '#7ef0c0'];
+  function stampsFor(n) {
+    var out = [], seed = 1337;
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    for (var i = 0; i < n; i++) {
+      var r = 1.6 + rnd() * 3.4;
+      out.push({ x: r + rnd() * (COLS - 2 * r), y: r + rnd() * (ROWS - 2 * r), r: r,
+                 c: PALETTE[i % PALETTE.length] });
+    }
+    return out;
+  }
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var btn    = root.querySelector('[data-toggle-mode]');
+    var slider = root.querySelector('[data-stamps]');
+    var sVal   = root.querySelector('[data-stamps-val]');
+    var chipM  = root.querySelector('[data-chip-mode]');
+    var chipT  = root.querySelector('[data-chip-threads]');
+    var chipE  = root.querySelector('[data-chip-tests]');
+    var chipR  = root.querySelector('[data-chip-ratio]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var scatter = false;
+    if (btn) btn.addEventListener('click', function() {
+      scatter = !scatter;
+      btn.textContent = 'MODE: ' + (scatter ? 'SCATTER' : 'GATHER');
+      if (chipM) chipM.textContent = scatter ? 'SCATTER' : 'GATHER';
+      draw();
+    });
+    if (slider) slider.addEventListener('input', function() {
+      if (sVal) sVal.textContent = slider.value; draw();
+    });
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var n = slider ? parseInt(slider.value, 10) : 3;
+      var stamps = stampsFor(n);
+      var TOP = 12 * dpr, BOT = 26 * dpr;
+      var cs = Math.min((W - 32 * dpr) / COLS, (H - TOP - BOT) / ROWS);
+      var ox = (W - cs * COLS) / 2, oy = TOP;
+      ctx.strokeStyle = '#141a22'; ctx.lineWidth = dpr;
+      for (var c = 0; c <= COLS; c++) {
+        ctx.beginPath(); ctx.moveTo(ox + c * cs, oy); ctx.lineTo(ox + c * cs, oy + ROWS * cs); ctx.stroke();
+      }
+      for (var r = 0; r <= ROWS; r++) {
+        ctx.beginPath(); ctx.moveTo(ox, oy + r * cs); ctx.lineTo(ox + COLS * cs, oy + r * cs); ctx.stroke();
+      }
+      var gridTexels = COLS * ROWS, threads, evals;
+      if (!scatter) {
+        ctx.fillStyle = 'rgba(0,229,255,0.13)';
+        ctx.fillRect(ox, oy, COLS * cs, ROWS * cs);
+        threads = gridTexels; evals = gridTexels * n;
+      } else {
+        threads = 0;
+        stamps.forEach(function(s) {
+          var x0 = Math.max(0, Math.floor(s.x - s.r)), x1 = Math.min(COLS, Math.ceil(s.x + s.r));
+          var y0 = Math.max(0, Math.floor(s.y - s.r)), y1 = Math.min(ROWS, Math.ceil(s.y + s.r));
+          threads += (x1 - x0) * (y1 - y0);
+          ctx.globalAlpha = 0.16; ctx.fillStyle = s.c;
+          ctx.fillRect(ox + x0 * cs, oy + y0 * cs, (x1 - x0) * cs, (y1 - y0) * cs);
+          ctx.globalAlpha = 0.55; ctx.strokeStyle = s.c; ctx.lineWidth = 1.5 * dpr;
+          ctx.strokeRect(ox + x0 * cs, oy + y0 * cs, (x1 - x0) * cs, (y1 - y0) * cs);
+          ctx.globalAlpha = 1;
+        });
+        evals = threads;
+      }
+      stamps.forEach(function(s) {
+        ctx.strokeStyle = s.c; ctx.lineWidth = 1.5 * dpr; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.arc(ox + s.x * cs, oy + s.y * cs, s.r * cs, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 0.18; ctx.fillStyle = s.c; ctx.fill(); ctx.globalAlpha = 1;
+      });
+      var gatherEvals = gridTexels * n;
+      if (chipT) chipT.textContent = 'threads: ' + threads.toLocaleString();
+      if (chipE) chipE.textContent = 'SDF evals: ' + evals.toLocaleString();
+      if (chipR) {
+        chipR.textContent = scatter
+          ? (gatherEvals / Math.max(1, evals)).toFixed(1) + '× fewer than gather'
+          : 'grid × N = ' + COLS + '×' + ROWS + '×' + n;
+        chipR.style.color = scatter ? 'var(--accent3)' : 'var(--bad)';
+      }
+      ctx.fillStyle = '#6b7a8d';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(scatter
+        ? 'Dispatch.xy = largest footprint     Dispatch.z = one slice per stamp'
+        : 'Dispatch.xy = whole grid     inner loop = for (i < StampCount)',
+        ox, H - 9 * dpr);
+    }
+    draw(); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-REDBLACK — parity-split Gauss-Seidel vs Jacobi ──
+// RED/BLACK: one UAV. A pass writes only its own parity, and the four
+// neighbours it reads are all the opposite parity, so nothing written in
+// this dispatch is read in this dispatch. JACOBI: two buffers, every cell
+// written, every read from the other one.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-redblack]');
+  if (!roots.length) return;
+  var COLS = 14, ROWS = 9;
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var steps  = root.querySelectorAll('[data-step]');
+    var play   = root.querySelector('[data-play]');
+    var scheme = root.querySelector('[data-toggle-scheme]');
+    var chipP  = root.querySelector('[data-chip-pass]');
+    var chipB  = root.querySelector('[data-chip-buffers]');
+    var chipH  = root.querySelector('[data-chip-hazard]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var pass = 0, jacobi = false, playing = false, raf = null, last = 0, dprC = 1;
+    function setPass(p) {
+      pass = p & 1;
+      steps.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.dataset.step, 10) === pass);
+      });
+      if (chipP) chipP.textContent = jacobi ? 'JACOBI sweep' : (pass ? 'BLACK pass' : 'RED pass');
+      draw();
+    }
+    steps.forEach(function(b) {
+      b.addEventListener('click', function() { stop(); setPass(parseInt(b.dataset.step, 10)); });
+    });
+    function stop() {
+      playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+      if (play) play.textContent = '▶ PLAY';
+    }
+    if (play) play.addEventListener('click', function() {
+      playing = !playing;
+      play.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (playing) { last = 0; raf = requestAnimationFrame(tick); } else stop();
+    });
+    function tick(t) {
+      if (!playing) return;
+      if (!last) last = t;
+      if (t - last > 900) { last = t; setPass(pass + 1); }
+      raf = requestAnimationFrame(tick);
+    }
+    if (scheme) scheme.addEventListener('click', function() {
+      jacobi = !jacobi;
+      scheme.textContent = 'SCHEME: ' + (jacobi ? 'JACOBI' : 'RED/BLACK');
+      if (chipB) chipB.textContent = 'buffers: ' + (jacobi ? 2 : 1);
+      if (chipH) {
+        chipH.textContent = jacobi ? '2× VRAM · ρ = 0.99976' : '0 read/write hazards · ρ = 0.99952';
+        chipH.style.color = jacobi ? 'var(--warn)' : 'var(--accent3)';
+      }
+      setPass(pass);
+    });
+    function drawGrid(ox, oy, cs, mode, label) {
+      for (var y = 0; y < ROWS; y++) {
+        for (var x = 0; x < COLS; x++) {
+          var parity = (x + y) & 1;
+          var px = ox + x * cs, py = oy + y * cs;
+          var fill = 'rgba(255,255,255,0.03)';
+          if (mode === 'rb') {
+            fill = parity === pass
+              ? (pass ? 'rgba(255,107,53,0.55)' : 'rgba(0,229,255,0.55)')
+              : 'rgba(255,255,255,0.035)';
+          } else if (mode === 'write') { fill = 'rgba(184,255,87,0.45)'; }
+          else if (mode === 'read')    { fill = 'rgba(0,229,255,0.28)'; }
+          ctx.fillStyle = fill;
+          ctx.fillRect(px + dprC, py + dprC, cs - 2 * dprC, cs - 2 * dprC);
+          ctx.strokeStyle = '#141a22'; ctx.lineWidth = dprC;
+          ctx.strokeRect(px, py, cs, cs);
+        }
+      }
+      ctx.fillStyle = '#6b7a8d';
+      ctx.font = Math.round(9 * dprC) + 'px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, ox + (COLS * cs) / 2, oy + ROWS * cs + 15 * dprC);
+      ctx.textAlign = 'left';
+    }
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas); dprC = dpr;
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var TOP = 12 * dpr, BOT = 42 * dpr;
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      if (jacobi) {
+        var cs = Math.min((W - 70 * dpr) / (COLS * 2), (H - TOP - BOT) / ROWS);
+        var totalW = COLS * cs * 2 + 40 * dpr;
+        var ox = (W - totalW) / 2, oy = TOP;
+        drawGrid(ox, oy, cs, 'read', 'PressureA — SRV, read');
+        drawGrid(ox + COLS * cs + 40 * dpr, oy, cs, 'write', 'PressureB — UAV, written');
+        ctx.strokeStyle = 'rgba(184,255,87,0.5)'; ctx.lineWidth = 2 * dpr;
+        var ay = oy + (ROWS * cs) / 2, ax0 = ox + COLS * cs + 10 * dpr, ax1 = ax0 + 22 * dpr;
+        ctx.beginPath(); ctx.moveTo(ax0, ay); ctx.lineTo(ax1, ay); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ax1 + 5 * dpr, ay); ctx.lineTo(ax1 - 2 * dpr, ay - 4 * dpr);
+        ctx.lineTo(ax1 - 2 * dpr, ay + 4 * dpr); ctx.closePath();
+        ctx.fillStyle = 'rgba(184,255,87,0.6)'; ctx.fill();
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+        ctx.fillText('every cell written each sweep — the swap costs a second full-res buffer',
+                     ox, H - 9 * dpr);
+      } else {
+        var cs2 = Math.min((W - 60 * dpr) / COLS, (H - TOP - BOT) / ROWS);
+        var ox2 = (W - COLS * cs2) / 2, oy2 = TOP;
+        drawGrid(ox2, oy2, cs2, 'rb', 'PressureGrid — ONE UAV, read AND written');
+        var hx = 6, hy = 4;
+        if (((hx + hy) & 1) !== pass) hx = 7;
+        [[hx - 1, hy], [hx + 1, hy], [hx, hy - 1], [hx, hy + 1]].forEach(function(p) {
+          if (p[0] < 0 || p[1] < 0 || p[0] >= COLS || p[1] >= ROWS) return;
+          ctx.strokeStyle = 'rgba(184,255,87,0.9)'; ctx.lineWidth = 2 * dpr;
+          ctx.strokeRect(ox2 + p[0] * cs2 + dpr, oy2 + p[1] * cs2 + dpr,
+                         cs2 - 2 * dpr, cs2 - 2 * dpr);
+        });
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5 * dpr;
+        ctx.strokeRect(ox2 + hx * cs2 + dpr, oy2 + hy * cs2 + dpr, cs2 - 2 * dpr, cs2 - 2 * dpr);
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+        ctx.fillText('white = the cell this thread writes    green = the 4 it reads, all opposite parity',
+                     ox2, H - 9 * dpr);
+      }
+    }
+    setPass(0); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-ACTIVITY-RECT — dirty-rect dispatch on a persistent field ──
+// Stamps land for the first ~11 frames. The CPU keeps a bounding rect of
+// everything written since the field was last empty and dilates it one texel
+// per frame — that is how fast the relaxation front travels. Once the field
+// has decayed the rect expires and the whole dispatch is skipped.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-activity-rect]');
+  if (!roots.length) return;
+  var COLS = 48, ROWS = 26, MAXF = 48, STAMP_END = 11, DECAY_START = 30, EXPIRE = 41;
+  function stampAt(f) {
+    var t = f / STAMP_END;
+    return { x: 10 + t * 16, y: 9 + Math.sin(t * 3.1) * 5, r: 2.2 };
+  }
+  function rectAt(f) {
+    if (f >= EXPIRE) return null;
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    var upto = Math.min(f, STAMP_END);
+    for (var i = 0; i <= upto; i++) {
+      var s = stampAt(i);
+      x0 = Math.min(x0, s.x - s.r); x1 = Math.max(x1, s.x + s.r);
+      y0 = Math.min(y0, s.y - s.r); y1 = Math.max(y1, s.y + s.r);
+    }
+    var dil = Math.min(f, DECAY_START);
+    if (f > DECAY_START) dil -= (f - DECAY_START) * 2.6;
+    dil = Math.max(0, dil);
+    x0 = Math.max(0, Math.floor(x0 - dil)); y0 = Math.max(0, Math.floor(y0 - dil));
+    x1 = Math.min(COLS, Math.ceil(x1 + dil)); y1 = Math.min(ROWS, Math.ceil(y1 + dil));
+    if (x1 <= x0 || y1 <= y0) return null;
+    return {x0: x0, y0: y0, x1: x1, y1: y1};
+  }
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var slider = root.querySelector('[data-frame]');
+    var fVal   = root.querySelector('[data-frame-val]');
+    var play   = root.querySelector('[data-play]');
+    var chipF  = root.querySelector('[data-chip-frame]');
+    var chipD  = root.querySelector('[data-chip-dispatch]');
+    var chipS  = root.querySelector('[data-chip-saved]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var playing = false, raf = null, last = 0;
+    function stop() {
+      playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+      if (play) play.textContent = '▶ PLAY';
+    }
+    if (slider) slider.addEventListener('input', function() { stop(); draw(); });
+    if (play) play.addEventListener('click', function() {
+      playing = !playing;
+      play.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (playing) { last = 0; raf = requestAnimationFrame(tick); } else stop();
+    });
+    function tick(t) {
+      if (!playing) return;
+      if (!last) last = t;
+      if (t - last > 110) {
+        last = t;
+        slider.value = (parseInt(slider.value, 10) + 1) % (MAXF + 1);
+        draw();
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var f = slider ? parseInt(slider.value, 10) : 0;
+      if (fVal) fVal.textContent = String(f);
+      var TOP = 12 * dpr, BOT = 26 * dpr;
+      var cs = Math.min((W - 32 * dpr) / COLS, (H - TOP - BOT) / ROWS);
+      var ox = (W - COLS * cs) / 2, oy = TOP;
+      ctx.fillStyle = 'rgba(255,255,255,0.015)';
+      ctx.fillRect(ox, oy, COLS * cs, ROWS * cs);
+      ctx.strokeStyle = '#1e2530'; ctx.lineWidth = dpr;
+      ctx.strokeRect(ox, oy, COLS * cs, ROWS * cs);
+      var rect = rectAt(f);
+      var total = COLS * ROWS, dispatched = 0;
+      if (rect) {
+        dispatched = (rect.x1 - rect.x0) * (rect.y1 - rect.y0);
+        ctx.fillStyle = 'rgba(0,229,255,0.15)';
+        ctx.fillRect(ox + rect.x0 * cs, oy + rect.y0 * cs,
+                     (rect.x1 - rect.x0) * cs, (rect.y1 - rect.y0) * cs);
+        ctx.strokeStyle = 'rgba(0,229,255,0.75)'; ctx.lineWidth = 1.5 * dpr;
+        ctx.setLineDash([4 * dpr, 3 * dpr]);
+        ctx.strokeRect(ox + rect.x0 * cs, oy + rect.y0 * cs,
+                       (rect.x1 - rect.x0) * cs, (rect.y1 - rect.y0) * cs);
+        ctx.setLineDash([]);
+      }
+      var upto = Math.min(f, STAMP_END);
+      for (var i = 0; i <= upto; i++) {
+        var s = stampAt(i);
+        var fade = f <= STAMP_END ? 1 : Math.max(0.10, 1 - (f - STAMP_END) / (EXPIRE - STAMP_END));
+        ctx.globalAlpha = 0.7 * fade;
+        ctx.fillStyle = (i === upto && f <= STAMP_END) ? '#ff6b35' : 'rgba(255,107,53,0.5)';
+        ctx.beginPath(); ctx.arc(ox + s.x * cs, oy + s.y * cs, s.r * cs, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      var phase = f <= STAMP_END ? 'STAMPS ACTIVE · rect grows to cover them'
+                : f <= DECAY_START ? 'PROPAGATING · rect dilates 1 texel/frame'
+                : rect ? 'DECAYING · rect shrinks back'
+                : 'FIELD EMPTY · WHOLE DISPATCH SKIPPED';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = rect ? '#6b7a8d' : '#b8ff57';
+      ctx.fillText(phase, ox, H - 9 * dpr);
+      if (chipF) chipF.textContent = 'frame ' + f;
+      if (chipD) chipD.textContent = rect
+        ? 'dispatched: ' + dispatched.toLocaleString() + ' / ' + total.toLocaleString()
+        : 'dispatched: 0 — skipped';
+      if (chipS) {
+        var saved = Math.round((1 - dispatched / total) * 100);
+        chipS.textContent = 'saved: ' + saved + '%';
+        chipS.style.color = saved > 50 ? 'var(--accent3)' : 'var(--warn)';
+      }
+    }
+    draw(); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
+// ── VIZ-GPU-DRIVEN — particles to one indirect draw, no readback ──
+// Four stages across one frame. The point is the chip that does not move:
+// the draw-call count is 1 regardless of N, and nothing round-trips to CPU.
+(function() {
+  var roots = document.querySelectorAll('[data-viz-gpu-driven]');
+  if (!roots.length) return;
+  var STAGES = [
+    {t: '1 · SIMULATE',       d: 'Niagara GPU emitter ticks N particles — normal sim, no renderer yet'},
+    {t: '2 · CONTROL POINTS', d: 'one module call writes a fixed-size point per particle into a ByteAddressBuffer'},
+    {t: '3 · GEOMETRY CS',    d: 'a global compute shader reads the whole buffer — including neighbours — and builds quads'},
+    {t: '4 · INDIRECT DRAW',  d: 'streamless VF: NumPrimitives = 0, vertex count comes from a GPU-written args buffer'}
+  ];
+  function hydrate(root) {
+    var canvas = root.querySelector('[data-canvas]');
+    var steps  = root.querySelectorAll('[data-step]');
+    var play   = root.querySelector('[data-play]');
+    var chipS  = root.querySelector('[data-chip-stage]');
+    var chipD  = root.querySelector('[data-chip-draws]');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var stage = 0, playing = false, raf = null, last = 0;
+    function stop() {
+      playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+      if (play) play.textContent = '▶ PLAY';
+    }
+    function setStage(s) {
+      stage = ((s % STAGES.length) + STAGES.length) % STAGES.length;
+      steps.forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.dataset.step, 10) === stage);
+      });
+      if (chipS) chipS.textContent = STAGES[stage].t;
+      if (chipD) chipD.textContent = stage === 3 ? 'draw calls: 1 — for any N' : 'draw calls: —';
+      draw();
+    }
+    steps.forEach(function(b) {
+      b.addEventListener('click', function() { stop(); setStage(parseInt(b.dataset.step, 10)); });
+    });
+    if (play) play.addEventListener('click', function() {
+      playing = !playing;
+      play.textContent = playing ? '❚❚ PAUSE' : '▶ PLAY';
+      if (playing) { last = 0; raf = requestAnimationFrame(tick); } else stop();
+    });
+    function tick(t) {
+      if (!playing) return;
+      if (!last) last = t;
+      if (t - last > 1300) { last = t; setStage(stage + 1); }
+      raf = requestAnimationFrame(tick);
+    }
+    function drawStageArt(i, x, y, w, h, on, done, dpr) {
+      ctx.save();
+      ctx.globalAlpha = on ? 1 : done ? 0.45 : 0.22;
+      var cx = x + w / 2, cy = y + h / 2;
+      if (i === 0) {
+        for (var p = 0; p < 14; p++) {
+          var a = (p / 14) * Math.PI * 2, rr = Math.min(w, h) * 0.32;
+          ctx.fillStyle = '#ff6b35';
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(a * 1.6) * rr, cy + Math.sin(a) * rr * 0.85, 2.6 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (i === 1) {
+        var slots = 8, sw = (w * 0.78) / slots, sx = cx - (sw * slots) / 2;
+        for (var s = 0; s < slots; s++) {
+          ctx.fillStyle = 'rgba(0,229,255,0.28)';
+          ctx.fillRect(sx + s * sw + dpr, cy - 9 * dpr, sw - 2 * dpr, 18 * dpr);
+          ctx.strokeStyle = 'rgba(0,229,255,0.55)'; ctx.lineWidth = dpr;
+          ctx.strokeRect(sx + s * sw + dpr, cy - 9 * dpr, sw - 2 * dpr, 18 * dpr);
+        }
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'center';
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('fixed stride', cx, cy + 26 * dpr);
+      } else if (i === 2) {
+        var n = 6, qw = (w * 0.72) / n, qx = cx - (qw * n) / 2;
+        for (var q = 0; q < n; q++) {
+          ctx.beginPath();
+          ctx.moveTo(qx + q * qw, cy + 10 * dpr);
+          ctx.lineTo(qx + q * qw + qw * 0.85, cy - 10 * dpr);
+          ctx.lineTo(qx + q * qw + qw * 0.85, cy + 10 * dpr);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(184,255,87,0.14)'; ctx.fill();
+          ctx.strokeStyle = 'rgba(184,255,87,0.65)'; ctx.lineWidth = dpr; ctx.stroke();
+        }
+        ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'center';
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('1 thread / quad', cx, cy + 26 * dpr);
+      } else {
+        ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1.3 * dpr;
+        for (var seg = 0; seg < 9; seg++) {
+          var t0 = seg / 9, t1 = (seg + 1) / 9;
+          var x0 = x + w * 0.10 + t0 * w * 0.80, x1 = x + w * 0.10 + t1 * w * 0.80;
+          var y0 = cy + Math.sin(t0 * 6.2) * h * 0.18, y1 = cy + Math.sin(t1 * 6.2) * h * 0.18;
+          var rr2 = 9 * dpr;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0 - rr2); ctx.lineTo(x1, y1 - rr2);
+          ctx.lineTo(x1, y1 + rr2); ctx.lineTo(x0, y0 + rr2); ctx.closePath();
+          ctx.fillStyle = 'rgba(0,229,255,0.10)'; ctx.fill(); ctx.stroke();
+        }
+        ctx.fillStyle = '#b8ff57'; ctx.textAlign = 'center';
+        ctx.font = Math.round(8 * dpr) + 'px JetBrains Mono, monospace';
+        ctx.fillText('DrawIndexedIndirect × 1', cx, y + h - 1 * dpr);
+      }
+      ctx.restore(); ctx.textAlign = 'left';
+    }
+    function draw() {
+      if (!canvas.offsetWidth) return;
+      var dpr = _vizFitCanvas(canvas);
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#080b0f'; ctx.fillRect(0, 0, W, H);
+      var PAD = 14 * dpr, GAP = 14 * dpr;
+      var bw = (W - PAD * 2 - GAP * 3) / 4, bh = H - 52 * dpr, by = 12 * dpr;
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      for (var i = 0; i < 4; i++) {
+        var bx = PAD + i * (bw + GAP);
+        var on = i === stage, done = i < stage;
+        ctx.fillStyle = on ? 'rgba(0,229,255,0.07)' : 'rgba(255,255,255,0.015)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = on ? 'rgba(0,229,255,0.7)' : done ? 'rgba(184,255,87,0.35)' : '#1e2530';
+        ctx.lineWidth = (on ? 1.8 : 1) * dpr;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = on ? '#00e5ff' : done ? 'rgba(184,255,87,0.7)' : '#4a5568';
+        ctx.textAlign = 'center';
+        ctx.fillText(STAGES[i].t, bx + bw / 2, by + 15 * dpr);
+        drawStageArt(i, bx, by + 22 * dpr, bw, bh - 30 * dpr, on, done, dpr);
+        if (i < 3) {
+          var axm = bx + bw + GAP / 2, aym = by + bh / 2;
+          var col = i < stage ? 'rgba(184,255,87,0.6)' : '#26303c';
+          ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr;
+          ctx.beginPath(); ctx.moveTo(axm - 5 * dpr, aym); ctx.lineTo(axm + 2 * dpr, aym); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(axm + 6 * dpr, aym);
+          ctx.lineTo(axm, aym - 3.5 * dpr); ctx.lineTo(axm, aym + 3.5 * dpr);
+          ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+        }
+      }
+      ctx.fillStyle = '#6b7a8d'; ctx.textAlign = 'left';
+      ctx.font = Math.round(9 * dpr) + 'px JetBrains Mono, monospace';
+      ctx.fillText(STAGES[stage].d, PAD, H - 12 * dpr);
+    }
+    setStage(0); _vizRedrawOnShow(canvas, draw);
+  }
+  roots.forEach(hydrate);
+})();
+
 </script>
 </body>
 </html>

@@ -13,13 +13,16 @@ meta:
     - {id: usf-rules,     label: USF / USH}
     - {id: compute,       label: Compute}
     - {id: tgsm,          label: TGSM}
+    - {id: atomics,       label: Atomics}
     - {id: reference,     label: Reference}
     - {id: sampling,      label: Sampling}
     - {id: orbital-rings, label: Orbital Rings}
     - {divider: "OPTIMIZATION", area: optim}
     - {id: compute-perf,  label: Perf Rules}
+    - {id: scatter-gather, label: Scatter/Gather}
     - {divider: "ENGINE INTERNALS", area: engine}
     - {id: dispatch-rules,label: Dispatch}
+    - {id: persistent-sim, label: Persistent Sim}
     - {id: platform-perf, label: Platform}
 
 section_groups:
@@ -248,6 +251,91 @@ section_groups:
                   // Usage in compute shader
                   DECLARE_TILE_CACHE_FLOAT(SDFCache);
                   LOAD_TILE_SCROLLED(SDFCache, SDFTex, ...);
+
+
+      # ── SECTION: GPU ATOMICS ───────────────────────────────────────────────
+      - id: atomics
+        label: "GPU Atomics &amp; Lock-Free Composition"
+        cards:
+
+          - color: blue
+            title: "HLSL Has No Float Atomics"
+            content:
+              - type: prose
+                text: "<code>InterlockedMin</code>, <code>InterlockedMax</code> and <code>InterlockedAdd</code> are defined on <code>int</code> and <code>uint</code> only. Any pass where many threads composite into the same texel — stamping, splatting, rasterising into a grid — hits this immediately."
+              - type: checklist
+                items:
+                  - {icon: "no",  html: "<strong>A float UAV has no atomic min.</strong> Two threads writing the same texel race, and the winner is whichever finished last — not the smallest value."}
+                  - {icon: warn, cost: expensive, difficulty: advanced, html: "<strong>The CAS loop works but scales badly.</strong> <code>InterlockedCompareExchange</code> in a spin loop is correct, but every contending thread retries — cost climbs with overlap, which is exactly when you need it."}
+                  - {icon: ok,   cost: free, difficulty: intermediate, html: "<strong>The bit trick is one instruction.</strong> IEEE-754 floats already compare correctly as integers <em>within</em> a sign — flip the negative half and the whole range becomes a monotonic <code>uint</code> key."}
+                  - {icon: arrow, html: "SM6 adds <code>NvInterlockedAddFp32</code> and vendor equivalents, but they are extensions — not portable across the platforms UE ships to."}
+
+          - color: orange
+            title: "Order-Preserving float → uint"
+            content:
+              - type: prose
+                text: "Non-negative floats: set the sign bit so they sort above every negative. Negative floats: flip <em>all</em> bits, which both moves them below zero and reverses their (otherwise backwards) magnitude ordering."
+              - type: code
+                src: |
+                  uint FloatToOrderedUint(float Dist)
+                  {
+                      uint u = asuint(Dist);
+                      // Negative: flip all bits. Non-negative: set the sign bit.
+                      return (u & 0x80000000u) ? ~u : (u | 0x80000000u);
+                  }
+
+                  float OrderedUintToFloat(uint Encoded)
+                  {
+                      // High bit set -> was non-negative -> clear it. Else undo the full flip.
+                      return asfloat((Encoded & 0x80000000u) ? (Encoded & 0x7FFFFFFFu) : ~Encoded);
+                  }
+
+                  // Compositing many overlapping stamps into one grid, lock-free:
+                  RWTexture2D<uint> InputGrid;
+
+                  void StampTexel(uint2 Pixel, float SignedDistance)
+                  {
+                      uint Encoded = FloatToOrderedUint(SignedDistance);
+                      uint Prev;
+                      InterlockedMin(InputGrid[Pixel], Encoded, Prev);
+                  }
+              - type: checklist
+                items:
+                  - {icon: ok, html: "The mapping is a <strong>bijection</strong> — every float round-trips exactly, including negative interiors and both zeros."}
+                  - {icon: warn, html: "<strong>The clear value must be encoded too.</strong> Clearing the grid to <code>0</code> means \"the most negative float representable\", so every later <code>InterlockedMin</code> is a no-op and the field stays empty."}
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — watch the ordering break, then hold"
+            content:
+              - type: viz-atomic-order
+                title: "Float → Orderable uint"
+                number: "C1"
+                caption: >
+                  The same seven floats in value order (top) and in uint-key
+                  order (bottom). Under raw asuint() the negatives jump to the
+                  top of the uint range and invert — every crossed line is a
+                  comparison InterlockedMin would get wrong. Toggle to ENCODED
+                  and the lines run parallel.
+
+          - color: green
+            title: "When to Reach For This"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, cost: cheap, difficulty: intermediate, html: "<strong>Scatter rasterisation</strong> — N sources writing into one grid where the result is a min, max, or sum. Removes the read-modify-write race without a second pass."}
+                  - {icon: ok, cost: cheap, difficulty: beginner, html: "<strong>GPU-side reductions</strong> — bounding boxes, depth extents, histogram peaks. Encode once, reduce with integer atomics, decode at the consumer."}
+                  - {icon: ok, cost: free, difficulty: intermediate, html: "<strong>Order-independent compositing</strong> — the result no longer depends on dispatch order, so the pass is deterministic frame to frame."}
+                  - {icon: arrow, html: "For <code>InterlockedAdd</code> on floats there is no equivalent trick — the encoding preserves <em>order</em>, not arithmetic. Use fixed-point (<code>int</code> scaled by <m>1000</m>) or a separate reduction pass."}
+
+          - color: red
+            title: "What This Costs You"
+            content:
+              - type: checklist
+                items:
+                  - {icon: "no", html: "<strong>Atomic min is a hard min.</strong> Smooth blending between overlapping sources is impossible in the atomic pass — <code>smin()</code> is not associative under an atomic. Blend in a later gather pass if you need it."}
+                  - {icon: "no", html: "<strong>The grid is now <code>R32_UINT</code>.</strong> Every consumer must decode, and you lose filtered sampling — a <code>uint</code> texture cannot be bilinearly sampled."}
+                  - {icon: warn, html: "<strong>Debug views show garbage</strong> until decoded. Budget a debug-blit pass, or you will be reading raw bit patterns in RenderDoc."}
 
       # ── SECTION 4: REFERENCE ───────────────────────────────────────────────
       - id: reference
@@ -625,6 +713,95 @@ section_groups:
                   - ["`64×1×1`",  "64",  "—",             "1D passes: histograms, prefix sums, buffer ops"]
                   - ["`32×1×1`",  "32",  "—",             "Mobile-safe 1D — matches warp/wavefront size"]
 
+
+      # ── SECTION: SCATTER VS GATHER DISPATCH ───────────────────────────────
+      - id: scatter-gather
+        label: "Scatter vs Gather Dispatch"
+        cards:
+
+          - color: blue
+            title: "The Two Dispatch Shapes"
+            content:
+              - type: prose
+                text: "Any \"N sources affect a grid\" pass can be written from either end. The choice is not stylistic — it changes the asymptotic cost, and the crossover comes earlier than most people expect."
+              - type: table
+                style: default
+                cols: ["Shape", "One thread is", "Cost", "Good when"]
+                rows:
+                  - ["<strong>Gather</strong>", "one <em>texel</em>, looping every source", "<code>grid × N</code>", "N is tiny and fixed, or every source covers the whole grid"]
+                  - ["<strong>Scatter</strong>", "one <em>texel inside one source's bounding rect</em>", "<code>Σ footprints</code>", "sources are local — the normal case for stamps, decals, splats, impacts"]
+              - type: checklist
+                items:
+                  - {icon: warn, html: "Gather cost is <strong>independent of where the sources are</strong>. Ten stamps in one corner still cost ten full-grid loops."}
+                  - {icon: ok,   html: "Scatter cost tracks <strong>coverage</strong>. Sources that touch nothing cost nothing."}
+
+          - color: orange
+            title: "The 3D Dispatch Trick"
+            content:
+              - type: prose
+                text: "Scatter needs each thread to know <em>which source</em> it belongs to. Rather than an indirection buffer, put the source index on the dispatch's Z axis: X/Y cover the bounding rect, Z runs one slice per source."
+              - type: code
+                src: |
+                  // Dispatch(ceil(MaxFootprint / 8), ceil(MaxFootprint / 8), StampCount)
+                  [numthreads(8, 8, 1)]
+                  void MainCS(uint3 DispatchThreadID : SV_DispatchThreadID)
+                  {
+                      uint StampIndex = DispatchThreadID.z + StampIndexOffset;
+                      if (StampIndex >= StampCount)
+                          return;
+
+                      FPointStamp S = PointStamps[StampIndex];
+
+                      // Thread's texel = this stamp's bounding-rect origin + local offset.
+                      int2 Origin = int2(floor((S.Position - S.Radius - GridOrigin) / GridScale));
+                      int2 Pixel  = Origin + int2(DispatchThreadID.xy);
+                      if (any(Pixel < 0) || any(Pixel >= int2(Resolution, Resolution)))
+                          return;
+
+                      float Dist = EvaluateStamp(S, Pixel);
+                      uint  Prev;
+                      InterlockedMin(InputGrid[Pixel], FloatToOrderedUint(Dist), Prev);
+                  }
+              - type: checklist
+                items:
+                  - {icon: warn, cost: moderate, difficulty: intermediate, html: "<strong>X/Y must cover the <em>largest</em> footprint</strong>, so one huge source drags every slice up with it. That is the whole reason for the next card."}
+                  - {icon: ok, html: "<code>StampIndexOffset</code> rebases Z, which lets you issue several dispatches over disjoint index ranges without touching the shader."}
+
+          - color: green
+            title: "Bucket by Footprint"
+            content:
+              - type: prose
+                text: "Sort sources into two or three size buckets and issue one dispatch per bucket. Each dispatch sizes X/Y to <em>its own</em> largest member, so small stamps stop paying for the big one."
+              - type: checklist
+                items:
+                  - {icon: ok, cost: cheap, difficulty: intermediate, html: "<strong>Two or three buckets is enough.</strong> The win is removing the worst outlier, not perfectly packing every size class — more buckets just adds dispatch overhead."}
+                  - {icon: ok, cost: free, difficulty: beginner, html: "<strong>Sort on the CPU</strong> while you are already walking the source list to upload it. The sort is over tens of entries, not thousands."}
+                  - {icon: arrow, html: "Cost goes from <code>N × largest footprint</code> to roughly <code>Σ footprints</code> — the number the scatter shape promised in the first place."}
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — drag the stamp count and watch the ratio"
+            content:
+              - type: viz-scatter-gather
+                title: "Scatter vs Gather Dispatch"
+                number: "C2"
+                caption: >
+                  Highlighted cells are texels that actually run a thread.
+                  Gather lights the whole grid and multiplies by the stamp
+                  count; scatter lights only the bounding rects. The ratio chip
+                  is the real eval-count quotient — add stamps and it grows,
+                  because gather scales with N and scatter scales with coverage.
+
+          - color: yellow
+            title: "What Scatter Costs You"
+            content:
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>Overlapping sources now collide.</strong> Two threads can target one texel, so the composite must be an <a href=\"#atomics\">atomic</a> — which means a hard min/max, not a smooth blend."}
+                  - {icon: warn, html: "<strong>Occupancy drops at the rect edges.</strong> A circular source in a square rect wastes the corners; that waste is bounded at <m>21%</m> and still far cheaper than gather."}
+                  - {icon: "no",  html: "<strong>Do not scatter global sources.</strong> Anything whose footprint is the whole grid — ambient wind, a full-screen decay — belongs in the gather pass that follows."}
+                  - {icon: ok,   html: "<strong>Keep both.</strong> Scatter the local sources, then run one cheap full-grid pass for the global terms. That is the standard split."}
+
   # ════════════════════════════════════════════════════════════════════════════
   #  AREA 3 — ENGINE INTERNALS (Dispatch / Resource / Platform Reference)
   # ════════════════════════════════════════════════════════════════════════════
@@ -695,6 +872,161 @@ section_groups:
                   - {label: "GPU Insights (5.4+)", text: "Built-in Unreal Insights GPU view — shows compute pass durations on a timeline"}
                   - {label: "r.RDG.Debug 1", text: "Enables RDG validation — catches missing barriers, resource aliasing, and UAV hazards"}
                   - {label: "profilegpu", text: "Console command — dumps per-pass GPU timings to the output log"}
+
+
+      # ── SECTION: PERSISTENT GPU SIMULATION ────────────────────────────────
+      - id: persistent-sim
+        label: "Persistent GPU Simulation"
+        cards:
+
+          - color: blue
+            span: grid-full
+            title: "The Shape of a Persistent Sim Frame"
+            content:
+              - type: prose
+                text: "A simulation that carries state between frames — a distance field, a fluid grid, a heightmap of deformation — is not a single dispatch. It is a fixed chain, and the chain is the same whatever the sim is actually solving."
+              - type: rowlist
+                rows:
+                  - {label: "0 · Clear", text: "Reset the per-frame accumulator to its <em>neutral</em> value — which is rarely zero. Skippable when nothing wrote last frame."}
+                  - {label: "1 · Inject", text: "Scatter this frame's external influences into the accumulator. See <a href=\"#scatter-gather\">Scatter vs Gather</a>."}
+                  - {label: "2 · Integrate", text: "Merge the accumulator into the persistent state, then advance it — advection, relaxation, decay. Reads state A, writes state B."}
+                  - {label: "3 · Solve", text: "Any iterative step: pressure projection, Eikonal sweeps, diffusion. This is where the frame budget actually goes."}
+                  - {label: "4 · Blit", text: "Derive the consumer-facing surface — gradients, normals, packed channels — into a texture materials and Niagara can sample."}
+              - type: checklist
+                items:
+                  - {icon: warn, html: "<strong>Steps 2 and 3 must never read and write one resource</strong> unless the access pattern is provably disjoint. That constraint drives every decision below."}
+                  - {icon: ok,   html: "<strong>Keep the consumer surface stable across modes.</strong> If a cheap mode and an expensive mode both publish the same texture with the same channel meaning, materials never learn which one is running."}
+
+          - color: orange
+            title: "Ping-Pong Is the Default, Not the Only Option"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok,   cost: moderate, difficulty: beginner, html: "<strong>Ping-pong</strong> — allocate A and B, read A write B, swap. Correct for any stencil, and the only option when a thread reads neighbours it does not own."}
+                  - {icon: warn, cost: moderate, html: "<strong>It costs a full second copy of the state.</strong> At <m>1024²</m> RGBA16F that is <m>8 MB</m> per grid — and iterative solvers want several."}
+                  - {icon: ok,   cost: cheap, difficulty: advanced, html: "<strong>Parity splitting removes the second buffer</strong> when the stencil only touches immediate neighbours — see the red/black card."}
+                  - {icon: "no", html: "<strong>Never alias a ping-pong pair to save memory.</strong> RDG will not catch it, and the corruption is frame-rate dependent."}
+
+          - color: orange
+            span: grid-full
+            title: "Red/Black — Gauss-Seidel Without a Second Buffer"
+            content:
+              - type: prose
+                text: "Split the grid by <code>(x + y) &amp; 1</code>. A pass writes only its own parity, and the four neighbours it reads are all the other parity — so within one dispatch nothing that is written is read. One UAV, no hazard, and each pass sees the previous pass's fresh values, which is what makes it Gauss-Seidel rather than Jacobi."
+              - type: code
+                src: |
+                  uint                Resolution;
+                  float               Alpha;      // -(dx)^2
+                  float               InvBeta;    // 0.25
+                  float               SORWeight;  // omega in [1.0, 1.95]; 1.7 near-optimal
+                  uint                PassIndex;  // 0 = red (x+y even), 1 = black (odd)
+                  Texture2D<float2>   DivergenceGrid;
+                  RWTexture2D<float>  PressureGrid;   // read AND written in the same dispatch
+
+                  [numthreads(8, 8, 1)]
+                  void MainCS(uint3 DispatchThreadID : SV_DispatchThreadID)
+                  {
+                      if (any(DispatchThreadID.xy >= Resolution))
+                          return;
+
+                      int2 Pixel = int2(DispatchThreadID.xy);
+
+                      // Skip the cells that belong to the other pass.
+                      if ((((uint)Pixel.x + (uint)Pixel.y) & 1u) != PassIndex)
+                          return;
+
+                      int Res = int(Resolution);
+                      float pL = PressureGrid[int2(max(Pixel.x - 1, 0),       Pixel.y)];
+                      float pR = PressureGrid[int2(min(Pixel.x + 1, Res - 1), Pixel.y)];
+                      float pD = PressureGrid[int2(Pixel.x, max(Pixel.y - 1, 0))];
+                      float pU = PressureGrid[int2(Pixel.x, min(Pixel.y + 1, Res - 1))];
+
+                      float b       = DivergenceGrid.Load(int3(Pixel, 0)).r;
+                      float pJacobi = (pL + pR + pD + pU + Alpha * b) * InvBeta;
+
+                      // SOR: over-relax past the Jacobi estimate.
+                      float pOld = PressureGrid[Pixel];
+                      PressureGrid[Pixel] = pOld + SORWeight * (pJacobi - pOld);
+                  }
+              - type: table
+                style: default
+                cols: ["Scheme", "Buffers", "Spectral radius ρ (N=256)", "Relative"]
+                rows:
+                  - ["Jacobi", "2", "<code>cos(π/N)</code> ≈ <m>0.99976</m>", "baseline"]
+                  - ["Red/Black Gauss-Seidel", "1", "<code>ρ_J²</code> ≈ <m>0.99952</m>", "≈ <m>2×</m> faster per iteration"]
+                  - ["Red/Black SOR (ω = 1.7)", "1", "≈ <m>0.967</m>", "≈ <m>8–12×</m> faster"]
+              - type: checklist
+                items:
+                  - {icon: ok,   cost: free, difficulty: intermediate, html: "<strong>Two dispatches per outer iteration</strong> — red then black. RDG inserts the UAV barrier between them, which is exactly the ordering the scheme depends on."}
+                  - {icon: warn, html: "<strong>ω is not free to pick.</strong> Above <m>2.0</m> the iteration diverges; near-optimal is problem-dependent but <m>1.7</m> is a sane default for a 2D Poisson solve."}
+                  - {icon: "no",  html: "<strong>Do not use this for a wide stencil.</strong> The moment a thread reads a cell of its own parity — a 3×3 blur, a two-ring gather — the disjointness argument collapses and you need ping-pong back."}
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — parity split vs the two-buffer sweep"
+            content:
+              - type: viz-redblack
+                title: "Red/Black In-Place Relaxation"
+                number: "C3"
+                caption: >
+                  Step between the red and black passes. White is the cell the
+                  highlighted thread writes; green rings are the four it reads —
+                  all of them the opposite parity, so none was touched this
+                  dispatch. Toggle to JACOBI to see the same solve pay for a
+                  second full-resolution buffer.
+
+          - color: green
+            title: "Three Cheap Wins on Any Iterative Solve"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, cost: free, difficulty: beginner, html: "<strong>Warm-start.</strong> Do not clear the solution between frames — last frame's answer is a far better initial guess than zero. Clear only on init and on resize."}
+                  - {icon: ok, cost: cheap, difficulty: intermediate, html: "<strong>Solve at half resolution.</strong> Downsample the right-hand side, solve, sample the result back up bilinearly. A pressure field is smooth; the error this introduces is well below what the advection step contributes."}
+                  - {icon: ok, cost: free, difficulty: intermediate, html: "<strong>Scale iteration count by dt.</strong> A fixed iteration count means the far field propagates at a frame-rate-dependent speed. Author against <m>60</m> fps and scale, clamped to a sane range."}
+                  - {icon: warn, cost: situational, difficulty: advanced, html: "<strong>Async compute</strong> overlaps the solve with unrelated graphics work — shadow depth, base pass. RDG demotes it to the graphics queue where the platform cannot honour it, so the fallback is automatic but the win is not guaranteed."}
+
+          - color: blue
+            span: grid-full
+            title: "Interactive — the dirty rect that makes an idle sim free"
+            content:
+              - type: viz-activity-rect
+                title: "Activity Rect · Dilate, Decay, Skip"
+                number: "C4"
+                caption: >
+                  Scrub the timeline. The CPU tracks a bounding rect of
+                  everything written since the field was last empty and dilates
+                  it one texel per frame — the speed the relaxation front
+                  travels. When the field has decayed the rect expires and the
+                  entire dispatch is skipped, which is what makes a persistent
+                  sim cost nothing while nothing is happening.
+
+          - color: green
+            title: "Dispatch Less, Then Dispatch Nothing"
+            content:
+              - type: checklist
+                items:
+                  - {icon: ok, cost: cheap, difficulty: advanced, html: "<strong>Track an activity rect on the CPU.</strong> Union of every source's bounds since the field was last empty; dilate it per frame by however far information travels in one step; clamp to the grid."}
+                  - {icon: ok, cost: free, difficulty: intermediate, html: "<strong>Skip the whole frame when idle.</strong> No pending sources, no registered writers, no debug consumer, and the field has had time to decay — then issue nothing at all. This is the single largest win available and it is pure bookkeeping."}
+                  - {icon: warn, html: "<strong>Fall back to full-grid on the cases that break the invariant</strong> — first frame after init, resize, a parameter change that alters propagation speed, or any external writer you do not track. A wrong rect is a corrupt field, not a slow one."}
+                  - {icon: arrow, html: "The rect only pays off when sources are <em>local</em>. A sim driven by a full-screen source is always full-grid; do not add the bookkeeping."}
+
+          - color: red
+            span: grid-full
+            title: "Two Failures That Do Not Report Themselves"
+            content:
+              - type: gotcha
+                variant: full
+                problem: "A compute pass that samples the Global Distance Field returns zero everywhere, but only outside the renderer's own passes."
+                why: "The GDF is bound as part of the <em>view</em> uniform buffer. Materials and Niagara can read it because they execute inside the renderer with a view bound; a standalone sim dispatch has no view and silently samples nothing."
+                why_ref: "GetDistanceToNearestSurfaceGlobal"
+                fix: "Bake it. Add an <code>FSceneViewExtension</code>, dispatch at <code>PostRenderBasePassDeferred</code> where the view <em>is</em> bound, sample the GDF into your own texture, and have the sim read that texture next frame."
+                detect: "Values are exactly <m>0</m> — not noisy, not partially correct. If a debug blit of the same sample inside a material shows real distances, the difference is the view binding, not the sampling code."
+              - type: gotcha
+                variant: full
+                problem: "GPU crash or device-removed at high element counts, in a pass that works fine at low counts."
+                why: "An indirect-args buffer was never initialised. The draw or dispatch read whatever was in memory as its count, and a garbage vertex count is an out-of-bounds read — which is a page fault, not a validation error."
+                fix: "Clear the args buffer to <code>{0, 0, 0, 0}</code> on allocation and leave it in the indirect-args state; let the producing pass overwrite it each frame. Separately, clamp any GPU-derived group count to <m>65535</m> before it reaches a dispatch."
+                detect: "Failure scales with element count and disappears on a fresh allocation. <code>r.RDG.Debug 1</code> will not flag it — RDG tracks transitions, not buffer <em>contents</em>."
 
       # ── SECTION 8: PLATFORM PERFORMANCE ───────────────────────────────────
       - id: platform-perf

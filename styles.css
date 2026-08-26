@@ -1493,15 +1493,18 @@ details.check-detail > .check-detail-body {
   color: var(--accent);
   border-color: rgba(0,229,255,0.2);
 }
-.viz-dot {
+/* Legend swatch. MUST stay scoped to span: the dot-product visualiser's
+   container renders as <div class="viz viz-dot">, and an unscoped rule
+   collapses that whole visualiser to an 8px inline-block. */
+span.viz-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   display: inline-block;
 }
-.viz-dot.t { background: var(--accent2); }
-.viz-dot.b { background: var(--accent3); }
-.viz-dot.n { background: var(--accent); }
+span.viz-dot.t { background: var(--accent2); }
+span.viz-dot.b { background: var(--accent3); }
+span.viz-dot.n { background: var(--accent); }
 .viz-body {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);

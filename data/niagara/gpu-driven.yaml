@@ -1,0 +1,120 @@
+# ── SECTION: GPU-DRIVEN MESH RENDERING ─────────────────────────────────
+- id: ni-gpu-driven
+  label: "GPU-Driven Mesh Rendering"
+  cards:
+
+    - color: blue
+      span: grid-full
+      title: "Particles That Draw Geometry, Not Sprites"
+      content:
+        - type: prose
+          text: "The built-in renderers hand you sprites, ribbons and meshes. When the thing you want is <em>geometry derived from the particle set</em> — tubes through a chain, webs between neighbours, a surface stitched across a swarm — you write a renderer. The shape of that renderer has been settled for a while: particles publish data, a compute pass builds the mesh, and <strong>one</strong> indirect draw renders it. No CPU readback, no per-particle draw cost."
+        - type: rowlist
+          rows:
+            - {label: "Simulate", text: "The GPU emitter ticks normally. No renderer involvement — particles are just data."}
+            - {label: "Publish", text: "One module call writes a fixed-stride control point per particle into a <code>ByteAddressBuffer</code>: position, tangent, radius, colour, up, one custom float."}
+            - {label: "Build", text: "A global compute shader reads the <em>whole</em> buffer — so it can see neighbours — and writes vertices plus the indirect draw args."}
+            - {label: "Draw", text: "A streamless vertex factory issues one <code>DrawIndexedIndirect</code>. Vertex count comes from the GPU-written args buffer, never from the CPU."}
+        - type: checklist
+          items:
+            - {icon: ok, cost: cheap, difficulty: advanced, html: "<strong>Draw-call count is <m>1</m> regardless of particle count.</strong> That is the entire point — scaling N changes GPU work, not CPU submission cost."}
+            - {icon: ok, html: "<strong>The compute pass can read neighbours.</strong> A per-particle inline path cannot; that is what makes continuous tangents, ribbons and edge meshes possible at all."}
+            - {icon: ok, html: "<strong>Geometry lives in plain global-shader HLSL</strong>, not in a Custom HLSL node — so none of the <a href=\"#restrictions\">Niagara VM restrictions</a> apply to it."}
+            - {icon: arrow, html: "Adding a new mesh type becomes a <code>.usf</code> plus a branch. Artists pick from an enum and never write geometry code."}
+
+    - color: blue
+      span: grid-full
+      title: "Interactive — one frame, four stages"
+      content:
+        - type: viz-gpu-driven
+          title: "GPU-Driven Mesh · Particles to One Draw"
+          number: "C5"
+          caption: >
+            Step through the pipeline. Nothing crosses back to the CPU at any
+            stage, and the draw-call chip stays at 1 whatever N is — which is
+            why this shape beats a per-particle emit path that has to grow its
+            submission cost with the particle count.
+
+    - color: orange
+      title: "The Streamless Vertex Factory"
+      content:
+        - type: prose
+          text: "The vertex factory binds no vertex streams at all. The mesh batch declares <code>NumPrimitives = 0</code> and points at an indirect-args buffer; every attribute is fetched manually from a buffer by <code>SV_VertexID</code>."
+        - type: checklist
+          items:
+            - {icon: ok,   html: "<code>FMeshBatchElement</code> carries <code>NumPrimitives = 0</code> plus <code>IndirectArgsBuffer</code> — that pair is what tells the RHI to take the count from the GPU."}
+            - {icon: ok,   html: "Vertices are read as a <strong>structure of arrays</strong>. Position, normal and UV each get their own buffer region, indexed by <code>SV_VertexID</code>; pack normals octahedrally and it is <m>8</m> bytes rather than <m>12</m>."}
+            - {icon: warn, html: "The vertex factory must be declared in a module loading at <strong><code>PostConfigInit</code></strong> with a virtual shader path mapped, or the shader is not found at compile time."}
+            - {icon: warn, html: "A <code>PostConfigInit</code> module must not touch another module's CDO. Keep the shader half dependency-free and put every gameplay type in the runtime half."}
+
+    - color: red
+      span: grid-full
+      title: "Four Silent Failures"
+      content:
+        - type: gotcha
+          problem: "Geometry renders in wireframe view but is invisible in solid shading."
+          fix: "Enable <strong>\"Used with Niagara Sprites\"</strong> on the material. The custom vertex-factory permutation is only compiled for materials carrying that usage flag — wireframe works because it uses an engine debug material that has it. Call <code>CheckMaterialUsage_Concurrent</code> from the renderer's material validation to auto-enable it in editor."
+          context: "The failure only surfaces where the editor's auto-enable cannot run — cooked builds, or a material assigned at runtime."
+        - type: gotcha
+          problem: "A buffer the Niagara sim writes reads back as zeros or garbage in the geometry compute pass — geometry collapses to a point or vanishes."
+          fix: "Add an explicit <strong>UAV → SRV transition</strong> in the data interface proxy's <code>PostSimulate</code>, before the geometry dispatch. Without it the compute pass reads before the sim's writes have landed."
+          context: "This never reports as an error. The symptom is collapsed geometry — every element reading zero resolves to the same origin point. Guard buffers that only exist for some configurations before transitioning them."
+          ref: "FNiagaraDataInterfaceProxyRW::PostSimulate"
+        - type: gotcha
+          problem: "An exploded mess of triangles, or a residual knot of geometry sitting at the world origin."
+          fix: "Unwritten vertices read as <code>(0,0,0)</code>. Make the draw's vertex count, the buffer's allocated vertex count, and the generator's guard ceiling <strong>all the same number</strong>. If the draw count exceeds what was written you get the explosion; if the ceiling exceeds the buffer you get the knot."
+          context: "Diagnose by offsetting the whole effect in Z. If the knot stays at the origin it is unwritten vertices, not a transform bug."
+        - type: gotcha
+          problem: "Every element collapses onto element zero — one long spike instead of a mesh, or nothing at all."
+          fix: "The per-particle write index is not unique. Assign it in <strong>Particle Spawn</strong> from <code>ExecIndex()</code> into a persistent int attribute, then read <em>that attribute</em> in Update — not <code>ExecIndex()</code> again, which is not stable across frames."
+          context: "Switch the generator to its simplest mesh type to diagnose: a spiky ball of struts means indices are good; a single spike means they are all zero."
+
+# ── SECTION: AUTHORING A CUSTOM DATA INTERFACE ─────────────────────────
+- id: ni-custom-di
+  label: "Authoring a Custom Data Interface · C++"
+  cards:
+
+    - color: blue
+      title: "What a DI Actually Is"
+      content:
+        - type: prose
+          text: "A Data Interface is three objects that must agree: a <code>UNiagaraDataInterface</code> the graph sees, a render-thread proxy that owns GPU resources, and a block of HLSL the translator pastes into the generated shader."
+        - type: rowlist
+          rows:
+            - {label: "UObject half", text: "Declares the functions, per-instance data size, and equality/copy semantics. Editor-facing."}
+            - {label: "Proxy half", text: "<code>FNiagaraDataInterfaceProxy</code> subclass. Owns buffers, runs <code>PreStage</code>/<code>PostStage</code>/<code>PostSimulate</code>, performs transitions."}
+            - {label: "HLSL half", text: "<code>GetParameterDefinitionHLSL</code> emits the declarations; <code>GetFunctionHLSL</code> emits each function body. Both are string generation, not a file."}
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong>Every emitted symbol must be suffixed with the parameter name.</strong> The translator inlines all DIs into one shader; two instances of your DI in one emitter collide unless every function and variable is uniquified."}
+            - {icon: ok,   html: "Prefer generating the HLSL from C++ over shipping a <code>.ush</code> — the suffixing is mechanical and a static file cannot do it."}
+            - {icon: arrow, html: "Keep a hand-written <code>.ush</code> beside the generator as <em>documentation</em> of the emitted surface. It is not included by the compiler, but it is the only readable form of the contract."}
+
+    - color: orange
+      title: "UE 5.5+ API Surface"
+      content:
+        - type: prose
+          text: "The DI API moved in recent versions. These are the signatures that changed, not the whole surface — if a tutorial predates 5.4 expect all four to be wrong."
+        - type: table
+          style: default
+          cols: ["Older", "Current"]
+          rows:
+            - ["`GetFunctions(...)`", "`GetFunctionsInternal(...) const`, under `WITH_EDITORONLY_DATA`"]
+            - ["`GetElementCount()` on the proxy", "`GetDispatchArgs(const FNDIGpuComputeDispatchArgsGenContext&amp;)` + `Context.SetDirect(n)`"]
+            - ["`GetCustomUniformBuffer(bHasVelocity)`", "`GetCustomUniformBuffer(RHICmdList, bHasVelocity)` — command list first"]
+            - ["`FRDGBuilder::RHICmdList`", "no public member — take the command list from the collector or the pass"]
+        - type: checklist
+          items:
+            - {icon: warn, html: "<strong><code>GEmptyVertexBufferWithUAV</code> has a null UAV.</strong> Binding it as a dummy crashes with \"buffer was not set\". Keep a <code>TGlobalResource</code> dummy <code>FRWBuffer</code> of your own and bind that instead — which is what the engine's own DIs do."}
+            - {icon: warn, html: "<strong>RDG requires every declared UAV to be non-null</strong>, even on the branches where the feature is off. Bind a placeholder and mask the work on the CPU side rather than leaving the slot empty."}
+
+    - color: green
+      title: "Rules That Save a Day Each"
+      content:
+        - type: checklist
+          items:
+            - {icon: ok, cost: free, difficulty: intermediate, html: "<strong>Transition every buffer you hand between stages.</strong> Sim writes it as a UAV, your compute reads it as an SRV — that is an explicit transition in <code>PostSimulate</code>, and its absence is silent."}
+            - {icon: ok, cost: free, difficulty: beginner, html: "<strong>Initialise indirect-args buffers to zero</strong> at allocation. Uninitialised args are a page fault at scale, not a validation warning."}
+            - {icon: ok, cost: free, difficulty: intermediate, html: "<strong>Clamp GPU-derived dispatch group counts to <m>65535</m></strong> before they reach a dispatch. An extreme particle count otherwise issues an invalid dispatch."}
+            - {icon: warn, cost: situational, difficulty: intermediate, html: "<strong>New global statics, render resources and DI changes do not hot-reload reliably.</strong> Live Coding will accept the build and then behave as though nothing changed — full rebuild with the editor closed."}
+            - {icon: ok, html: "<strong>Keep the C++ struct and its <code>.ush</code> mirror byte-for-byte identical</strong>, and pad to a <m>16</m>-byte multiple. A mismatch reads as plausible-looking garbage, not as a compile error."}

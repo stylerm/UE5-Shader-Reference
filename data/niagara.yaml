@@ -25,6 +25,8 @@ meta:
     - {id: scalability,   label: Scalability}
     - {divider: "ENGINE INTERNALS", area: engine}
     - {id: ni-data-interfaces, label: Data Interfaces}
+    - {id: ni-gpu-driven, label: GPU-Driven Mesh}
+    - {id: ni-custom-di,  label: Custom DI}
     - {id: ni-gotchas,    label: Engine Gotchas}
 
 section_groups:
@@ -61,4 +63,5 @@ section_groups:
     theme: engine
     include:
       - engine-internals.yaml
+      - gpu-driven.yaml
       - gotchas.yaml

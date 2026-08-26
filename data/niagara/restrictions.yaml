@@ -28,6 +28,23 @@
             - {icon: ok,   html: "<strong>Branching</strong> is allowed — use <code>BRANCH</code> hint for dynamic branching, <code>FLATTEN</code> to evaluate both"}
             - {icon: ok,   html: "<strong>Switch statements</strong> work in Niagara HLSL — useful for loop mode selection"}
 
+
+    - color: red
+      span: grid-full
+      title: "Custom HLSL Node · What the Translator Rejects"
+      content:
+        - type: prose
+          text: "The node body <em>is</em> a generated function, and the editor CPU-compiles it even for a GPU emitter. Everything below is a compile error, not a runtime surprise — but the message rarely names the real cause."
+        - type: checklist
+          items:
+            - {icon: "no", html: "<strong>No <code>#include</code> in the body.</strong> It expands inside the generated function. Put the path in the node's <strong>Virtual Include File Paths</strong> property instead — Niagara hoists those to file scope."}
+            - {icon: "no", html: "<strong>No function or struct definitions.</strong> The body is already a function, so nested definitions are illegal, and the VM rejects struct member functions outright."}
+            - {icon: "no", html: "<strong>No integer modulo.</strong> <code>a % N</code> fails with <em>\"Integer modulo/remainder is not an allowed operation on ES 2\"</em>. Rewrite as <code>a - (a / N) * N</code>, or as a conditional wrap when you only need <code>+1</code>."}
+            - {icon: "no", html: "<strong>No <code>Particles.</code> access.</strong> The body sees only its own pins — referencing a particle attribute directly gives <em>\"use of undeclared identifier 'Particles'\"</em>. Wire it in through an input pin and out through an output pin."}
+            - {icon: warn, html: "<strong>Every output pin must be assigned on every code path</strong>, including the branches you think cannot run."}
+            - {icon: ok,  html: "<strong>Calling a Data Interface function</strong> is <code>InputName.FunctionName(...)</code>, with the leading <code>Execute</code> bool passed explicitly and out-params last."}
+            - {icon: arrow, html: "If a restriction here is blocking real work, the geometry probably belongs in a <a href=\"#ni-gpu-driven\">global compute shader</a> instead — none of these rules apply there."}
+
     - color: blue
       title: "What IS Available"
       content:
